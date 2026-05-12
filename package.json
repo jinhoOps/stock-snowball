@@ -1,0 +1,30 @@
+{
+  "name": "stock-snowball",
+  "version": "1.0.1",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinhoOps/stock-snowball.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jinhoOps/stock-snowball/issues"
+  },
+  "homepage": "https://github.com/jinhoOps/stock-snowball#readme",
+  "dependencies": {
+    "decimal.js": "^10.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  }
+}
