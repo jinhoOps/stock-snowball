@@ -2,14 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+@layer base {
+  :root {
+    font-family: "SF Pro Text", "Inter", system-ui, -apple-system, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-apple-canvas text-apple-body;
+  }
+
+  /* SF Pro / Inter Font Stack Tightening */
+  .font-display {
+    font-feature-settings: "ss03";
+  }
+
+  .font-text {
+    font-feature-settings: "ss03";
+  }
+
+  ::selection {
+    background-color: rgba(0, 102, 204, 0.2);
+    @apply text-apple-ink;
+  }
+
+  /* Custom Scrollbar (Apple-style) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #d2d2d7;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #7a7a7a;
+  }
 }
 
-body {
-  margin: 0;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer utilities {
+  .frosted-glass {
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .frosted-glass-dark {
+    background-color: rgba(39, 39, 41, 0.8);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
 }
 
 @font-face {
