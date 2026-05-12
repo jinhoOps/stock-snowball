@@ -1,30 +1,50 @@
 {
   "name": "stock-snowball",
-  "version": "1.0.1",
-  "description": "",
+  "version": "1.0.3",
+  "description": "Daily small investment growth calculator",
   "type": "module",
-  "main": "index.js",
   "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
     "test": "vitest run"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jinhoOps/stock-snowball.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/jinhoOps/stock-snowball/issues"
   },
   "homepage": "https://github.com/jinhoOps/stock-snowball#readme",
   "dependencies": {
-    "decimal.js": "^10.6.0"
+    "@visx/axis": "^3.12.0",
+    "@visx/curve": "^3.12.0",
+    "@visx/gradient": "^3.12.0",
+    "@visx/grid": "^3.12.0",
+    "@visx/group": "^3.12.0",
+    "@visx/responsive": "^3.12.0",
+    "@visx/scale": "^3.12.0",
+    "@visx/shape": "^3.12.0",
+    "@visx/tooltip": "^3.12.0",
+    "@visx/xychart": "^3.12.0",
+    "clsx": "^2.1.1",
+    "decimal.js": "^10.6.0",
+    "lucide-react": "^0.474.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.7.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
     "typescript": "^6.0.3",
+    "vite": "^6.0.11",
     "vitest": "^4.1.6"
   }
 }

@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "SF Pro Text", system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  src: local('SF Pro Display'), local('.SFNSDisplay-Regular');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  src: local('SF Pro Display Semibold'), local('.SFNSDisplay-Semibold');
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: 'SF Pro Text';
+  src: local('SF Pro Text'), local('.SFNSText-Regular');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'SF Pro Text';
+  src: local('SF Pro Text Semibold'), local('.SFNSText-Semibold');
+  font-weight: 600;
+}

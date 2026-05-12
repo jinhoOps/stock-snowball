@@ -63,4 +63,35 @@ export class SnowballEngine {
 
     return FV.dividedBy(divisor);
   }
+
+  /**
+   * 투자 기간 동안의 일별 성장을 시뮬레이션하여 시리즈 데이터를 생성합니다.
+   * @param principal 초기 원금
+   * @param annualRate 연이율
+   * @param years 투자 년수
+   * @param intervalDays 데이터 포인트 간격 (기본 30일)
+   */
+  static generateSeries(
+    principal: number,
+    annualRate: number,
+    years: number,
+    intervalDays: number = 30
+  ): { date: Date; value: number }[] {
+    const series = [];
+    const totalDays = years * 365;
+    const startDate = new Date();
+
+    for (let d = 0; d <= totalDays; d += intervalDays) {
+      const amount = this.calculateDailyCompound(principal, annualRate, d);
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + d);
+      
+      series.push({
+        date,
+        value: amount.toNumber(),
+      });
+    }
+
+    return series;
+  }
 }
