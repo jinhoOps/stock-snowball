@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import GlobalNav from './components/layout/GlobalNav';
 import ProductHero from './components/sections/ProductHero';
 import SnowballChart from './components/charts/SnowballChart';
@@ -46,92 +46,104 @@ function App() {
       <GlobalNav />
       
       <main>
-        <ProductHero 
-          title="당신의 자산이 눈덩이처럼 불어납니다."
-          subtitle="작은 습관이 만드는 거대한 변화를 시각화하세요."
-        >
-          <div className="w-full flex flex-col items-center">
-            {/* Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 w-full max-w-[1000px]">
-              <div className="flex flex-col items-start">
-                <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">초기 자산 (원)</label>
-                <input 
-                  type="number" 
-                  value={principal}
-                  onChange={(e) => setPrincipal(Number(e.target.value))}
-                  className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                />
-              </div>
-              <div className="flex flex-col items-start">
-                <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">매일 불입액 (원)</label>
-                <input 
-                  type="number" 
-                  value={dailyContribution}
-                  onChange={(e) => setDailyContribution(Number(e.target.value))}
-                  className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                />
-              </div>
-              <div className="flex flex-col items-start">
-                <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">연이율 (%)</label>
-                <input 
-                  type="number" 
-                  step="0.1"
-                  value={rate * 100}
-                  onChange={(e) => setRate(Number(e.target.value) / 100)}
-                  className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                />
-              </div>
-              <div className="flex flex-col items-start">
-                <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">기간 (년)</label>
-                <input 
-                  type="number" 
-                  value={years}
-                  onChange={(e) => setYears(Number(e.target.value))}
-                  className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                />
-              </div>
-            </div>
+        <LayoutGroup>
+          <ProductHero 
+            title="당신의 자산이 눈덩이처럼 불어납니다."
+            subtitle="작은 습관이 만드는 거대한 변화를 시각화하세요."
+          >
+            <div className="w-full flex flex-col items-center">
+              {/* Controls */}
+              <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 w-full max-w-[1000px]">
+                <div className="flex flex-col items-start">
+                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">초기 자산 (원)</label>
+                  <input 
+                    type="number" 
+                    value={principal}
+                    onChange={(e) => setPrincipal(Number(e.target.value))}
+                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
+                  />
+                </div>
+                <div className="flex flex-col items-start">
+                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">매일 불입액 (원)</label>
+                  <input 
+                    type="number" 
+                    value={dailyContribution}
+                    onChange={(e) => setDailyContribution(Number(e.target.value))}
+                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
+                  />
+                </div>
+                <div className="flex flex-col items-start">
+                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">연이율 (%)</label>
+                  <input 
+                    type="number" 
+                    step="0.1"
+                    value={rate * 100}
+                    onChange={(e) => setRate(Number(e.target.value) / 100)}
+                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
+                  />
+                </div>
+                <div className="flex flex-col items-start">
+                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">기간 (년)</label>
+                  <input 
+                    type="number" 
+                    value={years}
+                    onChange={(e) => setYears(Number(e.target.value))}
+                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
+                  />
+                </div>
+              </motion.div>
 
-            {/* Scenario Actions */}
-            <div className="flex gap-4 mb-8">
-              <input 
-                type="text" 
-                value={scenarioName}
-                onChange={(e) => setScenarioName(e.target.value)}
-                placeholder="시나리오 이름"
-                className="bg-apple-canvas border border-apple-hairline rounded-sm px-4 py-2 text-caption outline-none focus:border-apple-primary transition-all"
-              />
-              <motion.button 
-                onClick={handleSaveScenario}
-                whileTap={{ scale: 0.95 }}
-                className="bg-apple-primary text-apple-on-dark px-8 py-2 rounded-pill text-button-utility font-medium hover:bg-apple-primary-focus transition-colors shadow-sm"
+              {/* Scenario Actions */}
+              <motion.div layout className="flex gap-4 mb-8">
+                <input 
+                  type="text" 
+                  value={scenarioName}
+                  onChange={(e) => setScenarioName(e.target.value)}
+                  placeholder="시나리오 이름"
+                  className="bg-apple-canvas border border-apple-hairline rounded-sm px-4 py-2 text-caption outline-none focus:border-apple-primary transition-all"
+                />
+                <motion.button 
+                  onClick={handleSaveScenario}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-apple-primary text-apple-on-dark px-8 py-2 rounded-pill text-button-utility font-medium hover:bg-apple-primary-focus transition-colors shadow-sm"
+                >
+                  저장하기
+                </motion.button>
+              </motion.div>
+
+              {/* Final Result Display */}
+              <motion.div 
+                layout
+                key={finalAmount}
+                initial={{ opacity: 0.8 }}
+                animate={{ opacity: 1 }}
+                className="mb-8 text-center"
               >
-                저장하기
-              </motion.button>
+                <span className="text-caption text-apple-ink-muted-48 block mb-1 tracking-tight">{years}년 후 예상 자산</span>
+                <span className="text-display-md text-apple-primary font-display tracking-tight">
+                  {SnowballEngine.formatKoreanWon(finalAmount)}
+                </span>
+              </motion.div>
+
+              {/* Chart */}
+              <motion.div layout className="w-full max-w-[1000px] mb-8">
+                <SnowballChart data={chartData} />
+              </motion.div>
+
+              {/* KPI Grid */}
+              <motion.div layout className="w-full max-w-[1000px]">
+                <KPIGrid 
+                  totalAsset={finalAmount}
+                  totalContribution={totalContribution}
+                  totalReturn={totalReturn}
+                  returnPercentage={returnPercentage}
+                  cagr={cagr}
+                  currency="KRW"
+                />
+              </motion.div>
             </div>
-
-            {/* Final Result Display */}
-            <div className="mb-8 text-center">
-              <span className="text-caption text-apple-ink-muted-48 block mb-1 tracking-tight">{years}년 후 예상 자산</span>
-              <span className="text-display-md text-apple-primary font-display tracking-tight">
-                {SnowballEngine.formatKoreanWon(finalAmount)}
-              </span>
-            </div>
-
-            {/* Chart */}
-            <SnowballChart data={chartData} />
-
-            {/* KPI Grid */}
-            <KPIGrid 
-              totalAsset={finalAmount}
-              totalContribution={totalContribution}
-              totalReturn={totalReturn}
-              returnPercentage={returnPercentage}
-              cagr={cagr}
-              currency="KRW"
-            />
-          </div>
-        </ProductHero>
+          </ProductHero>
+        </LayoutGroup>
 
         {/* Saved Scenarios List */}
         <section className="bg-apple-canvas py-section px-4 flex flex-col items-center">

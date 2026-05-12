@@ -10,12 +10,17 @@ interface ProductHeroProps {
 
 const ProductHero: React.FC<ProductHeroProps> = ({ title, subtitle, ctaText, children }) => {
   return (
-    <section className="relative w-full min-h-screen pt-[44px] bg-apple-canvas flex flex-col items-center justify-start text-center overflow-hidden">
-      <div className="mt-[80px] px-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-        <h1 className="text-apple-ink text-hero mb-2">
+    <section className="relative w-full min-h-[90vh] pt-[44px] bg-apple-canvas flex flex-col items-center justify-start text-center overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+        className="mt-[80px] px-4"
+      >
+        <h1 className="text-apple-ink text-hero mb-2 tracking-tight">
           {title}
         </h1>
-        <p className="text-apple-ink text-lead mb-6">
+        <p className="text-apple-ink text-lead mb-6 tracking-tight">
           {subtitle}
         </p>
         {ctaText && (
@@ -28,12 +33,17 @@ const ProductHero: React.FC<ProductHeroProps> = ({ title, subtitle, ctaText, chi
             </motion.button>
           </div>
         )}
-      </div>
+      </motion.div>
       
       {/* Visualization Area */}
-      <div className="w-full px-4 pb-20 flex-grow flex items-center justify-center">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1, delay: 0.3 }}
+        className="w-full px-4 pb-20 flex-grow flex items-center justify-center"
+      >
         {children}
-      </div>
+      </motion.div>
     </section>
   );
 };
