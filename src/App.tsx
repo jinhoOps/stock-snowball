@@ -1,31 +1,97 @@
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
+import { motion, LayoutGroup } from 'framer-motion';
 import GlobalNav from './components/layout/GlobalNav';
 import ProductHero from './components/sections/ProductHero';
 import SnowballChart from './components/charts/SnowballChart';
 import KPIGrid from './components/sections/KPIGrid';
+import SimulationControls from './components/sections/SimulationControls';
+import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { useScenarios } from './hooks/useScenarios';
+import { AccountType, StrategyType, StrategyConfig, SimulationResult, AssetType } from './types/finance';
 
 function App() {
   const { scenarios, addScenario, loading } = useScenarios();
-  const [principal, setPrincipal] = useState(10000000); // 1,000만원
-  const [rate, setRate] = useState(0.05); // 5%
-  const [years, setYears] = useState(10); // 10년
-  const [dailyContribution, setDailyContribution] = useState(30000); // 일 3만원
+  
+  // Basic State
+  const [assetType, setAssetType] = useState<AssetType>('CUSTOM');
+  const [principal, setPrincipal] = useState(10000000); 
+  const [rate, setRate] = useState(0.08); 
+  const [years, setYears] = useState(10);
   const [scenarioName, setScenarioName] = useState('기본 시나리오');
 
-  const chartData = useMemo(() => {
-    return SnowballEngine.generateSeries(principal, rate, years, dailyContribution);
-  }, [principal, rate, years, dailyContribution]);
+  // Advanced State
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [strategyType, setStrategyType] = useState<StrategyType>('FIXED');
+  const [strategyBaseAmount, setStrategyBaseAmount] = useState(1000000); // 월 100만원
+  const [strategyIncreaseRate, setStrategyIncreaseRate] = useState(0.05);
+  const [accountType, setAccountType] = useState<AccountType>('GENERAL');
+  const [inflationRate, setInflationRate] = useState(0.02);
 
-  const finalAmount = chartData[chartData.length - 1]?.value || 0;
-  const totalContribution = principal + (dailyContribution * years * 365);
-  const totalReturn = finalAmount - totalContribution;
-  const returnPercentage = (totalReturn / totalContribution) * 100;
-  
-  // CAGR = (Final Value / Initial Value)^(1/years) - 1
-  const cagr = years > 0 ? (Math.pow(finalAmount / totalContribution, 1 / years) - 1) * 100 : 0;
+  // Comparison State
+  const [comparingScenarioIds, setComparingScenarioIds] = useState<string[]>([]);
+
+  const activeSimulation = useMemo(() => {
+    const strategy: StrategyConfig = {
+      type: strategyType,
+      baseAmount: strategyBaseAmount,
+      increaseRate: strategyIncreaseRate,
+    };
+
+    return SnowballEngine.simulate(
+      principal,
+      rate,
+      years,
+      strategy,
+      inflationRate,
+      accountType,
+      undefined,
+      undefined,
+      undefined,
+      30,
+      assetType
+    );
+  }, [principal, rate, years, strategyType, strategyBaseAmount, strategyIncreaseRate, inflationRate, accountType, assetType]);
+
+  const activeResult: SimulationResult = activeSimulation[activeSimulation.length - 1];
+  const totalReturn = activeResult.postTaxValue - activeResult.totalContribution;
+  const returnPercentage = (totalReturn / activeResult.totalContribution) * 100;
+  const cagr = years > 0 ? (Math.pow(activeResult.postTaxValue / activeResult.totalContribution, 1 / years) - 1) * 100 : 0;
+
+  const chartScenarios = useMemo(() => {
+    const main = {
+      id: 'active',
+      name: scenarioName || '현재 설정',
+      color: '#0066cc',
+      points: activeSimulation.map(r => ({ date: r.date, value: r.postTaxValue }))
+    };
+
+    const comparing = scenarios
+      .filter(s => comparingScenarioIds.includes(s.id))
+      .map(s => {
+        const sim = SnowballEngine.simulate(
+          s.principal,
+          s.annualRate,
+          s.years,
+          { type: s.strategyType, baseAmount: s.strategyBaseAmount, increaseRate: s.strategyIncreaseRate },
+          s.inflationRate,
+          s.accountType,
+          undefined,
+          undefined,
+          undefined,
+          30,
+          s.assetType || 'CUSTOM'
+        );
+        return {
+          id: s.id,
+          name: s.name,
+          color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'), // Random color for comparison
+          points: sim.map(r => ({ date: r.date, value: r.postTaxValue }))
+        };
+      });
+
+    return [main, ...comparing];
+  }, [activeSimulation, scenarioName, scenarios, comparingScenarioIds]);
 
   const handleSaveScenario = async () => {
     await addScenario({
@@ -33,12 +99,30 @@ function App() {
       principal,
       annualRate: rate,
       years,
-      dailyContribution,
-      inflationRate: 0.02, // 기본 2%
+      dailyContribution: strategyBaseAmount / 30.42, // legacy field
+      strategyType,
+      strategyBaseAmount,
+      strategyIncreaseRate,
+      assetType,
+      accountType,
+      inflationRate,
+      buyFeeRate: 0.00015,
+      sellFeeRate: 0.00015,
+      taxDividendRate: 0.154,
+      taxCapitalGainRate: 0.22,
+      taxIsaLimit: 2000000,
+      taxIsaReducedRate: 0.095,
       currency: 'KRW',
-      exchangeRate: 1350,
+      exchangeRate: 1,
+      exchangeAnnualChangeRate: 0,
     });
     alert('시나리오가 저장되었습니다.');
+  };
+
+  const toggleComparison = (id: string) => {
+    setComparingScenarioIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
   };
 
   return (
@@ -48,53 +132,29 @@ function App() {
       <main>
         <LayoutGroup>
           <ProductHero 
-            title="당신의 자산이 눈덩이처럼 불어납니다."
-            subtitle="작은 습관이 만드는 거대한 변화를 시각화하세요."
+            title="부의 눈덩이를 설계하세요."
+            subtitle="세금, 수수료, 과거 데이터까지 반영한 정교한 시뮬레이션"
           >
             <div className="w-full flex flex-col items-center">
-              {/* Controls */}
-              <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 w-full max-w-[1000px]">
-                <div className="flex flex-col items-start">
-                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">초기 자산 (원)</label>
-                  <input 
-                    type="number" 
-                    value={principal}
-                    onChange={(e) => setPrincipal(Number(e.target.value))}
-                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                  />
-                </div>
-                <div className="flex flex-col items-start">
-                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">매일 불입액 (원)</label>
-                  <input 
-                    type="number" 
-                    value={dailyContribution}
-                    onChange={(e) => setDailyContribution(Number(e.target.value))}
-                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                  />
-                </div>
-                <div className="flex flex-col items-start">
-                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">연이율 (%)</label>
-                  <input 
-                    type="number" 
-                    step="0.1"
-                    value={rate * 100}
-                    onChange={(e) => setRate(Number(e.target.value) / 100)}
-                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                  />
-                </div>
-                <div className="flex flex-col items-start">
-                  <label className="text-caption-strong text-apple-ink mb-2 tracking-tight">기간 (년)</label>
-                  <input 
-                    type="number" 
-                    value={years}
-                    onChange={(e) => setYears(Number(e.target.value))}
-                    className="w-full bg-apple-canvas border border-apple-hairline rounded-sm p-3 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all"
-                  />
-                </div>
-              </motion.div>
+              
+              <SimulationControls 
+                principal={principal} setPrincipal={setPrincipal}
+                years={years} setYears={setYears}
+                strategyBaseAmount={strategyBaseAmount} setStrategyBaseAmount={setStrategyBaseAmount}
+                onOpenAdvanced={() => setIsAdvancedOpen(true)}
+              />
 
-              {/* Scenario Actions */}
-              <motion.div layout className="flex gap-4 mb-8">
+              <AdvancedSettingsSheet 
+                isOpen={isAdvancedOpen}
+                onClose={() => setIsAdvancedOpen(false)}
+                assetType={assetType} setAssetType={setAssetType}
+                annualRate={rate} setAnnualRate={setRate}
+                strategyType={strategyType} setStrategyType={setStrategyType}
+                accountType={accountType} setAccountType={setAccountType}
+                inflationRate={inflationRate} setInflationRate={setInflationRate}
+              />
+
+              <motion.div layout className="flex gap-4 mb-12">
                 <input 
                   type="text" 
                   value={scenarioName}
@@ -111,30 +171,27 @@ function App() {
                 </motion.button>
               </motion.div>
 
-              {/* Final Result Display */}
               <motion.div 
                 layout
-                key={finalAmount}
+                key={activeResult.postTaxValue}
                 initial={{ opacity: 0.8 }}
                 animate={{ opacity: 1 }}
                 className="mb-8 text-center"
               >
-                <span className="text-caption text-apple-ink-muted-48 block mb-1 tracking-tight">{years}년 후 예상 자산</span>
+                <span className="text-caption text-apple-ink-muted-48 block mb-1 tracking-tight">{years}년 후 예상 자산 (세후 실질 가치)</span>
                 <span className="text-display-md text-apple-primary font-display tracking-tight">
-                  {SnowballEngine.formatKoreanWon(finalAmount)}
+                  {SnowballEngine.formatKoreanWon(activeResult.postTaxValue)}
                 </span>
               </motion.div>
 
-              {/* Chart */}
-              <motion.div layout className="w-full max-w-[1000px] mb-8">
-                <SnowballChart data={chartData} />
+              <motion.div layout className="w-full max-w-[1000px] mb-8 h-[450px]">
+                <SnowballChart scenarios={chartScenarios} />
               </motion.div>
 
-              {/* KPI Grid */}
               <motion.div layout className="w-full max-w-[1000px]">
                 <KPIGrid 
-                  totalAsset={finalAmount}
-                  totalContribution={totalContribution}
+                  totalAsset={activeResult.postTaxValue}
+                  totalContribution={activeResult.totalContribution}
                   totalReturn={totalReturn}
                   returnPercentage={returnPercentage}
                   cagr={cagr}
@@ -145,7 +202,6 @@ function App() {
           </ProductHero>
         </LayoutGroup>
 
-        {/* Saved Scenarios List */}
         <section className="bg-apple-canvas py-section px-4 flex flex-col items-center">
           <div className="w-full max-w-[1000px]">
             <h2 className="text-display-sm text-apple-ink mb-8 tracking-tight">저장된 시나리오</h2>
@@ -159,21 +215,37 @@ function App() {
                   <motion.div 
                     key={s.id} 
                     whileTap={{ scale: 0.98 }}
-                    className="bg-apple-canvas-parchment border border-apple-hairline rounded-lg p-6 hover:border-apple-primary/30 transition-colors cursor-pointer"
+                    className={`bg-apple-canvas-parchment border rounded-lg p-6 transition-all cursor-pointer ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-1 ring-apple-primary' : 'border-apple-hairline hover:border-apple-primary/30'}`}
                     onClick={() => {
+                      setAssetType(s.assetType || 'CUSTOM');
                       setPrincipal(s.principal);
                       setRate(s.annualRate);
                       setYears(s.years);
-                      setDailyContribution(s.dailyContribution);
+                      setStrategyType(s.strategyType);
+                      setStrategyBaseAmount(s.strategyBaseAmount);
+                      setStrategyIncreaseRate(s.strategyIncreaseRate || 0.05);
+                      setAccountType(s.accountType);
+                      setInflationRate(s.inflationRate);
                       setScenarioName(s.name);
                     }}
                   >
-                    <h3 className="text-body-strong text-apple-ink mb-2 tracking-tight">{s.name}</h3>
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="text-body-strong text-apple-ink tracking-tight">{s.name}</h3>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleComparison(s.id);
+                        }}
+                        className={`text-caption-strong px-2 py-1 rounded-sm border ${comparingScenarioIds.includes(s.id) ? 'bg-apple-primary text-white border-apple-primary' : 'bg-white text-apple-ink border-apple-hairline'}`}
+                      >
+                        비교 {comparingScenarioIds.includes(s.id) ? '취소' : ''}
+                      </button>
+                    </div>
                     <p className="text-caption text-apple-ink-muted-48">
-                      {SnowballEngine.formatKoreanWon(s.principal)} + 매일 {SnowballEngine.formatKoreanWon(s.dailyContribution)}
+                      {SnowballEngine.formatKoreanWon(s.principal)} + 월 {SnowballEngine.formatKoreanWon(s.strategyBaseAmount)}
                     </p>
                     <p className="text-caption text-apple-ink-muted-48">
-                      {s.years}년 | {(s.annualRate * 100).toFixed(1)}%
+                      {s.years}년 | {s.assetType === 'CUSTOM' ? `${(s.annualRate * 100).toFixed(1)}%` : s.assetType} | {s.accountType}
                     </p>
                   </motion.div>
                 ))}
@@ -181,27 +253,11 @@ function App() {
             )}
           </div>
         </section>
-
-        {/* Store Style Info Section */}
-        <section className="bg-apple-canvas-parchment py-section px-4 flex flex-col items-center justify-center text-center">
-          <div className="max-w-[600px]">
-            <h2 className="text-display-lg text-apple-ink mb-4 tracking-tight">복리의 마법</h2>
-            <p className="text-lead text-apple-ink-muted-80 mb-8 tracking-tight">
-              시간은 투자자의 가장 강력한 무기입니다. 알베르트 아인슈타인은 복리를 '세계 8대 불가사의'라고 불렀습니다.
-            </p>
-            <motion.button 
-              whileTap={{ scale: 0.95 }}
-              className="bg-apple-surface-black text-apple-on-dark px-[22px] py-[11px] rounded-sm text-button-utility hover:opacity-90 transition-opacity"
-            >
-              더 알아보기
-            </motion.button>
-          </div>
-        </section>
       </main>
 
       <footer className="bg-apple-canvas-parchment border-t border-apple-hairline py-12 px-4 text-center">
         <p className="text-fine-print text-apple-ink-muted-48 tracking-tight">
-          &copy; 2024 Stock Snowball. All rights reserved.
+          &copy; 2026 Stock Snowball. All rights reserved.
         </p>
       </footer>
     </div>
@@ -209,3 +265,5 @@ function App() {
 }
 
 export default App;
+
+
