@@ -1,5 +1,6 @@
 import { Decimal } from 'decimal.js';
-import { AccountType, FeeConfig, TaxConfig, SimulationResult, StrategyConfig } from '../types/finance';
+import { AccountType, FeeConfig, TaxConfig, SimulationResult, StrategyConfig, AssetType } from '../types/finance';
+import { getDailyReturn } from '../data/historicalAssets';
 
 // Decimal 설정: 금융 연산을 위해 정밀도를 높게 설정 (기본 20 -> 40)
 Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
@@ -172,7 +173,8 @@ export class SnowballEngine {
     taxConfig: TaxConfig = { dividendTaxRate: 0.154, capitalGainTaxRate: 0.22, isaTaxFreeLimit: 2000000, isaReducedTaxRate: 0.095 },
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
     exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
-    intervalDays: number = 30
+    intervalDays: number = 30,
+    assetType: AssetType = 'CUSTOM'
   ): SimulationResult[] {
     const results: SimulationResult[] = [];
     const totalDays = years * 365;
@@ -180,7 +182,6 @@ export class SnowballEngine {
 
     const buyFeeRate = new Decimal(feeConfig.buyFeeRate);
     const sellFeeRate = new Decimal(feeConfig.sellFeeRate);
-    const dailyRate = new Decimal(annualRate).dividedBy(365);
     const dailyInflation = new Decimal(inflationRate).dividedBy(365);
     const dailyExchangeChange = new Decimal(exchangeRateConfig.annualChangeRate).dividedBy(365);
 
@@ -218,7 +219,8 @@ export class SnowballEngine {
 
       if (d === totalDays) break;
 
-      // 일일 성장
+      // 일일 성장 (자산별 데이터 또는 고정 이율 사용)
+      const dailyRate = new Decimal(getDailyReturn(assetType, d, annualRate));
       currentNominal = currentNominal.times(dailyRate.plus(1));
       
       // 환율 변동

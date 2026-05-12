@@ -10,6 +10,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.svg', 'pwa-192x192.svg', 'pwa-512x512.svg'],
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5000000
+      },
       manifest: {
         name: 'Stock Snowball',
         short_name: 'Snowball',

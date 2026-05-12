@@ -2,6 +2,8 @@ export type AccountType = 'GENERAL' | 'ISA';
 
 export type StrategyType = 'FIXED' | 'VALUE_AVERAGING' | 'STEP_UP';
 
+export type AssetType = 'CUSTOM' | 'QQQM' | 'QLD' | 'TQQQ' | 'KOSPI' | 'KOSDAQ' | 'SPY' | 'SCHD' | 'GOLD';
+
 export interface StrategyConfig {
   type: StrategyType;
   baseAmount: number; // 기본 불입금

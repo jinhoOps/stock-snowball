@@ -32,6 +32,33 @@ const createDatabase = async (): Promise<MyDatabase> => {
   await db.addCollections({
     scenarios: {
       schema: scenarioSchema,
+      migrationStrategies: {
+        // Version 0 -> 1 migration
+        1: (oldDoc: any) => {
+          return {
+            ...oldDoc,
+            strategyType: 'FIXED',
+            strategyBaseAmount: oldDoc.dailyContribution * 30.42,
+            accountType: 'GENERAL',
+            buyFeeRate: 0.00015,
+            sellFeeRate: 0.00015,
+            taxDividendRate: 0.154,
+            taxCapitalGainRate: 0.22,
+            taxIsaLimit: 2000000,
+            taxIsaReducedRate: 0.095,
+            exchangeAnnualChangeRate: 0,
+            updatedAt: Date.now(),
+          };
+        },
+        // Version 1 -> 2 migration
+        2: (oldDoc: any) => {
+          return {
+            ...oldDoc,
+            assetType: 'CUSTOM',
+            updatedAt: Date.now(),
+          };
+        }
+      }
     },
   });
 

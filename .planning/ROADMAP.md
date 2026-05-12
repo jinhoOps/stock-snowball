@@ -4,7 +4,7 @@
 
 - [x] **Phase 1: Foundation & Precision Engine** - [Completed] Apple 디자인 시스템 적용 및 고정밀 엔진 시각화 고도화
 - [x] **Phase 2: Persistence & PWA** - RxDB를 활용한 로컬 데이터 영속성 및 PWA 모바일 경험 구현
-- [ ] **Phase 3: Real-world Simulation** - 환율, 세금, 수수료 및 다양한 투자 전략 반영 (진행 중: UI/UX Refinement)
+- [x] **Phase 3: Real-world Simulation** - 환율, 세금, 수수료 및 다양한 투자 전략 반영 (진행 중: UI/UX Refinement) (completed 2026-05-12)
 - [ ] **Phase 4: Apple Polish & Interactions** - Framer Motion 애니메이션 및 고도화된 스크러빙 UX 완성
 
 ## Phase Details
@@ -50,9 +50,9 @@
   5. 과거 자산 데이터(QQQM, QLD 등) 기반의 백테스팅 시뮬레이션을 지원함.
 **Plans**: 4 plans
 - [x] [phase3.md](./plans/phase3.md) — Taxes, Fees, and Investment Strategies
-- [ ] [03-01-PLAN.md](./phases/03-real-world/03-01-PLAN.md) — Minimalist Nav & Backtesting Engine
-- [ ] [03-02-PLAN.md](./phases/03-real-world/03-02-PLAN.md) — Slide-over Panel & Simplified Controls
-- [ ] [03-03-PLAN.md](./phases/03-real-world/03-03-PLAN.md) — App Integration & 3-Step Hierarchy
+- [x] [03-01-PLAN.md](./phases/03-real-world/03-01-PLAN.md) — Minimalist Nav & Backtesting Engine
+- [x] [03-02-PLAN.md](./phases/03-real-world/03-02-PLAN.md) — Slide-over Panel & Simplified Controls
+- [x] [03-03-PLAN.md](./phases/03-real-world/03-03-PLAN.md) — App Integration & 3-Step Hierarchy
 **UI hint: yes**
 
 ### Phase 4: Apple Polish & Interactions
@@ -72,5 +72,5 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation & Precision Engine | 3/3 | Completed | 2026-05-12 |
 | 2. Persistence & PWA | 1/1 | Completed | 2026-05-12 |
-| 3. Real-world Simulation | 1/4 | In Progress | - |
+| 3. Real-world Simulation | 3/3 | Complete   | 2026-05-12 |
 | 4. Apple Polish & Interactions | 0/1 | Not started | - |

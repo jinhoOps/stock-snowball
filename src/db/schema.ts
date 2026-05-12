@@ -1,4 +1,5 @@
 import { RxJsonSchema } from 'rxdb';
+import { AssetType } from '../types/finance';
 
 export interface ScenarioDocument {
   id: string;
@@ -6,24 +7,37 @@ export interface ScenarioDocument {
   principal: number;
   annualRate: number;
   years: number;
-  dailyContribution: number;
+  dailyContribution: number; // For backward compatibility/simplicity
+  strategyType: 'FIXED' | 'VALUE_AVERAGING' | 'STEP_UP';
+  strategyBaseAmount: number;
+  strategyIncreaseRate?: number;
+  strategyTargetGrowth?: number;
+  assetType: AssetType;
+  accountType: 'GENERAL' | 'ISA';
   inflationRate: number;
+  buyFeeRate: number;
+  sellFeeRate: number;
+  taxDividendRate: number;
+  taxCapitalGainRate: number;
+  taxIsaLimit: number;
+  taxIsaReducedRate: number;
   currency: 'USD' | 'KRW';
   exchangeRate: number;
+  exchangeAnnualChangeRate: number;
   createdAt: number;
   updatedAt: number;
 }
 
 export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
   title: 'scenario schema',
-  version: 0,
+  version: 2, // Bumped for assetType
   description: 'describes a snowball investment scenario',
   primaryKey: 'id',
   type: 'object',
   properties: {
     id: {
       type: 'string',
-      maxLength: 100, // primary key must have maxLength
+      maxLength: 100,
     },
     name: {
       type: 'string',
@@ -43,7 +57,47 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
       type: 'number',
       minimum: 0,
     },
+    strategyType: {
+      type: 'string',
+      enum: ['FIXED', 'VALUE_AVERAGING', 'STEP_UP'],
+    },
+    strategyBaseAmount: {
+      type: 'number',
+      minimum: 0,
+    },
+    strategyIncreaseRate: {
+      type: 'number',
+    },
+    strategyTargetGrowth: {
+      type: 'number',
+    },
+    assetType: {
+      type: 'string',
+      enum: ['CUSTOM', 'QQQM', 'QLD', 'TQQQ', 'KOSPI', 'KOSDAQ', 'SPY', 'SCHD', 'GOLD'],
+    },
+    accountType: {
+      type: 'string',
+      enum: ['GENERAL', 'ISA'],
+    },
     inflationRate: {
+      type: 'number',
+    },
+    buyFeeRate: {
+      type: 'number',
+    },
+    sellFeeRate: {
+      type: 'number',
+    },
+    taxDividendRate: {
+      type: 'number',
+    },
+    taxCapitalGainRate: {
+      type: 'number',
+    },
+    taxIsaLimit: {
+      type: 'number',
+    },
+    taxIsaReducedRate: {
       type: 'number',
     },
     currency: {
@@ -53,6 +107,9 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
     exchangeRate: {
       type: 'number',
       minimum: 0,
+    },
+    exchangeAnnualChangeRate: {
+      type: 'number',
     },
     createdAt: {
       type: 'number',
@@ -67,12 +124,24 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
     'principal',
     'annualRate',
     'years',
-    'dailyContribution',
+    'strategyType',
+    'strategyBaseAmount',
+    'assetType',
+    'accountType',
     'inflationRate',
+    'buyFeeRate',
+    'sellFeeRate',
+    'taxDividendRate',
+    'taxCapitalGainRate',
+    'taxIsaLimit',
+    'taxIsaReducedRate',
     'currency',
     'exchangeRate',
+    'exchangeAnnualChangeRate',
     'createdAt',
     'updatedAt',
   ],
-  encrypted: ['principal', 'dailyContribution'],
+  encrypted: ['principal', 'strategyBaseAmount'],
 };
+
+
