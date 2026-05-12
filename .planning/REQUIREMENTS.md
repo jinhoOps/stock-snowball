@@ -24,7 +24,7 @@
 - **UI-03**: `Framer Motion`을 활용한 부드러운 상태 전환 및 마일스톤 애니메이션.
 - **UI-04**: 고정밀 스크러빙(Scrubbing) 인터랙션을 통한 시점별 자산 탐색.
 - **UI-05**: 결과 요약 대시보드 (KPI Grid) 구현.
-- **UI-06**: 직관적인 시뮬레이션 설정 패널 구현 (표기 토글: 원/달러, 실질/명목, 매일/매주/매월 | 설정: 기준금리, 적용 환율).
+- **UI-06**: 메인 화면은 '투자 단위(매일/매주/매월)' 및 '금액' 입력에만 집중. 복잡한 표기 옵션(원/달러, 실질/명목)과 변수 설정(기준금리, 환율)은 별도의 설정 슬라이드/모달로 분리하여 미니멀리즘 유지.
 
 ### [PWA] 앱 경험
 - **PWA-01**: 서비스 워커를 통한 오프라인 구동 및 즉각적인 로딩.
@@ -41,19 +41,19 @@
 | CORE-01 | Phase 1 | Complete |
 | CORE-02 | Phase 1 | Complete |
 | CORE-03 | Phase 1 | Complete |
-| CORE-04 | Phase 3 | Pending |
-| CORE-05 | Phase 3 | Pending |
-| CORE-06 | Phase 3 | Pending |
-| DATA-01 | Phase 2 | Pending |
-| DATA-02 | Phase 2 | Pending |
-| DATA-03 | Phase 2 | Pending |
+| CORE-04 | Phase 3 | Complete |
+| CORE-05 | Phase 3 | Complete |
+| CORE-06 | Phase 3 | In Progress |
+| DATA-01 | Phase 2 | Complete |
+| DATA-02 | Phase 2 | Complete |
+| DATA-03 | Phase 2 | Complete |
 | UI-01 | Phase 1 | Complete |
 | UI-02 | Phase 1 | Complete |
 | UI-03 | Phase 4 | Complete |
 | UI-04 | Phase 4 | Pending |
-| UI-05 | Phase 2 | Pending |
-| UI-06 | Phase 3 | Pending |
-| PWA-01 | Phase 2 | Pending |
-| PWA-02 | Phase 2 | Pending |
+| UI-05 | Phase 2 | Complete |
+| UI-06 | Phase 3 | In Progress |
+| PWA-01 | Phase 2 | Complete |
+| PWA-02 | Phase 2 | Complete |
 | VAL-01 | Phase 1 | Complete |
-| VAL-02 | Phase 1 | Partial (Foundation) |
+| VAL-02 | Phase 1 | Complete |
