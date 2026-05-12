@@ -1,4 +1,5 @@
 import { Decimal } from 'decimal.js';
+import { AccountType, FeeConfig, TaxConfig, SimulationResult } from '../types/finance';
 
 // Decimal 설정: 금융 연산을 위해 정밀도를 높게 설정 (기본 20 -> 40)
 Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
@@ -82,6 +83,32 @@ export class SnowballEngine {
   }
 
   /**
+   * 세금을 계산합니다.
+   * @param gains 총 수익
+   * @param accountType 계좌 유형
+   * @param config 세금 설정
+   */
+  static calculateTax(
+    gains: Decimal | number | string,
+    accountType: AccountType,
+    config: TaxConfig
+  ): Decimal {
+    const G = new Decimal(gains);
+    if (G.lte(0)) return new Decimal(0);
+
+    if (accountType === 'ISA') {
+      const taxFreeLimit = new Decimal(config.isaTaxFreeLimit);
+      if (G.lte(taxFreeLimit)) return new Decimal(0);
+
+      const taxableGains = G.minus(taxFreeLimit);
+      return taxableGains.times(config.isaReducedTaxRate);
+    }
+
+    // 일반 계좌: 배당소득세 기준으로 단순화 (양도소득세는 별도 로직 필요할 수 있음)
+    return G.times(config.dividendTaxRate);
+  }
+
+  /**
    * 숫자를 한국인에게 친숙한 '만 원' 단위로 포맷팅합니다.
    * @param value 금액 (원 단위)
    * @returns 포맷팅된 문자열 (예: 1억 2,345만 6,789원)
@@ -133,12 +160,85 @@ export class SnowballEngine {
   }
 
   /**
+   * 상세 시뮬레이션을 수행합니다.
+   */
+  static simulate(
+    principal: number,
+    annualRate: number,
+    years: number,
+    dailyContribution: number = 0,
+    inflationRate: number = 0,
+    accountType: AccountType = 'GENERAL',
+    taxConfig: TaxConfig = { dividendTaxRate: 0.154, capitalGainTaxRate: 0.22, isaTaxFreeLimit: 2000000, isaReducedTaxRate: 0.095 },
+    feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
+    intervalDays: number = 30
+  ): SimulationResult[] {
+    const results: SimulationResult[] = [];
+    const totalDays = years * 365;
+    const startDate = new Date();
+
+    const P = new Decimal(principal);
+    const PMT = new Decimal(dailyContribution);
+    const buyFeeRate = new Decimal(feeConfig.buyFeeRate);
+    const sellFeeRate = new Decimal(feeConfig.sellFeeRate);
+
+    for (let d = 0; d <= totalDays; d += intervalDays) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + d);
+
+      // 총 불입금 (수수료 제외 전)
+      const totalContribution = P.plus(PMT.times(d));
+      
+      // 매수 수수료 (원금 + 매일 불입금에 대해 각각 발생한다고 가정)
+      // 실제로는 매일 불입할 때마다 발생하지만 단순화를 위해 누적 계산
+      const totalBuyFees = P.times(buyFeeRate).plus(PMT.times(d).times(buyFeeRate));
+      
+      // 투자 원금 (수수료 제외)
+      const investedPrincipal = P.minus(P.times(buyFeeRate));
+      const investedDailyContribution = PMT.minus(PMT.times(buyFeeRate));
+
+      // 복리 계산
+      const nominalValue = this.calculateDailyCompound(
+        investedPrincipal,
+        annualRate,
+        d,
+        investedDailyContribution
+      );
+
+      // 매도 시 수수료 발생 가정
+      const sellFees = nominalValue.times(sellFeeRate);
+      const totalFees = totalBuyFees.plus(sellFees);
+
+      // 수익 계산 (최종 가치 - 총 불입금 - 매도 수수료)
+      const totalGains = nominalValue.minus(totalContribution).minus(sellFees);
+      
+      // 세금 계산 (수익에 대해)
+      const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
+      
+      // 세후 가치
+      const postTaxValue = nominalValue.minus(sellFees).minus(estimatedTax);
+
+      // 실질 가치 (인플레이션 반영)
+      const realValue = this.calculateRealValue(postTaxValue, inflationRate, d);
+
+      results.push({
+        date,
+        nominalValue: this.bankersRounding(nominalValue).toNumber(),
+        realValue: this.bankersRounding(realValue).toNumber(),
+        totalContribution: this.bankersRounding(totalContribution).toNumber(),
+        totalGains: this.bankersRounding(totalGains).toNumber(),
+        totalFees: this.bankersRounding(totalFees).toNumber(),
+        estimatedTax: this.bankersRounding(estimatedTax).toNumber(),
+        postTaxValue: this.bankersRounding(postTaxValue).toNumber(),
+      });
+    }
+
+    return results;
+  }
+
+  /**
    * 투자 기간 동안의 일별 성장을 시뮬레이션하여 시리즈 데이터를 생성합니다.
-   * @param principal 초기 원금
-   * @param annualRate 연이율
-   * @param years 투자 년수
-   * @param dailyContribution 매일 추가 불입금
-   * @param intervalDays 데이터 포인트 간격 (기본 30일)
+   * (하위 호환성을 위해 유지)
    */
   static generateSeries(
     principal: number,
@@ -147,29 +247,7 @@ export class SnowballEngine {
     dailyContribution: number = 0,
     intervalDays: number = 30
   ): { date: Date; value: number }[] {
-    const series = [];
-    const totalDays = years * 365;
-    const startDate = new Date();
-
-    for (let d = 0; d <= totalDays; d += intervalDays) {
-      const amount = this.calculateDailyCompound(principal, annualRate, d, dailyContribution);
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + d);
-      
-      series.push({
-        date,
-        value: amount.toNumber(),
-      });
-    }
-
-    // 마지막 날짜 보장
-    if (totalDays % intervalDays !== 0) {
-      const amount = this.calculateDailyCompound(principal, annualRate, totalDays, dailyContribution);
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + totalDays);
-      series.push({ date, value: amount.toNumber() });
-    }
-
-    return series;
+    return this.simulate(principal, annualRate, years, dailyContribution, 0, 'GENERAL', undefined, undefined, intervalDays)
+      .map(r => ({ date: r.date, value: r.nominalValue }));
   }
 }
