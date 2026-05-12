@@ -49,13 +49,22 @@ const SnowballChartInner: React.FC<{ data: DataPoint[]; width: number; height: n
 
   return (
     <svg width={width} height={height}>
-      <LinearGradient
-        id="area-gradient"
-        from="#0066cc"
-        to="#0066cc"
-        fromOpacity={0.15}
-        toOpacity={0}
-      />
+      <defs>
+        <LinearGradient
+          id="area-gradient"
+          from="#0066cc"
+          to="#0066cc"
+          fromOpacity={0.2}
+          toOpacity={0}
+        />
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
       <Group left={margin.left} top={margin.top}>
         {/* Area */}
         <AreaClosed<DataPoint>
@@ -73,8 +82,11 @@ const SnowballChartInner: React.FC<{ data: DataPoint[]; width: number; height: n
           x={d => dateScale(getDate(d)) ?? 0}
           y={d => valueScale(getValue(d)) ?? 0}
           stroke="#0066cc"
-          strokeWidth={2.5}
+          strokeWidth={3}
           curve={curveMonotoneX}
+          style={{
+            filter: 'drop-shadow(0 0 8px rgba(0, 102, 204, 0.3))',
+          }}
         />
 
         {/* Axes */}
@@ -94,7 +106,7 @@ const SnowballChartInner: React.FC<{ data: DataPoint[]; width: number; height: n
         <AxisLeft
           scale={valueScale}
           numTicks={5}
-          stroke="#e0e0e0"
+          stroke="none"
           tickStroke="#e0e0e0"
           tickFormat={(v) => `${(Number(v) / 10000).toFixed(0)}만`}
           tickLabelProps={{
