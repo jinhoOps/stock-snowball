@@ -1,5 +1,5 @@
 import { Decimal } from 'decimal.js';
-import { AccountType, FeeConfig, TaxConfig, SimulationResult } from '../types/finance';
+import { AccountType, FeeConfig, TaxConfig, SimulationResult, StrategyConfig } from '../types/finance';
 
 // Decimal 설정: 금융 연산을 위해 정밀도를 높게 설정 (기본 20 -> 40)
 Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
@@ -146,7 +146,7 @@ export class SnowballEngine {
    * @param usdAmount 달러 금액
    * @param exchangeRate 환율
    */
-  static usdToKrw(usdAmount: Decimal | number | string, exchangeRate: number): Decimal {
+  static usdToKrw(usdAmount: Decimal | number | string, exchangeRate: number | Decimal): Decimal {
     return new Decimal(usdAmount).times(exchangeRate);
   }
 
@@ -155,82 +155,99 @@ export class SnowballEngine {
    * @param krwAmount 원화 금액
    * @param exchangeRate 환율
    */
-  static krwToUsd(krwAmount: Decimal | number | string, exchangeRate: number): Decimal {
+  static krwToUsd(krwAmount: Decimal | number | string, exchangeRate: number | Decimal): Decimal {
     return new Decimal(krwAmount).dividedBy(exchangeRate);
   }
 
   /**
-   * 상세 시뮬레이션을 수행합니다.
+   * 상세 시뮬레이션을 수행합니다. (일 단위 반복 연산)
    */
   static simulate(
     principal: number,
     annualRate: number,
     years: number,
-    dailyContribution: number = 0,
+    strategy: StrategyConfig = { type: 'FIXED', baseAmount: 0 },
     inflationRate: number = 0,
     accountType: AccountType = 'GENERAL',
     taxConfig: TaxConfig = { dividendTaxRate: 0.154, capitalGainTaxRate: 0.22, isaTaxFreeLimit: 2000000, isaReducedTaxRate: 0.095 },
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
+    exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
     intervalDays: number = 30
   ): SimulationResult[] {
     const results: SimulationResult[] = [];
     const totalDays = years * 365;
     const startDate = new Date();
 
-    const P = new Decimal(principal);
-    const PMT = new Decimal(dailyContribution);
     const buyFeeRate = new Decimal(feeConfig.buyFeeRate);
     const sellFeeRate = new Decimal(feeConfig.sellFeeRate);
+    const dailyRate = new Decimal(annualRate).dividedBy(365);
+    const dailyInflation = new Decimal(inflationRate).dividedBy(365);
+    const dailyExchangeChange = new Decimal(exchangeRateConfig.annualChangeRate).dividedBy(365);
 
-    for (let d = 0; d <= totalDays; d += intervalDays) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + d);
+    let currentNominal = new Decimal(principal).minus(new Decimal(principal).times(buyFeeRate));
+    let totalContribution = new Decimal(principal);
+    let totalFees = new Decimal(principal).times(buyFeeRate);
+    let currentExchangeRate = new Decimal(exchangeRateConfig.base);
 
-      // 총 불입금 (수수료 제외 전)
-      const totalContribution = P.plus(PMT.times(d));
+    for (let d = 0; d <= totalDays; d++) {
+      // 데이터 포인트 기록
+      if (d % intervalDays === 0 || d === totalDays) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + d);
+
+        const currentNominalInKrw = currentNominal.times(currentExchangeRate);
+        const sellFees = currentNominalInKrw.times(sellFeeRate);
+        const totalFeesWithSell = totalFees.plus(sellFees);
+        const totalContributionInKrw = totalContribution.times(currentExchangeRate); // 단순화를 위해 현재 환율 적용
+        const totalGains = currentNominalInKrw.minus(totalContributionInKrw).minus(sellFees);
+        const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
+        const postTaxValue = currentNominalInKrw.minus(sellFees).minus(estimatedTax);
+        const realValue = postTaxValue.dividedBy(dailyInflation.plus(1).pow(d));
+
+        results.push({
+          date,
+          nominalValue: this.bankersRounding(currentNominalInKrw).toNumber(),
+          realValue: this.bankersRounding(realValue).toNumber(),
+          totalContribution: this.bankersRounding(totalContributionInKrw).toNumber(),
+          totalGains: this.bankersRounding(totalGains).toNumber(),
+          totalFees: this.bankersRounding(totalFeesWithSell).toNumber(),
+          estimatedTax: this.bankersRounding(estimatedTax).toNumber(),
+          postTaxValue: this.bankersRounding(postTaxValue).toNumber(),
+        });
+      }
+
+      if (d === totalDays) break;
+
+      // 일일 성장
+      currentNominal = currentNominal.times(dailyRate.plus(1));
       
-      // 매수 수수료 (원금 + 매일 불입금에 대해 각각 발생한다고 가정)
-      // 실제로는 매일 불입할 때마다 발생하지만 단순화를 위해 누적 계산
-      const totalBuyFees = P.times(buyFeeRate).plus(PMT.times(d).times(buyFeeRate));
-      
-      // 투자 원금 (수수료 제외)
-      const investedPrincipal = P.minus(P.times(buyFeeRate));
-      const investedDailyContribution = PMT.minus(PMT.times(buyFeeRate));
+      // 환율 변동
+      currentExchangeRate = currentExchangeRate.times(dailyExchangeChange.plus(1));
 
-      // 복리 계산
-      const nominalValue = this.calculateDailyCompound(
-        investedPrincipal,
-        annualRate,
-        d,
-        investedDailyContribution
-      );
+      // 추가 불입 (전략에 따라)
+      let dailyContribution = new Decimal(0);
+      if (strategy.type === 'FIXED') {
+        dailyContribution = new Decimal(strategy.baseAmount).dividedBy(30.42); // 월간 불입금을 일간으로 환산
+      } else if (strategy.type === 'STEP_UP') {
+        const year = Math.floor(d / 365);
+        const annualIncrease = new Decimal(strategy.increaseRate || 0).plus(1).pow(year);
+        dailyContribution = new Decimal(strategy.baseAmount).times(annualIncrease).dividedBy(30.42);
+      } else if (strategy.type === 'VALUE_AVERAGING') {
+        // 매달 정해진 성장 목표(targetGrowth)를 맞추기 위해 부족분만큼 불입
+        if (d > 0 && d % 30 === 0) {
+          const targetValue = new Decimal(strategy.targetGrowth || 0).times(d / 30).plus(principal);
+          if (currentNominal.lt(targetValue)) {
+            dailyContribution = targetValue.minus(currentNominal);
+          }
+        }
+      }
 
-      // 매도 시 수수료 발생 가정
-      const sellFees = nominalValue.times(sellFeeRate);
-      const totalFees = totalBuyFees.plus(sellFees);
-
-      // 수익 계산 (최종 가치 - 총 불입금 - 매도 수수료)
-      const totalGains = nominalValue.minus(totalContribution).minus(sellFees);
-      
-      // 세금 계산 (수익에 대해)
-      const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
-      
-      // 세후 가치
-      const postTaxValue = nominalValue.minus(sellFees).minus(estimatedTax);
-
-      // 실질 가치 (인플레이션 반영)
-      const realValue = this.calculateRealValue(postTaxValue, inflationRate, d);
-
-      results.push({
-        date,
-        nominalValue: this.bankersRounding(nominalValue).toNumber(),
-        realValue: this.bankersRounding(realValue).toNumber(),
-        totalContribution: this.bankersRounding(totalContribution).toNumber(),
-        totalGains: this.bankersRounding(totalGains).toNumber(),
-        totalFees: this.bankersRounding(totalFees).toNumber(),
-        estimatedTax: this.bankersRounding(estimatedTax).toNumber(),
-        postTaxValue: this.bankersRounding(postTaxValue).toNumber(),
-      });
+      if (dailyContribution.gt(0)) {
+        const fee = dailyContribution.times(buyFeeRate);
+        currentNominal = currentNominal.plus(dailyContribution.minus(fee));
+        totalContribution = totalContribution.plus(dailyContribution);
+        totalFees = totalFees.plus(fee);
+      }
     }
 
     return results;
@@ -247,7 +264,9 @@ export class SnowballEngine {
     dailyContribution: number = 0,
     intervalDays: number = 30
   ): { date: Date; value: number }[] {
-    return this.simulate(principal, annualRate, years, dailyContribution, 0, 'GENERAL', undefined, undefined, intervalDays)
+    // dailyContribution * 30.42를 월간 baseAmount로 환산하여 전달
+    const strategy: StrategyConfig = { type: 'FIXED', baseAmount: dailyContribution * 30.42 };
+    return this.simulate(principal, annualRate, years, strategy, 0, 'GENERAL', undefined, undefined, undefined, intervalDays)
       .map(r => ({ date: r.date, value: r.nominalValue }));
   }
 }

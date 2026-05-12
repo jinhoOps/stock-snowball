@@ -1,5 +1,14 @@
 export type AccountType = 'GENERAL' | 'ISA';
 
+export type StrategyType = 'FIXED' | 'VALUE_AVERAGING' | 'STEP_UP';
+
+export interface StrategyConfig {
+  type: StrategyType;
+  baseAmount: number; // 기본 불입금
+  increaseRate?: number; // STEP_UP용: 연간 불입금 증가율 (e.g., 0.05)
+  targetGrowth?: number; // VALUE_AVERAGING용: 목표 월간 성장 금액
+}
+
 export interface TaxConfig {
   dividendTaxRate: number; // 배당소득세율 (e.g., 0.154)
   capitalGainTaxRate: number; // 양도소득세율 (e.g., 0.22)
