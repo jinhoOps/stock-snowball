@@ -18,27 +18,44 @@ export class SnowballEngine {
   }
 
   /**
-   * 일 단위 복리를 계산합니다.
-   * 공식: A = P * (1 + r/365)^n
+   * 일 단위 복리를 계산합니다. (추가 불입금 포함)
+   * 공식: A = P(1+r/n)^(nt) + PMT * [((1+r/n)^(nt) - 1) / (r/n)]
    * @param principal 원금 (P)
    * @param annualRate 연이율 (r, 예: 0.05 for 5%)
    * @param days 투자 기간 (n, 일수)
+   * @param dailyContribution 매일 추가 불입금 (PMT)
    * @returns 최종 금액 (A)
    */
   static calculateDailyCompound(
     principal: Decimal | number | string,
     annualRate: Decimal | number | string,
-    days: number
+    days: number,
+    dailyContribution: Decimal | number | string = 0
   ): Decimal {
     const P = new Decimal(principal);
     const r = new Decimal(annualRate);
     const n = new Decimal(days);
+    const PMT = new Decimal(dailyContribution);
+
+    if (n.isZero()) return P;
+
+    const dailyRate = r.dividedBy(365);
+    
+    // 이자율이 0인 경우 단순 합산
+    if (dailyRate.isZero()) {
+      return P.plus(PMT.times(n));
+    }
 
     // (1 + r/365)^n
-    const dailyRate = r.dividedBy(365);
     const multiplier = dailyRate.plus(1).pow(n);
+    
+    // 원금의 성장: P * (1 + r/365)^n
+    const principalGrowth = P.times(multiplier);
+    
+    // 불입금의 성장: PMT * [((1 + r/365)^n - 1) / (r/365)]
+    const contributionGrowth = PMT.times(multiplier.minus(1).dividedBy(dailyRate));
 
-    return P.times(multiplier);
+    return principalGrowth.plus(contributionGrowth);
   }
 
   /**
@@ -65,16 +82,69 @@ export class SnowballEngine {
   }
 
   /**
+   * 숫자를 한국인에게 친숙한 '만 원' 단위로 포맷팅합니다.
+   * @param value 금액 (원 단위)
+   * @returns 포맷팅된 문자열 (예: 1억 2,345만 6,789원)
+   */
+  static formatKoreanWon(value: Decimal | number | string): string {
+    const amount = new Decimal(value).floor();
+    if (amount.isZero()) return '0원';
+
+    const units = [
+      { label: '조', value: new Decimal('1000000000000') },
+      { label: '억', value: new Decimal('100000000') },
+      { label: '만', value: new Decimal('10000') },
+    ];
+
+    let remaining = amount;
+    let result = '';
+
+    for (const { label, value: unitValue } of units) {
+      if (remaining.gte(unitValue)) {
+        const count = remaining.dividedBy(unitValue).floor();
+        result += `${count.toLocaleString()}${label} `;
+        remaining = remaining.mod(unitValue);
+      }
+    }
+
+    if (remaining.gt(0) || result === '') {
+      result += `${remaining.toNumber().toLocaleString()}원`;
+    }
+
+    return result.trim();
+  }
+
+  /**
+   * 달러 금액을 원화로 변환합니다.
+   * @param usdAmount 달러 금액
+   * @param exchangeRate 환율
+   */
+  static usdToKrw(usdAmount: Decimal | number | string, exchangeRate: number): Decimal {
+    return new Decimal(usdAmount).times(exchangeRate);
+  }
+
+  /**
+   * 원화 금액을 달러로 변환합니다.
+   * @param krwAmount 원화 금액
+   * @param exchangeRate 환율
+   */
+  static krwToUsd(krwAmount: Decimal | number | string, exchangeRate: number): Decimal {
+    return new Decimal(krwAmount).dividedBy(exchangeRate);
+  }
+
+  /**
    * 투자 기간 동안의 일별 성장을 시뮬레이션하여 시리즈 데이터를 생성합니다.
    * @param principal 초기 원금
    * @param annualRate 연이율
    * @param years 투자 년수
+   * @param dailyContribution 매일 추가 불입금
    * @param intervalDays 데이터 포인트 간격 (기본 30일)
    */
   static generateSeries(
     principal: number,
     annualRate: number,
     years: number,
+    dailyContribution: number = 0,
     intervalDays: number = 30
   ): { date: Date; value: number }[] {
     const series = [];
@@ -82,7 +152,7 @@ export class SnowballEngine {
     const startDate = new Date();
 
     for (let d = 0; d <= totalDays; d += intervalDays) {
-      const amount = this.calculateDailyCompound(principal, annualRate, d);
+      const amount = this.calculateDailyCompound(principal, annualRate, d, dailyContribution);
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + d);
       
@@ -90,6 +160,14 @@ export class SnowballEngine {
         date,
         value: amount.toNumber(),
       });
+    }
+
+    // 마지막 날짜 보장
+    if (totalDays % intervalDays !== 0) {
+      const amount = this.calculateDailyCompound(principal, annualRate, totalDays, dailyContribution);
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + totalDays);
+      series.push({ date, value: amount.toNumber() });
     }
 
     return series;
