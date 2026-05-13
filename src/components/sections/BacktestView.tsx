@@ -54,7 +54,11 @@ const MetricCard = ({
 const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName }) => {
   const { metrics, history } = result;
 
-  const formatCurrency = (val: number) => SnowballEngine.formatKoreanWon(val);
+  const formatCurrency = (val: number) => {
+    // 만원 미만 단위 절삭 (미니멀을 위함)
+    const truncated = Math.floor(val / 10000) * 10000;
+    return SnowballEngine.formatKoreanWon(truncated);
+  };
 
   const kpis = [
     {

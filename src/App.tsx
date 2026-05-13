@@ -310,7 +310,10 @@ function App() {
                       <div className="mb-10 text-center">
                         <span className="text-caption-strong text-apple-ink-muted-48 block mb-2 tracking-tight uppercase font-display">{projectionParams.years}년 후 예상 자산 (세후 실질 가치)</span>
                         <span className="text-display-lg text-apple-primary font-display tracking-tight">
-                          {SnowballEngine.formatBigNumber(activeResult.postTaxValue, currency)}
+                          {currency === 'KRW' 
+                            ? SnowballEngine.formatKoreanWon(Math.floor(activeResult.postTaxValue / 10000) * 10000)
+                            : SnowballEngine.formatUSD(activeResult.postTaxValue)
+                          }
                         </span>
                       </div>
 

@@ -82,7 +82,9 @@ const KPIGrid: React.FC<KPIGridProps> = ({
 }) => {
   const formatCurrency = (val: number) => {
     if (currency === 'KRW') {
-      return SnowballEngine.formatKoreanWon(val);
+      // 만원 미만 단위 절삭 (미니멀을 위함)
+      const truncated = Math.floor(val / 10000) * 10000;
+      return SnowballEngine.formatKoreanWon(truncated);
     }
     return `$${val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   };
