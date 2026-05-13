@@ -20,6 +20,9 @@
   3. 모든 하드코드된 hex 컬러를 `apple-` 테마 토큰으로 전환.
   4. 디자인 시스템 기반의 타이포그래피 스케일(10px~13px → 정식 토큰) 준수.
   5. Lighthouse 접근성 점수 90점 이상 달성.
+**Plans**: 2 plans
+- [ ] [06-01-PLAN.md](./phases/06-accessibility-refinement/06-01-PLAN.md) — Accessibility Foundation & SR-only Tables
+- [ ] [06-02-PLAN.md](./phases/06-accessibility-refinement/06-02-PLAN.md) — Design Tokenization & Typography Alignment
 
 ### Phase 1: Foundation & Precision Engine
 **Goal**: 금융적 무결성을 갖춘 계산 엔진과 Apple 수준의 프리미엄 UI/UX 기초 구축
@@ -104,3 +107,4 @@
 | 3. Real-world Simulation | 3/3 | Completed | 2026-05-12 |
 | 4. Apple Polish & Interactions | 2/2 | Completed | 2026-05-13 |
 | 5. Legacy Integration (migrated) | 4/4 | Completed | 2026-05-13 |
+| 6. Accessibility & Design Refinement | 0/2 | In Progress | - |

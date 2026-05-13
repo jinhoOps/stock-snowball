@@ -7,9 +7,9 @@ last_updated: "2026-05-13T12:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 17
+  total_plans: 19
   completed_plans: 17
-  percent: 83
+  percent: 89
 ---
 
 # Project State: Stock Snowball
@@ -22,9 +22,9 @@ progress:
 ## Current Position
 
 **Phase**: 6 - Accessibility & Design Refinement (In Progress)
-**Plan**: Pending Research
-**Status**: Initiating WCAG AA compliance and design debt cleanup based on 05-UI-REVIEW.md.
-**Progress**: 83% [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░]
+**Plan**: 06-01-PLAN.md (Wave 1)
+**Status**: Implementing WCAG AA compliance and design debt cleanup based on 05-UI-REVIEW.md.
+**Progress**: 89% [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░]
 
 ## Performance Metrics
 
@@ -38,13 +38,13 @@ progress:
 
 ### Roadmap Evolution
 
-- Phase 5: migrated-from-ISF(backtest) 기능 흡수 (Legacy AssetChart, Engine 등 통합)
+- Phase 6: Accessibility foundation and design tokenization initiated.
 
 ### Key Decisions
 
-- **Code Splitting**: Used manualChunks for vendors (RxDB, Framer, Visx) and historical data to keep main entry small.
-- **Lazy Loading**: AdvancedSettingsSheet is now lazy-loaded.
-- **Chart Performance**: Memoized SnowballChartInner and optimized tooltip search to index-based access.
+- **WCAG AA Target**: Focusing on ARIA labels, semantic HTML, and screen-reader accessibility for charts via hidden tables.
+- **Color Tokenization**: Moving all chart colors to Tailwind theme tokens for theme-ability and consistency.
+- **8px Grid**: Adjusting layout margins to align with the base grid system.
 
 ### Todos
 
@@ -53,6 +53,7 @@ progress:
 - [x] Phase 3: Real-world Simulation
 - [x] Phase 4: Apple Polish & Interactions
 - [x] Phase 5: migrated-from-ISF(backtest) 기능 흡수
+- [ ] Phase 6: Accessibility & Design Refinement
 
 ### Blockers
 
@@ -60,5 +61,5 @@ progress:
 
 ## Session Continuity
 
-**Last Turn**: Phase 5.4 영속성 연동 및 최종 통합 완료 (RxDB 스키마 v3 확장).
-**Next Step**: Project v1.0 Milestone Reached. (Future maintenance or Phase 6 planning).
+**Last Turn**: Phase 6 planning completed.
+**Next Step**: Execute Phase 6.1 (Accessibility Foundation).
