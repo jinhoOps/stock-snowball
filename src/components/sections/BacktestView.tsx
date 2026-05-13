@@ -33,14 +33,14 @@ const MetricCard = ({
     transition={{ duration: 0.5, delay: index * 0.1 }}
     className="bg-apple-canvas border border-apple-hairline rounded-lg p-5 flex flex-col items-center justify-center text-center shadow-sm"
   >
-    <span className="text-[10px] font-bold text-apple-ink-muted-48 mb-2 tracking-widest uppercase">{label}</span>
+    <span className="text-micro-legal font-semibold text-apple-ink-muted-48 mb-2 tracking-widest uppercase">{label}</span>
     <AnimatedCounter 
       value={value} 
       formatter={formatter} 
-      className={`text-xl font-bold mb-1 tracking-tight font-display ${isNegative ? 'text-apple-error' : 'text-apple-ink'}`}
+      className={`text-tagline font-semibold mb-1 tracking-tight font-display ${isNegative ? 'text-apple-error' : 'text-apple-ink'}`}
     />
     {subValue !== undefined && subFormatter && (
-      <div className={`text-[11px] font-bold px-2 py-0.5 rounded-pill ${isNegative ? 'bg-apple-error/10 text-apple-error' : 'bg-apple-primary/10 text-apple-primary'}`}>
+      <div className={`text-fine-print font-semibold px-2 py-0.5 rounded-pill ${isNegative ? 'bg-apple-error/10 text-apple-error' : 'bg-apple-primary/10 text-apple-primary'}`}>
         <AnimatedCounter 
           value={subValue} 
           formatter={subFormatter} 
@@ -103,11 +103,11 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName }) => {
       {/* Chart Section */}
       <div className="w-full h-[450px] bg-apple-canvas border border-apple-hairline rounded-2xl p-6 shadow-sm relative overflow-hidden">
         <div className="absolute top-6 left-8 z-10">
-          <h3 className="text-lg font-bold text-apple-ink flex items-center gap-2">
+          <h3 className="text-body-strong font-semibold text-apple-ink flex items-center gap-2">
             <span className="w-1 h-5 bg-apple-primary rounded-full" />
             {assetName} 과거 성과 추이
           </h3>
-          <p className="text-xs text-apple-ink-muted-48 font-medium">
+          <p className="text-fine-print text-apple-ink-muted-48 font-medium">
             {history[0].date} ~ {history[history.length - 1].date}
           </p>
         </div>

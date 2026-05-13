@@ -50,7 +50,7 @@ const tooltipStyles = {
   borderRadius: '12px',
   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
   padding: '12px',
-  color: '#1d1d1f',
+  color: 'var(--apple-ink)',
   fontSize: '13px',
   lineHeight: '1.4',
   pointerEvents: 'none' as const,
@@ -63,7 +63,7 @@ const SnowballChartInner: React.FC<{
   onPointSelect?: SnowballChartProps['onPointSelect'];
   onPointHover?: SnowballChartProps['onPointHover'];
 }> = React.memo(({ scenarios, width, height, onPointSelect, onPointHover }) => {
-  const margin = { top: 20, right: 30, bottom: 50, left: 70 };
+  const margin = { top: 24, right: 32, bottom: 48, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -308,13 +308,13 @@ const SnowballChartInner: React.FC<{
           <GridRows
             scale={valueScale}
             width={innerWidth}
-            stroke="#f0f0f0"
+            stroke="var(--apple-divider-soft)"
             strokeDasharray="4,4"
           />
           <GridColumns
             scale={dateScale}
             height={innerHeight}
-            stroke="#f0f0f0"
+            stroke="var(--apple-divider-soft)"
             strokeDasharray="4,4"
           />
 
@@ -376,7 +376,7 @@ const SnowballChartInner: React.FC<{
                 x2={tooltipLeft}
                 y1={0}
                 y2={innerHeight}
-                stroke="#d1d1d6"
+                stroke="var(--apple-hairline)"
                 strokeWidth={1}
                 pointerEvents="none"
               />
@@ -400,10 +400,10 @@ const SnowballChartInner: React.FC<{
             top={innerHeight}
             scale={dateScale}
             numTicks={width > 520 ? 8 : 4}
-            stroke="#e0e0e0"
-            tickStroke="#e0e0e0"
+            stroke="var(--apple-hairline)"
+            tickStroke="var(--apple-hairline)"
             tickLabelProps={{
-              fill: '#7a7a7a',
+              fill: 'var(--apple-ink-muted-48)',
               fontSize: 10,
               fontFamily: 'SF Pro Text, sans-serif',
               textAnchor: 'middle',
@@ -413,7 +413,7 @@ const SnowballChartInner: React.FC<{
             scale={valueScale}
             numTicks={5}
             stroke="none"
-            tickStroke="#e0e0e0"
+            tickStroke="var(--apple-hairline)"
             tickFormat={(v) => {
               const val = Number(v);
               if (val >= 100000000) return `${(val / 100000000).toFixed(1)}억`;
@@ -421,7 +421,7 @@ const SnowballChartInner: React.FC<{
               return val.toLocaleString();
             }}
             tickLabelProps={{
-              fill: '#7a7a7a',
+              fill: 'var(--apple-ink-muted-48)',
               fontSize: 10,
               fontFamily: 'SF Pro Text, sans-serif',
               textAnchor: 'end',
@@ -466,7 +466,7 @@ const SnowballChartInner: React.FC<{
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             >
-              <div className="font-semibold text-apple-gray-dark mb-2 border-b border-apple-gray-light pb-1">
+              <div className="font-semibold text-apple-ink mb-2 border-b border-apple-hairline pb-1">
                 {tooltipData.date.toLocaleDateString('ko-KR', {
                   year: 'numeric',
                   month: 'long',
@@ -478,9 +478,9 @@ const SnowballChartInner: React.FC<{
                   <div key={i} className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
-                      <span className="text-apple-gray text-[12px]">{p.name}</span>
+                      <span className="text-apple-ink-muted-48 text-fine-print">{p.name}</span>
                     </div>
-                    <span className="font-bold text-apple-ink text-[13px]">
+                    <span className="font-semibold text-apple-ink text-caption">
                       {formatCurrency(p.value)}
                     </span>
                   </div>
