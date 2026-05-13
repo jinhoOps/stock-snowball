@@ -4,6 +4,10 @@ import { AssetType } from '../types/finance';
 export interface ScenarioDocument {
   id: string;
   name: string;
+  simulationMode?: 'PROJECTION' | 'BACKTEST';
+  backtestStartDate?: string;
+  backtestEndDate?: string;
+  reinvestDividends?: boolean;
   principal: number;
   annualRate: number;
   years: number;
@@ -30,7 +34,7 @@ export interface ScenarioDocument {
 
 export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
   title: 'scenario schema',
-  version: 2, // Bumped for assetType
+  version: 3, // Bumped for simulationMode & backtest fields
   description: 'describes a snowball investment scenario',
   primaryKey: 'id',
   type: 'object',
@@ -41,6 +45,19 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
     },
     name: {
       type: 'string',
+    },
+    simulationMode: {
+      type: 'string',
+      enum: ['PROJECTION', 'BACKTEST'],
+    },
+    backtestStartDate: {
+      type: 'string',
+    },
+    backtestEndDate: {
+      type: 'string',
+    },
+    reinvestDividends: {
+      type: 'boolean',
     },
     principal: {
       type: 'number',

@@ -4,6 +4,8 @@ export type StrategyType = 'FIXED' | 'VALUE_AVERAGING' | 'STEP_UP';
 
 export type AssetType = 'CUSTOM' | 'QQQM' | 'QLD' | 'TQQQ' | 'KOSPI' | 'KOSDAQ' | 'SPY' | 'SCHD' | 'GOLD';
 
+export type SimulationMode = 'PROJECTION' | 'BACKTEST';
+
 export interface StrategyConfig {
   type: StrategyType;
   baseAmount: number; // 기본 불입금
@@ -32,4 +34,39 @@ export interface SimulationResult {
   totalFees: number;
   estimatedTax: number;
   postTaxValue: number;
+}
+
+/**
+ * 백테스팅 관련 타입
+ */
+
+export interface BacktestParams {
+  initialPrincipal: number;
+  monthlyInstallment: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  reinvestDividends: boolean;
+  assetId: AssetType;
+}
+
+export interface BacktestMetrics {
+  totalReturn: number; // 누적 수익률 (0.0 ~ )
+  cagr: number; // 연평균 성장률
+  irr: number; // 내부 수익률
+  mdd: number; // 최대 낙폭 (0.0 ~ 1.0)
+  finalValue: number;
+  totalPrincipal: number;
+  finalAnnualDividend: number;
+}
+
+export interface BacktestHistoryPoint {
+  date: string;
+  value: number;
+  principal: number;
+  isLiquidated?: boolean;
+}
+
+export interface BacktestResult {
+  metrics: BacktestMetrics;
+  history: BacktestHistoryPoint[];
 }

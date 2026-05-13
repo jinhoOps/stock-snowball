@@ -6,9 +6,20 @@
 - [x] **Phase 2: Persistence & PWA** - RxDB를 활용한 로컬 데이터 영속성 및 PWA 모바일 경험 구현
 - [x] **Phase 3: Real-world Simulation** - 환율, 세금, 수수료 및 다양한 투자 전략 반영 (진행 중: UI/UX Refinement) (completed 2026-05-12)
 - [x] **Phase 4: Apple Polish & Interactions** - Framer Motion 애니메이션 및 고도화된 스크러빙 UX 완성 (completed 2026-05-13)
-- [ ] **Phase 5: Legacy Integration (migrated-from-ISF)** - 이전 프로젝트(ISF)의 백테스팅 기능을 고정밀 엔진 및 Apple UI로 흡수 통합
+- [ ] **Phase 6: Accessibility & Design Refinement** - WCAG AA 준수 및 디자인 토큰 정합성 확보 (디자인 부채 해결)
 
 ## Phase Details
+
+### Phase 6: Accessibility & Design Refinement
+**Goal**: Phase 5 UI Review에서 발견된 접근성 블록커를 해결하고, 하드코드된 스타일을 토큰화하여 시스템 무결성 완성.
+**Depends on**: Phase 5
+**Requirements**: UI-01, UI-04, VAL-02
+**Success Criteria**:
+  1. 모든 버튼 및 차트 영역에 `aria-label` 적용 (스크린 리더 가독성 확보).
+  2. 시각 장애 사용자를 위한 차트 데이터 Hidden Table 제공.
+  3. 모든 하드코드된 hex 컬러를 `apple-` 테마 토큰으로 전환.
+  4. 디자인 시스템 기반의 타이포그래피 스케일(10px~13px → 정식 토큰) 준수.
+  5. Lighthouse 접근성 점수 90점 이상 달성.
 
 ### Phase 1: Foundation & Precision Engine
 **Goal**: 금융적 무결성을 갖춘 계산 엔진과 Apple 수준의 프리미엄 UI/UX 기초 구축
@@ -79,10 +90,10 @@
   3. 사용자가 시나리오 설정에서 'Projection'과 'Backtest' 모드를 유연하게 전환할 수 있음.
   4. 과거 배당 데이터가 반영된 Total Return(TR) 시뮬레이션 결과가 `visx` 차트에 표시됨.
 **Plans**: 4 plans
-- [ ] [05-01-PLAN.md](./phases/05-migrated-from-isf/05-01-PLAN.md) — Legacy Audit & Interface Alignment
-- [ ] [05-02-PLAN.md](./phases/05-migrated-from-isf/05-02-PLAN.md) — High-Precision Backtest Engine
-- [ ] [05-03-PLAN.md](./phases/05-migrated-from-isf/05-03-PLAN.md) — Apple-Style Backtest UI
-- [ ] [05-04-PLAN.md](./phases/05-migrated-from-isf/05-04-PLAN.md) — Persistence & Final Integration
+- [x] [05-01-PLAN.md](./phases/05-migrated-from-isf/05-01-PLAN.md) — Legacy Audit & Interface Alignment
+- [x] [05-02-PLAN.md](./phases/05-migrated-from-isf/05-02-PLAN.md) — High-Precision Backtest Engine
+- [x] [05-03-PLAN.md](./phases/05-migrated-from-isf/05-03-PLAN.md) — Apple-Style Backtest UI
+- [x] [05-04-PLAN.md](./phases/05-migrated-from-isf/05-04-PLAN.md) — Persistence & Final Integration
 
 ## Progress Table
 
@@ -92,4 +103,4 @@
 | 2. Persistence & PWA | 1/1 | Completed | 2026-05-12 |
 | 3. Real-world Simulation | 3/3 | Completed | 2026-05-12 |
 | 4. Apple Polish & Interactions | 2/2 | Completed | 2026-05-13 |
-| 5. Legacy Integration (migrated) | 0/4 | Not started | - |
+| 5. Legacy Integration (migrated) | 4/4 | Completed | 2026-05-13 |

@@ -5,6 +5,7 @@ import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/stock-snowball/',
   plugins: [
     react(),
     VitePWA({
@@ -44,4 +45,22 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('rxdb') || id.includes('rxjs') || id.includes('dexie')) return 'vendor-rxdb';
+            if (id.includes('framer-motion')) return 'vendor-framer';
+            if (id.includes('@visx')) return 'vendor-visx';
+            return 'vendor';
+          }
+          if (id.includes('src/data/indices')) {
+            return 'historical-data';
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  }
 })

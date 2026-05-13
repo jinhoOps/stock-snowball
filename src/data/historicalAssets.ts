@@ -51,6 +51,26 @@ export const HISTORICAL_DAILY_RETURNS: Record<Exclude<AssetType, 'CUSTOM'>, numb
   GOLD: processReturns(goldData),
 };
 
+/**
+ * 주요 자산별 원본 시계열 데이터셋 반환
+ */
+export const getHistoricalData = (asset: AssetType): IndexPoint[] => {
+  if (asset === 'CUSTOM') return spyData.data; // 기본값으로 SPY 제공
+  
+  const datasets: Record<Exclude<AssetType, 'CUSTOM'>, IndexDataset> = {
+    QQQM: qqqData,
+    QLD: qldData,
+    TQQQ: tqqqData,
+    KOSPI: kospiData,
+    KOSDAQ: kosdaqData,
+    SPY: spyData,
+    SCHD: schdData,
+    GOLD: goldData,
+  };
+  
+  return datasets[asset]?.data || spyData.data;
+};
+
 export const getDailyReturn = (asset: AssetType, dayIndex: number, defaultRate: number): number => {
   if (asset === 'CUSTOM') return defaultRate / 365;
   const returns = HISTORICAL_DAILY_RETURNS[asset];
