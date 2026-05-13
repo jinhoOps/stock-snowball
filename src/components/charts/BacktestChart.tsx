@@ -121,11 +121,49 @@ const BacktestChartInner: React.FC<{
     });
   }, [showTooltip, hideTooltip, dateScale, valueScale, data, margin.left, innerWidth]);
 
+  // Keyboard Navigation Handler
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (data.length === 0) return;
+    
+    let currentIndex = -1;
+    if (tooltipData) {
+      currentIndex = data.findIndex(p => p.date.getTime() === tooltipData.date.getTime());
+    }
+
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowRight') {
+      nextIndex = Math.min(currentIndex + 1, data.length - 1);
+      if (currentIndex === -1) nextIndex = 0;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = Math.max(currentIndex - 1, 0);
+      if (currentIndex === -1) nextIndex = data.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const d = data[nextIndex];
+
+    showTooltip({
+      tooltipData: d,
+      tooltipLeft: dateScale(d.date),
+      tooltipTop: valueScale(d.value),
+    });
+  }, [data, tooltipData, showTooltip, dateScale, valueScale]);
+
   if (width < 10) return null;
+
+  // Generate representative data for the hidden table (SR only)
+  const tableData = data.filter((_, i) => i % Math.max(1, Math.floor(data.length / 10)) === 0 || i === data.length - 1);
 
   return (
     <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
+      <svg 
+        width={width} 
+        height={height}
+        role="img"
+        aria-label={`${assetName} 과거 백테스트 결과 차트. 가로축은 시간, 세로축은 자산 가치를 나타냅니다.`}
+      >
         <defs>
           <LinearGradient id="backtest-gradient" from="#007AFF" to="#007AFF" fromOpacity={0.15} toOpacity={0} />
         </defs>
@@ -187,6 +225,9 @@ const BacktestChartInner: React.FC<{
             onTouchMove={handleTooltip}
             onMouseMove={handleTooltip}
             onMouseLeave={() => hideTooltip()}
+            onKeyDown={handleKeyDown}
+            tabIndex={0}
+            aria-label="차트 상호작용 영역. 화살표 키로 데이터를 탐색할 수 있습니다."
           />
 
           {/* Scrubbing Line */}
@@ -216,6 +257,28 @@ const BacktestChartInner: React.FC<{
           />
         </Group>
       </svg>
+
+      {/* Screen Reader Only Table */}
+      <div className="sr-only">
+        <table summary="과거 백테스트 데이터 상세 정보">
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>평가 금액</th>
+              <th>투자 원금</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableData.map((row, idx) => (
+              <tr key={idx}>
+                <td>{row.date.toLocaleDateString()}</td>
+                <td>{row.value.toLocaleString()}원</td>
+                <td>{row.principal.toLocaleString()}원</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Tooltip Card */}
       <AnimatePresence>

@@ -207,6 +207,52 @@ const SnowballChartInner: React.FC<{
     [dateScale, scenarios, margin.left, innerWidth, getDate, onPointSelect]
   );
 
+  // Keyboard Navigation Handler
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (scenarios.length === 0 || !scenarios[0].points.length) return;
+      const mainPoints = scenarios[0].points;
+      
+      let currentIndex = -1;
+      if (tooltipData) {
+        currentIndex = mainPoints.findIndex(p => p.date.getTime() === tooltipData.date.getTime());
+      }
+
+      let nextIndex = currentIndex;
+      if (event.key === 'ArrowRight') {
+        nextIndex = Math.min(currentIndex + 1, mainPoints.length - 1);
+        if (currentIndex === -1) nextIndex = 0;
+      } else if (event.key === 'ArrowLeft') {
+        nextIndex = Math.max(currentIndex - 1, 0);
+        if (currentIndex === -1) nextIndex = mainPoints.length - 1;
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+      const d = mainPoints[nextIndex];
+      const tooltipPoints = scenarios.map(s => ({
+        name: s.name,
+        value: (s.points[nextIndex] || d).value,
+        color: s.color,
+      }));
+
+      const tooltipPayload = {
+        date: d.date,
+        points: tooltipPoints,
+      };
+
+      showTooltip({
+        tooltipData: tooltipPayload,
+        tooltipLeft: dateScale(d.date),
+        tooltipTop: valueScale(d.value),
+      });
+
+      if (onPointHover) onPointHover(tooltipPayload);
+    },
+    [scenarios, tooltipData, showTooltip, dateScale, valueScale, onPointHover]
+  );
+
   if (width < 10) return null;
 
   const formatCurrency = (val: number) => {
@@ -215,9 +261,36 @@ const SnowballChartInner: React.FC<{
     return val.toLocaleString();
   };
 
+  // Generate representative data for the hidden table (SR only)
+  const tableData = useMemo(() => {
+    if (scenarios.length === 0 || !scenarios[0].points.length) return [];
+    const points = scenarios[0].points;
+    const step = Math.max(1, Math.floor(points.length / 10));
+    const indices = [];
+    for (let i = 0; i < points.length; i += step) {
+      indices.push(i);
+    }
+    if (indices[indices.length - 1] !== points.length - 1) {
+      indices.push(points.length - 1);
+    }
+    
+    return indices.map(idx => ({
+      date: points[idx].date,
+      values: scenarios.map(s => ({
+        name: s.name,
+        value: (s.points[idx] || points[idx]).value
+      }))
+    }));
+  }, [scenarios]);
+
   return (
     <div style={{ position: 'relative' }}>
-      <svg width={width} height={height}>
+      <svg 
+        width={width} 
+        height={height} 
+        role="img" 
+        aria-label="자산 성장 시뮬레이션 차트. 가로축은 시간, 세로축은 자산 가치를 나타냅니다."
+      >
         <defs>
           {scenarios.map(s => (
             <LinearGradient
@@ -290,6 +363,9 @@ const SnowballChartInner: React.FC<{
               if (onPointHover) onPointHover(null);
             }}
             onClick={handleBarClick}
+            onKeyDown={handleKeyDown}
+            tabIndex={0}
+            aria-label="차트 상호작용 영역. 화살표 키로 데이터를 탐색할 수 있습니다."
           />
 
           {/* Scrubbing Line & Markers */}
@@ -354,6 +430,26 @@ const SnowballChartInner: React.FC<{
           />
         </Group>
       </svg>
+
+      {/* Screen Reader Only Table */}
+      <div className="sr-only">
+        <table summary="차트 데이터 상세 정보">
+          <thead>
+            <tr>
+              <th>날짜</th>
+              {scenarios.map(s => <th key={s.id}>{s.name}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {tableData.map((row, idx) => (
+              <tr key={idx}>
+                <td>{row.date.toLocaleDateString()}</td>
+                {row.values.map((v, vIdx) => <td key={vIdx}>{v.value.toLocaleString()}원</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* Tooltip Card */}
       <AnimatePresence>
