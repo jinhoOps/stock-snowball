@@ -4,8 +4,9 @@
 
 - [x] **Phase 1: Foundation & Precision Engine** - [Completed] Apple 디자인 시스템 적용 및 고정밀 엔진 시각화 고도화
 - [x] **Phase 2: Persistence & PWA** - RxDB를 활용한 로컬 데이터 영속성 및 PWA 모바일 경험 구현
-- [x] **Phase 3: Real-world Simulation** - 환율, 세금, 수수료 및 다양한 투자 전략 반영 (진행 중: UI/UX Refinement) (completed 2026-05-12)
-- [ ] **Phase 4: Apple Polish & Interactions** - Framer Motion 애니메이션 및 고도화된 스크러빙 UX 완성
+- [x] **Phase 3: Real-world Simulation** - 환율, 세금, 수수료 및 다양한 투자 전략 반영 (진행 중: UI/UX Refinement) (completed 2026-05-12)
+- [x] **Phase 4: Apple Polish & Interactions** - Framer Motion 애니메이션 및 고도화된 스크러빙 UX 완성 (completed 2026-05-13)
+- [ ] **Phase 5: Legacy Integration (migrated-from-ISF)** - 이전 프로젝트(ISF)의 백테스팅 기능을 고정밀 엔진 및 Apple UI로 흡수 통합
 
 ## Phase Details
 
@@ -63,8 +64,25 @@
   1. 차트 위를 스크러빙할 때 해당 시점의 자산 상세 정보가 부드럽게 실시간 업데이트됨.
   2. 자산 성장에 따른 마일스톤 달성 시 감성적인 축하 애니메이션이 출력됨.
   3. DESIGN.md의 모든 가이드라인(그림자 사용 제한, 간격 등)이 100% 준수됨을 검증함.
-**Plans**: [phase4.md](./plans/phase4.md)
+**Plans**:
+- [x] [04-01-PLAN.md](./phases/04-apple-polish/04-01-PLAN.md) — Animated Counter & Transition Polish
+- [x] [04-04-PLAN.md](./phases/04-apple-polish/04-04-PLAN.md) — Performance Optimization & Bundle Splitting
 **UI hint: yes**
+
+### Phase 5: Legacy Integration (migrated-from-ISF)
+**Goal**: 이전 프로젝트(ISF)의 백테스팅 기능을 고정밀 엔진 및 Apple UI로 흡수 통합
+**Depends on**: Phase 4
+**Requirements**: CORE-06, DATA-02, UI-05, UI-06
+**Success Criteria** (what must be TRUE):
+  1. `Decimal.js` 기반의 고정밀 백테스팅 엔진이 구현되어 historical data 기반의 MDD, CAGR, IRR을 산출함.
+  2. Apple 디자인 시스템이 적용된 백테스팅 전용 대시보드와 KPI 그리드가 제공됨.
+  3. 사용자가 시나리오 설정에서 'Projection'과 'Backtest' 모드를 유연하게 전환할 수 있음.
+  4. 과거 배당 데이터가 반영된 Total Return(TR) 시뮬레이션 결과가 `visx` 차트에 표시됨.
+**Plans**: 4 plans
+- [ ] [05-01-PLAN.md](./phases/05-migrated-from-isf/05-01-PLAN.md) — Legacy Audit & Interface Alignment
+- [ ] [05-02-PLAN.md](./phases/05-migrated-from-isf/05-02-PLAN.md) — High-Precision Backtest Engine
+- [ ] [05-03-PLAN.md](./phases/05-migrated-from-isf/05-03-PLAN.md) — Apple-Style Backtest UI
+- [ ] [05-04-PLAN.md](./phases/05-migrated-from-isf/05-04-PLAN.md) — Persistence & Final Integration
 
 ## Progress Table
 
@@ -72,5 +90,6 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation & Precision Engine | 3/3 | Completed | 2026-05-12 |
 | 2. Persistence & PWA | 1/1 | Completed | 2026-05-12 |
-| 3. Real-world Simulation | 3/3 | Complete   | 2026-05-12 |
-| 4. Apple Polish & Interactions | 0/1 | Not started | - |
+| 3. Real-world Simulation | 3/3 | Completed | 2026-05-12 |
+| 4. Apple Polish & Interactions | 2/2 | Completed | 2026-05-13 |
+| 5. Legacy Integration (migrated) | 0/4 | Not started | - |

@@ -1,6 +1,6 @@
 {
   "name": "stock-snowball",
-  "version": "1.0.14",
+  "version": "1.0.21",
   "description": "Daily small investment growth calculator",
   "type": "module",
   "scripts": {
@@ -18,8 +18,10 @@
   },
   "homepage": "https://github.com/jinhoOps/stock-snowball#readme",
   "dependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@visx/axis": "^3.12.0",
     "@visx/curve": "^3.12.0",
+    "@visx/event": "^3.12.0",
     "@visx/gradient": "^3.12.0",
     "@visx/grid": "^3.12.0",
     "@visx/group": "^3.12.0",
@@ -27,7 +29,7 @@
     "@visx/scale": "^3.12.0",
     "@visx/shape": "^3.12.0",
     "@visx/tooltip": "^3.12.0",
-    "@visx/xychart": "^3.12.0",
+    "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "decimal.js": "^10.6.0",
