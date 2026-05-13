@@ -39,7 +39,12 @@ const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   }, [springValue, formatter]);
 
   return (
-    <span ref={ref} className={className}>
+    <span 
+      ref={ref} 
+      className={className}
+      aria-live="polite"
+      aria-atomic="true"
+    >
       {formatter(value)}
     </span>
   );
