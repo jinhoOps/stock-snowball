@@ -29,15 +29,16 @@ const SCENARIO_COLORS = [
 ];
 
 function App() {
-  const { scenarios, addScenario, loading } = useScenarios();
+  const { scenarios, addScenario, removeScenario, loading } = useScenarios();
   const lastCelebratedMilestone = useRef<number>(0);
-  
+
   // Basic State
   const [mode, setMode] = useState<SimulationMode>('PROJECTION');
   const [currency, setCurrency] = useState<'KRW' | 'USD'>('KRW');
   const [exchangeRate, setExchangeRate] = useState(1450); // 기본 환율
   const [scenarioName, setScenarioName] = useState('기본 시나리오');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  // ...
 
   // Decoupled Parameters
   const [projectionParams, setProjectionParams] = useState<SimulationParams>({
@@ -210,6 +211,11 @@ function App() {
   }, [activeSimulation, scenarioName, scenarios, comparingScenarioIds]);
 
   const handleSaveScenario = async () => {
+    if (!scenarioName.trim()) {
+      alert('시나리오 이름을 입력해주세요.');
+      return;
+    }
+
     try {
       await addScenario({
         name: scenarioName,
@@ -224,6 +230,7 @@ function App() {
         strategyType: activeParams.strategyType,
         strategyBaseAmount: activeParams.contribution,
         strategyIncreaseRate: activeParams.strategyIncreaseRate,
+        contributionCycle: activeParams.cycle,
         assetType: activeParams.assetType,
         accountType: activeParams.accountType,
         inflationRate: activeParams.inflationRate,
@@ -233,14 +240,23 @@ function App() {
         taxCapitalGainRate: 0.22,
         taxIsaLimit: 2000000,
         taxIsaReducedRate: 0.095,
-        currency: 'KRW',
-        exchangeRate: 1,
+        currency: currency,
+        exchangeRate: exchangeRate,
         exchangeAnnualChangeRate: 0,
       });
-      // Use a more subtle feedback if needed, but for now just console log to avoid blocking thread
+      
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.8 },
+        colors: ['#34C759', '#30B0C7', '#FFFFFF']
+      });
+      
+      alert(`'${scenarioName}' 시나리오가 저장되었습니다.`);
       console.log('Scenario saved successfully');
     } catch (e) {
       console.error('Failed to save scenario:', e);
+      alert('시나리오 저장에 실패했습니다. 상세 내용은 콘솔을 확인해주세요.');
     }
   };
 
@@ -429,15 +445,36 @@ function App() {
                   >
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-body-strong text-apple-ink tracking-tight font-display">{s.name}</h3>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleComparison(s.id);
-                        }}
-                        className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-pill border transition-all ${comparingScenarioIds.includes(s.id) ? 'bg-apple-primary text-white border-apple-primary shadow-sm' : 'bg-apple-canvas-parchment text-apple-ink border-apple-hairline hover:bg-apple-canvas'}`}
-                      >
-                        {comparingScenarioIds.includes(s.id) ? '비교 중' : '비교하기'}
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleComparison(s.id);
+                          }}
+                          className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-pill border transition-all ${comparingScenarioIds.includes(s.id) ? 'bg-apple-primary text-white border-apple-primary shadow-sm' : 'bg-apple-canvas-parchment text-apple-ink border-apple-hairline hover:bg-apple-canvas'}`}
+                        >
+                          {comparingScenarioIds.includes(s.id) ? '비교 중' : '비교하기'}
+                        </button>
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (confirm('정말 삭제하시겠습니까?')) {
+                              try {
+                                await removeScenario(s.id);
+                              } catch (err) {
+                                console.error('Failed to remove scenario:', err);
+                                alert('삭제에 실패했습니다.');
+                              }
+                            }
+                          }}
+                          className="p-1.5 rounded-full hover:bg-apple-error/10 text-apple-ink-muted-48 hover:text-apple-error transition-colors"
+                          aria-label="시나리오 삭제"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <p className="text-caption text-apple-ink-muted-48 font-text">
