@@ -1,8 +1,12 @@
 import { createRxDatabase, addRxPlugin, RxDatabase, RxCollection } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedKeyEncryptionCryptoJsStorage } from 'rxdb/plugins/encryption-crypto-js';
 import { scenarioSchema, ScenarioDocument } from './schema';
+
+// 마이그레이션 플러그인 추가
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 // 개발 모드 플러그인 추가 (빌드 시 트리쉐이킹됨)
 if (import.meta.env.MODE === 'development') {
