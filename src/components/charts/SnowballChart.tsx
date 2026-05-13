@@ -253,14 +253,6 @@ const SnowballChartInner: React.FC<{
     [scenarios, tooltipData, showTooltip, dateScale, valueScale, onPointHover]
   );
 
-  if (width < 10) return null;
-
-  const formatCurrency = (val: number) => {
-    if (val >= 100000000) return `${(val / 100000000).toFixed(2)}억`;
-    if (val >= 10000) return `${(val / 10000).toFixed(0)}만`;
-    return val.toLocaleString();
-  };
-
   // Generate representative data for the hidden table (SR only)
   const tableData = useMemo(() => {
     if (scenarios.length === 0 || !scenarios[0].points.length) return [];
@@ -282,6 +274,14 @@ const SnowballChartInner: React.FC<{
       }))
     }));
   }, [scenarios]);
+
+  if (width < 10) return null;
+
+  const formatCurrency = (val: number) => {
+    if (val >= 100000000) return `${(val / 100000000).toFixed(2)}억`;
+    if (val >= 10000) return `${(val / 10000).toFixed(0)}만`;
+    return val.toLocaleString();
+  };
 
   return (
     <div style={{ position: 'relative' }}>
@@ -528,5 +528,3 @@ const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, onPointSelect,
 };
 
 export default SnowballChart;
-
-
