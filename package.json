@@ -1,6 +1,6 @@
 {
   "name": "stock-snowball",
-  "version": "1.0.29",
+  "version": "1.0.30",
   "description": "Daily small investment growth calculator",
   "type": "module",
   "scripts": {

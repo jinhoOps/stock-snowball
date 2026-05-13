@@ -26,7 +26,7 @@ const createDatabase = async (): Promise<MyDatabase> => {
       storage: getRxStorageDexie(),
     }),
     password: 'snowball-local-secret-key-2024', // TODO: Web Crypto API를 통한 동적 키 생성 또는 사용자 입력 고려
-    ignoreDuplicate: true,
+    ignoreDuplicate: import.meta.env.DEV,
   });
 
   await db.addCollections({
@@ -55,6 +55,17 @@ const createDatabase = async (): Promise<MyDatabase> => {
           return {
             ...oldDoc,
             assetType: 'CUSTOM',
+            updatedAt: Date.now(),
+          };
+        },
+        // Version 2 -> 3 migration
+        3: (oldDoc: any) => {
+          return {
+            ...oldDoc,
+            simulationMode: 'PROJECTION',
+            backtestStartDate: '2010-01-01',
+            backtestEndDate: '2024-01-01',
+            reinvestDividends: true,
             updatedAt: Date.now(),
           };
         }

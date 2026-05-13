@@ -10,13 +10,18 @@ export const useScenarios = () => {
     let subscription: any;
 
     const init = async () => {
-      const db = await getDatabase();
-      const scenarios$ = db.scenarios.find().$;
-      
-      subscription = scenarios$.subscribe((docs) => {
-        setScenarios(docs.map(doc => doc.toJSON()));
+      try {
+        const db = await getDatabase();
+        const scenarios$ = db.scenarios.find().$;
+        
+        subscription = scenarios$.subscribe((docs) => {
+          setScenarios(docs.map(doc => doc.toJSON()));
+          setLoading(false);
+        });
+      } catch (error) {
+        console.error('Failed to initialize scenarios:', error);
         setLoading(false);
-      });
+      }
     };
 
     init();
