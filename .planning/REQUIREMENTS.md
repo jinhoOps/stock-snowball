@@ -43,7 +43,7 @@
 | CORE-03 | Phase 1 | Complete |
 | CORE-04 | Phase 3 | Complete |
 | CORE-05 | Phase 3 | Complete |
-| CORE-06 | Phase 3 | In Progress |
+| CORE-06 | Phase 3 | Complete |
 | DATA-01 | Phase 2 | Complete |
 | DATA-02 | Phase 2 | Complete |
 | DATA-03 | Phase 2 | Complete |
@@ -52,7 +52,7 @@
 | UI-03 | Phase 4 | Complete |
 | UI-04 | Phase 4 | Complete |
 | UI-05 | Phase 2 | Complete |
-| UI-06 | Phase 3 | In Progress |
+| UI-06 | Phase 3 | Complete |
 | PWA-01 | Phase 2 | Complete |
 | PWA-02 | Phase 2 | Complete |
 | VAL-01 | Phase 1 | Complete |

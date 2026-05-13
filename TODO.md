@@ -37,3 +37,15 @@
 - [x] Phase 5.2: 고정밀 백테스팅 엔진 구현
 - [x] Phase 5.3: Apple 스타일 백테스트 UI 구현
 - [x] Phase 5.4: 데이터 영속성 및 최종 통합
+
+## ✅ Phase 6: Accessibility & Design Refinement (Completed)
+- [x] WCAG AA 준수 (`aria-label`, 스크린 리더용 히든 테이블)
+- [x] 하드코드된 스타일의 디자인 토큰화 (Typography, Colors)
+- [x] Lighthouse 접근성 점수 90점 이상 달성
+
+## ✅ Phase 7: UI/UX & Financial Precision Refinement (Completed)
+- [x] **Big Number Helper**: 억/만(KRW), Million/Billion(USD) 단위 실시간 가이드
+- [x] **Currency Auto-Conversion**: 원/달러 자동 환산 및 환율 편집 기능
+- [x] **NumericInput**: '0' 값 처리 UX 개선 및 모바일 최적화
+- [x] **Advanced Settings**: 헤더 톱니바퀴 아이콘을 통한 진입점 일원화
+- [x] **Slider UX**: 30년 고정 스케일 및 초과 입력 지원 로직 완성
