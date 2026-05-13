@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import GlobalNav from './components/layout/GlobalNav';
@@ -7,13 +7,12 @@ import SnowballChart from './components/charts/SnowballChart';
 import KPIGrid from './components/sections/KPIGrid';
 import BacktestView from './components/sections/BacktestView';
 import SimulationControls from './components/sections/SimulationControls';
+import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { useScenarios } from './hooks/useScenarios';
 import { AccountType, StrategyType, StrategyConfig, SimulationResult, AssetType, SimulationMode } from './types/finance';
 import { getHistoricalData } from './data/historicalAssets';
-
-const AdvancedSettingsSheet = lazy(() => import('./components/sections/AdvancedSettingsSheet'));
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -125,14 +124,9 @@ function App() {
     }
   }, [activeResult.postTaxValue, activeBacktest?.metrics.finalValue, mode]);
 
-  // unique key for current state to trigger AnimatePresence
-  const simulationStateKey = useMemo(() => {
-    return `${mode}-${assetType}-${principal}-${rate}-${years}-${strategyType}-${strategyBaseAmount}-${accountType}-${inflationRate}`;
-  }, [mode, assetType, principal, rate, years, strategyType, strategyBaseAmount, accountType, inflationRate]);
-
   const chartScenarios = useMemo(() => {
     const main = {
-      id: 'active',
+      id: 'active-scenario',
       name: scenarioName || '현재 설정',
       color: SCENARIO_COLORS[0],
       points: activeSimulation.map(r => ({ date: r.date, value: r.postTaxValue }))
@@ -166,33 +160,38 @@ function App() {
   }, [activeSimulation, scenarioName, scenarios, comparingScenarioIds]);
 
   const handleSaveScenario = async () => {
-    await addScenario({
-      name: scenarioName,
-      simulationMode: mode,
-      backtestStartDate,
-      backtestEndDate,
-      reinvestDividends: true,
-      principal,
-      annualRate: rate,
-      years,
-      dailyContribution: strategyBaseAmount / 30.42, // legacy field
-      strategyType,
-      strategyBaseAmount,
-      strategyIncreaseRate,
-      assetType,
-      accountType,
-      inflationRate,
-      buyFeeRate: 0.00015,
-      sellFeeRate: 0.00015,
-      taxDividendRate: 0.154,
-      taxCapitalGainRate: 0.22,
-      taxIsaLimit: 2000000,
-      taxIsaReducedRate: 0.095,
-      currency: 'KRW',
-      exchangeRate: 1,
-      exchangeAnnualChangeRate: 0,
-    });
-    alert('시나리오가 저장되었습니다.');
+    try {
+      await addScenario({
+        name: scenarioName,
+        simulationMode: mode,
+        backtestStartDate,
+        backtestEndDate,
+        reinvestDividends: true,
+        principal,
+        annualRate: rate,
+        years,
+        dailyContribution: strategyBaseAmount / 30.42, // legacy field
+        strategyType,
+        strategyBaseAmount,
+        strategyIncreaseRate,
+        assetType,
+        accountType,
+        inflationRate,
+        buyFeeRate: 0.00015,
+        sellFeeRate: 0.00015,
+        taxDividendRate: 0.154,
+        taxCapitalGainRate: 0.22,
+        taxIsaLimit: 2000000,
+        taxIsaReducedRate: 0.095,
+        currency: 'KRW',
+        exchangeRate: 1,
+        exchangeAnnualChangeRate: 0,
+      });
+      // Use a more subtle feedback if needed, but for now just console log to avoid blocking thread
+      console.log('Scenario saved successfully');
+    } catch (e) {
+      console.error('Failed to save scenario:', e);
+    }
   };
 
   const toggleComparison = (id: string) => {
@@ -221,19 +220,15 @@ function App() {
                 onOpenAdvanced={() => setIsAdvancedOpen(true)}
               />
 
-              <Suspense fallback={null}>
-                {isAdvancedOpen && (
-                  <AdvancedSettingsSheet 
-                    isOpen={isAdvancedOpen}
-                    onClose={() => setIsAdvancedOpen(false)}
-                    assetType={assetType} setAssetType={setAssetType}
-                    annualRate={rate} setAnnualRate={setRate}
-                    strategyType={strategyType} setStrategyType={setStrategyType}
-                    accountType={accountType} setAccountType={setAccountType}
-                    inflationRate={inflationRate} setInflationRate={setInflationRate}
-                  />
-                )}
-              </Suspense>
+              <AdvancedSettingsSheet 
+                isOpen={isAdvancedOpen}
+                onClose={() => setIsAdvancedOpen(false)}
+                assetType={assetType} setAssetType={setAssetType}
+                annualRate={rate} setAnnualRate={setRate}
+                strategyType={strategyType} setStrategyType={setStrategyType}
+                accountType={accountType} setAccountType={setAccountType}
+                inflationRate={inflationRate} setInflationRate={setInflationRate}
+              />
 
               <motion.div layout className="flex gap-4 mb-16 w-full max-w-[500px]">
                 <input 
@@ -254,7 +249,7 @@ function App() {
 
               <AnimatePresence mode="wait">
                 <motion.div 
-                  key={simulationStateKey}
+                  key={mode}
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -15 }}
