@@ -18,9 +18,11 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
   return (
     <div className="flex flex-col gap-8 mb-12 w-full max-w-[1000px] items-center">
       {/* Mode Switcher */}
-      <div className="bg-apple-surface-chip-translucent p-1 rounded-pill flex gap-1 shadow-sm border border-apple-hairline">
+      <div className="bg-apple-surface-chip-translucent p-1 rounded-pill flex gap-1 shadow-sm border border-apple-hairline" role="tablist">
         <button
           onClick={() => props.setMode('PROJECTION')}
+          aria-pressed={props.mode === 'PROJECTION'}
+          aria-label="미래 예측 모드"
           className={`relative px-6 py-2 rounded-pill text-caption-strong tracking-tight transition-all duration-300 ${
             props.mode === 'PROJECTION' ? 'text-apple-ink' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
           }`}
@@ -36,6 +38,8 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         </button>
         <button
           onClick={() => props.setMode('BACKTEST')}
+          aria-pressed={props.mode === 'BACKTEST'}
+          aria-label="과거 백테스트 모드"
           className={`relative px-6 py-2 rounded-pill text-caption-strong tracking-tight transition-all duration-300 ${
             props.mode === 'BACKTEST' ? 'text-apple-ink' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
           }`}
@@ -54,10 +58,11 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
       <div className="flex flex-col md:flex-row gap-6 w-full bg-apple-canvas-parchment border border-apple-hairline p-8 rounded-lg items-end shadow-sm">
         {/* 1순위: 투자 금액 */}
         <div className="flex-1 flex flex-col items-start w-full">
-          <label className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">
+          <label htmlFor="principal-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">
             {props.mode === 'BACKTEST' ? '초기 자산 (원)' : '초기 자산 (원)'}
           </label>
           <input 
+            id="principal-input"
             type="number" 
             value={props.principal}
             onChange={(e) => props.setPrincipal(Number(e.target.value))}
@@ -66,8 +71,9 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         </div>
 
         <div className="flex-1 flex flex-col items-start w-full">
-          <label className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">월 불입액 (원)</label>
+          <label htmlFor="monthly-investment-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">월 불입액 (원)</label>
           <input 
+            id="monthly-investment-input"
             type="number" 
             value={props.strategyBaseAmount}
             onChange={(e) => props.setStrategyBaseAmount(Number(e.target.value))}
@@ -78,21 +84,25 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         {/* 2순위: 기간 (백테스트 모드에서는 숨기거나 날짜 선택으로 변경 예정이지만 일단 유지) */}
         {props.mode === 'PROJECTION' && (
           <div className="flex-1 flex flex-col items-start w-full">
-            <label className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">투자 기간 (년)</label>
+            <label htmlFor="years-range" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">투자 기간 (년)</label>
             <div className="flex items-center gap-4 w-full h-12">
               <input 
+                id="years-range"
                 type="range" 
                 min="1" 
                 max="50"
                 value={props.years}
                 onChange={(e) => props.setYears(Number(e.target.value))}
                 className="flex-1 accent-apple-primary h-2 bg-apple-hairline rounded-pill appearance-none cursor-pointer"
+                aria-label="투자 기간 조절"
               />
               <input 
+                id="years-number"
                 type="number" 
                 value={props.years}
                 onChange={(e) => props.setYears(Number(e.target.value))}
                 className="w-20 h-12 bg-apple-canvas border border-apple-hairline rounded-pill text-body outline-none focus:border-apple-primary text-center font-text"
+                aria-label="투자 기간 직접 입력"
               />
             </div>
           </div>
@@ -102,6 +112,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         <div className="flex flex-col justify-end w-full md:w-auto mt-4 md:mt-0">
           <button 
             onClick={props.onOpenAdvanced}
+            aria-label="고급 설정 열기"
             className="h-12 px-8 rounded-pill bg-apple-surface-chip-translucent text-apple-ink text-button-utility font-medium whitespace-nowrap hover:bg-apple-surface-chip-translucent/80 active:scale-95 transition-all w-full md:w-auto shadow-sm"
           >
             고급 설정

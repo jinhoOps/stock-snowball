@@ -81,6 +81,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                 <h3 className="text-display-md text-apple-ink tracking-tight font-display">고급 설정</h3>
                 <button
                   onClick={onClose}
+                  aria-label="고급 설정 닫기"
                   className="w-11 h-11 flex items-center justify-center rounded-full bg-apple-surface-chip-translucent text-apple-ink hover:bg-apple-surface-chip-translucent/80 active:scale-90 transition-all shadow-sm"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -92,9 +93,10 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
               <div className="space-y-10 flex flex-col items-start">
                 {/* 1. 자산 선택 및 기대 수익률 */}
                 <div className="w-full">
-                  <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">투자 자산 (Backtest)</label>
+                  <label htmlFor="asset-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">투자 자산 (Backtest)</label>
                   <div className="relative">
                     <select 
+                      id="asset-type-select"
                       value={assetType}
                       onChange={(e) => setAssetType(e.target.value as AssetType)}
                       className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all appearance-none mb-6 font-text"
@@ -116,8 +118,9 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
 
                   {assetType === 'CUSTOM' ? (
                     <div className="flex flex-col items-start">
-                      <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (%)</label>
+                      <label htmlFor="annual-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (%)</label>
                       <input 
+                        id="annual-rate-input"
                         type="number" 
                         step="0.1"
                         value={annualRate * 100}
@@ -137,9 +140,10 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
 
                 {/* 2. 투자 전략 */}
                 <div className="w-full">
-                  <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">투자 전략</label>
+                  <label htmlFor="strategy-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">투자 전략</label>
                   <div className="relative">
                     <select 
+                      id="strategy-type-select"
                       value={strategyType}
                       onChange={(e) => setStrategyType(e.target.value as StrategyType)}
                       className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary transition-all appearance-none font-text"
@@ -157,15 +161,19 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                 {/* 3. 계좌 유형 */}
                 <div className="w-full">
                   <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">계좌 유형</label>
-                  <div className="flex gap-3 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline">
+                  <div className="flex gap-3 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline" role="radiogroup" aria-label="계좌 유형 선택">
                     <button 
                       onClick={() => setAccountType('GENERAL')}
+                      aria-pressed={accountType === 'GENERAL'}
+                      aria-label="일반 계좌 선택"
                       className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${accountType === 'GENERAL' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
                     >
                       일반 계좌
                     </button>
                     <button 
                       onClick={() => setAccountType('ISA')}
+                      aria-pressed={accountType === 'ISA'}
+                      aria-label="ISA 절세 계좌 선택"
                       className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${accountType === 'ISA' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
                     >
                       ISA (절세)
@@ -175,8 +183,9 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
 
                 {/* 4. 물가상승률 */}
                 <div className="w-full">
-                  <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">물가상승률 (%)</label>
+                  <label htmlFor="inflation-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">물가상승률 (%)</label>
                   <input 
+                    id="inflation-rate-input"
                     type="number" 
                     step="0.1"
                     value={inflationRate * 100}
