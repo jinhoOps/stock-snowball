@@ -7,13 +7,11 @@
 - [ ] 환율 변동성 시뮬레이션 엔진 (원화 가치 환산)
 - [ ] 투자 전략 확장 (Value Averaging, Rebalancing 시뮬레이션)
 - [ ] 다중 시나리오 비교 차트 (Comparison Chart)
-- [ ] 국가별/자산별 프리셋(Presets) 데이터 구축
 
 ## Task List
 
 ### 3.1 Realistic Finance Modules
 - [ ] 세금 계산 엔진 구현: 일반 계좌 vs ISA 계좌 혜택 시뮬레이션
-- [ ] 매수/매도 수수료 누적 로직 구현
 - [ ] 실질 세후 수익률(Post-tax Returns) 지표 추가
 
 ### 3.2 Currency & Strategy Extension
