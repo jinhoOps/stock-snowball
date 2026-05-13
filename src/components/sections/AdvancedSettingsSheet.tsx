@@ -1,24 +1,14 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AccountType, StrategyType, AssetType, ContributionCycle } from '../../types/finance';
+import { StrategyType, AssetType, SimulationParams, ContributionCycle } from '../../types/finance';
 
 interface AdvancedSettingsSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  assetType: AssetType;
-  setAssetType: (v: AssetType) => void;
-  annualRate: number;
-  setAnnualRate: (v: number) => void;
-  strategyType: StrategyType;
-  setStrategyType: (v: StrategyType) => void;
-  accountType: AccountType;
-  setAccountType: (v: AccountType) => void;
-  inflationRate: number;
-  setInflationRate: (v: number) => void;
+  params: SimulationParams;
+  setParams: (p: SimulationParams) => void;
   exchangeRate: number;
   setExchangeRate: (v: number) => void;
-  contributionCycle: ContributionCycle;
-  setContributionCycle: (v: ContributionCycle) => void;
 }
 
 const sheetVariants = {
@@ -33,22 +23,16 @@ const sheetVariants = {
 const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
   isOpen,
   onClose,
-  assetType,
-  setAssetType,
-  annualRate,
-  setAnnualRate,
-  strategyType,
-  setStrategyType,
-  accountType,
-  setAccountType,
-  inflationRate,
-  setInflationRate,
+  params,
+  setParams,
   exchangeRate,
   setExchangeRate,
-  contributionCycle,
-  setContributionCycle
 }) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  const updateParam = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
+    setParams({ ...params, [key]: value });
+  };
 
   // Prevent scrolling on body when sheet is open
   useEffect(() => {
@@ -105,8 +89,8 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   <div className="relative">
                     <select 
                       id="asset-type-select"
-                      value={assetType}
-                      onChange={(e) => setAssetType(e.target.value as AssetType)}
+                      value={params.assetType}
+                      onChange={(e) => updateParam('assetType', e.target.value as AssetType)}
                       className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all appearance-none mb-6 font-text"
                     >
                       <option value="CUSTOM">사용자 정의 (고정 수익률)</option>
@@ -124,15 +108,15 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     </div>
                   </div>
 
-                  {assetType === 'CUSTOM' ? (
+                  {params.assetType === 'CUSTOM' ? (
                     <div className="flex flex-col items-start">
                       <label htmlFor="annual-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (%)</label>
                       <input 
                         id="annual-rate-input"
                         type="number" 
                         step="0.1"
-                        value={annualRate * 100}
-                        onChange={(e) => setAnnualRate(Number(e.target.value) / 100)}
+                        value={params.rate * 100}
+                        onChange={(e) => updateParam('rate', Number(e.target.value) / 100)}
                         className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                       />
                     </div>
@@ -152,8 +136,8 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   <div className="relative mb-6">
                     <select 
                       id="strategy-type-select"
-                      value={strategyType}
-                      onChange={(e) => setStrategyType(e.target.value as StrategyType)}
+                      value={params.strategyType}
+                      onChange={(e) => updateParam('strategyType', e.target.value as StrategyType)}
                       className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary transition-all appearance-none font-text"
                     >
                       <option value="FIXED">정액 적립식 (Fixed)</option>
@@ -170,9 +154,9 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     {(['DAILY', 'WEEKLY', 'MONTHLY'] as ContributionCycle[]).map((cycle) => (
                       <button
                         key={cycle}
-                        onClick={() => setContributionCycle(cycle)}
+                        onClick={() => updateParam('cycle', cycle)}
                         className={`flex-1 h-10 rounded-pill text-[13px] font-medium transition-all ${
-                          contributionCycle === cycle 
+                          params.cycle === cycle 
                             ? 'bg-apple-surface-black text-apple-on-dark shadow-sm' 
                             : 'text-apple-ink-muted-48 hover:text-apple-ink'
                         }`}
@@ -201,18 +185,18 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">계좌 유형</label>
                   <div className="flex gap-3 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline" role="radiogroup" aria-label="계좌 유형 선택">
                     <button 
-                      onClick={() => setAccountType('GENERAL')}
-                      aria-pressed={accountType === 'GENERAL'}
+                      onClick={() => updateParam('accountType', 'GENERAL')}
+                      aria-pressed={params.accountType === 'GENERAL'}
                       aria-label="일반 계좌 선택"
-                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${accountType === 'GENERAL' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
+                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${params.accountType === 'GENERAL' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
                     >
                       일반 계좌
                     </button>
                     <button 
-                      onClick={() => setAccountType('ISA')}
-                      aria-pressed={accountType === 'ISA'}
+                      onClick={() => updateParam('accountType', 'ISA')}
+                      aria-pressed={params.accountType === 'ISA'}
                       aria-label="ISA 절세 계좌 선택"
-                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${accountType === 'ISA' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
+                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${params.accountType === 'ISA' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
                     >
                       ISA (절세)
                     </button>
@@ -226,8 +210,8 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     id="inflation-rate-input"
                     type="number" 
                     step="0.1"
-                    value={inflationRate * 100}
-                    onChange={(e) => setInflationRate(Number(e.target.value) / 100)}
+                    value={params.inflationRate * 100}
+                    onChange={(e) => updateParam('inflationRate', Number(e.target.value) / 100)}
                     className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                   />
                   <p className="mt-3 text-fine-print text-apple-ink-muted-48 ml-1">실질 가치 계산을 위해 사용됩니다.</p>

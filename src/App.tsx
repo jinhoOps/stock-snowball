@@ -11,7 +11,7 @@ import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { useScenarios } from './hooks/useScenarios';
-import { AccountType, StrategyType, StrategyConfig, SimulationResult, AssetType, SimulationMode, ContributionCycle } from './types/finance';
+import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams } from './types/finance';
 import { getHistoricalData } from './data/historicalAssets';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
@@ -34,26 +34,64 @@ function App() {
   
   // Basic State
   const [mode, setMode] = useState<SimulationMode>('PROJECTION');
-  const [assetType, setAssetType] = useState<AssetType>('CUSTOM');
   const [currency, setCurrency] = useState<'KRW' | 'USD'>('KRW');
   const [exchangeRate, setExchangeRate] = useState(1450); // 기본 환율
-  const [contributionCycle, setContributionCycle] = useState<ContributionCycle>('MONTHLY');
-  const [principal, setPrincipal] = useState(10000000); 
-  const [rate, setRate] = useState(0.08); 
-  const [years, setYears] = useState(10);
   const [scenarioName, setScenarioName] = useState('기본 시나리오');
-
-  // Advanced State
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-  const [strategyType, setStrategyType] = useState<StrategyType>('FIXED');
-  const [strategyBaseAmount, setStrategyBaseAmount] = useState(1000000); // 월 100만원
-  const [strategyIncreaseRate, setStrategyIncreaseRate] = useState(0.05);
-  const [accountType, setAccountType] = useState<AccountType>('GENERAL');
-  const [inflationRate, setInflationRate] = useState(0.02);
 
-  // Backtest specific state (dates)
-  const [backtestStartDate, _setBacktestStartDate] = useState('2010-01-01');
-  const [backtestEndDate, _setBacktestEndDate] = useState('2024-01-01');
+  // Decoupled Parameters
+  const [projectionParams, setProjectionParams] = useState<SimulationParams>({
+    principal: 10000000,
+    contribution: 1000000,
+    cycle: 'MONTHLY',
+    assetType: 'CUSTOM',
+    years: 10,
+    rate: 0.08,
+    accountType: 'GENERAL',
+    inflationRate: 0.02,
+    strategyType: 'FIXED',
+    strategyIncreaseRate: 0.05,
+  });
+
+  const [backtestParams, setBacktestParams] = useState<SimulationParams>({
+    principal: 10000000,
+    contribution: 1000000,
+    cycle: 'MONTHLY',
+    assetType: 'SPY',
+    years: 10,
+    rate: 0.08,
+    accountType: 'GENERAL',
+    inflationRate: 0.02,
+    strategyType: 'FIXED',
+    strategyIncreaseRate: 0.05,
+    startDate: '2010-01-01',
+    endDate: '2024-01-01',
+  });
+
+  const activeParams = mode === 'PROJECTION' ? projectionParams : backtestParams;
+  
+  const handleUpdateParams = (newParams: SimulationParams) => {
+    if (mode === 'PROJECTION') {
+      setProjectionParams(newParams);
+    } else {
+      setBacktestParams(newParams);
+    }
+  };
+
+  const handleCurrencyChange = (newCurrency: 'KRW' | 'USD') => {
+    if (newCurrency === currency) return;
+
+    // Convert values for both modes
+    const convert = (params: SimulationParams) => ({
+      ...params,
+      principal: SnowballEngine.convertCurrency(params.principal, exchangeRate, newCurrency),
+      contribution: SnowballEngine.convertCurrency(params.contribution, exchangeRate, newCurrency),
+    });
+
+    setProjectionParams(convert(projectionParams));
+    setBacktestParams(convert(backtestParams));
+    setCurrency(newCurrency);
+  };
 
   // Comparison State
   const [comparingScenarioIds, setComparingScenarioIds] = useState<string[]>([]);
@@ -61,39 +99,47 @@ function App() {
 
   const activeSimulation = useMemo(() => {
     const strategy: StrategyConfig = {
-      type: strategyType,
-      baseAmount: strategyBaseAmount,
-      increaseRate: strategyIncreaseRate,
+      type: projectionParams.strategyType,
+      baseAmount: projectionParams.contribution,
+      increaseRate: projectionParams.strategyIncreaseRate,
     };
 
     return SnowballEngine.simulate(
-      principal,
-      rate,
-      years,
+      projectionParams.principal,
+      projectionParams.rate,
+      projectionParams.years,
       strategy,
-      inflationRate,
-      accountType,
+      projectionParams.inflationRate,
+      projectionParams.accountType,
       undefined,
       undefined,
       undefined,
       30,
-      assetType
+      projectionParams.assetType
     );
-  }, [principal, rate, years, strategyType, strategyBaseAmount, strategyIncreaseRate, inflationRate, accountType, assetType]);
+  }, [projectionParams]);
 
   const activeBacktest = useMemo(() => {
     if (mode !== 'BACKTEST') return null;
     
-    // SPY 데이터를 기본으로 사용 (자산 선택 로직은 추후 고도화)
-    const data = getHistoricalData(assetType === 'CUSTOM' ? 'SPY' : assetType);
+    // SPY 데이터를 기본으로 사용
+    const data = getHistoricalData(backtestParams.assetType === 'CUSTOM' ? 'SPY' : backtestParams.assetType);
     
     const params = {
-      initialPrincipal: principal,
-      monthlyInstallment: strategyBaseAmount,
-      startDate: backtestStartDate,
-      endDate: backtestEndDate,
+      initialPrincipal: backtestParams.principal,
+      monthlyInstallment: backtestParams.contribution,
+      cycle: backtestParams.cycle,
+      startDate: backtestParams.startDate || '2010-01-01',
+      endDate: backtestParams.endDate || '2024-01-01',
       reinvestDividends: true,
-      assetId: assetType,
+      assetId: backtestParams.assetType,
+      accountType: backtestParams.accountType,
+      buyFeeRate: 0.00015, // Default fee
+      sellFeeRate: 0.00015,
+      taxDividendRate: 0.154,
+      taxCapitalGainRate: 0.22,
+      taxIsaLimit: 2000000,
+      taxIsaReducedRate: 0.095,
     };
 
     try {
@@ -102,12 +148,12 @@ function App() {
       console.error('Backtest error:', e);
       return null;
     }
-  }, [mode, assetType, principal, strategyBaseAmount, backtestStartDate, backtestEndDate]);
+  }, [mode, backtestParams]);
 
   const activeResult: SimulationResult = activeSimulation[activeSimulation.length - 1];
   const totalReturn = activeResult.postTaxValue - activeResult.totalContribution;
   const returnPercentage = (totalReturn / activeResult.totalContribution) * 100;
-  const cagr = years > 0 ? (Math.pow(activeResult.postTaxValue / activeResult.totalContribution, 1 / years) - 1) * 100 : 0;
+  const cagr = projectionParams.years > 0 ? (Math.pow(activeResult.postTaxValue / activeResult.totalContribution, 1 / projectionParams.years) - 1) * 100 : 0;
   
   // Milestone Celebration Effect
   useEffect(() => {
@@ -168,19 +214,19 @@ function App() {
       await addScenario({
         name: scenarioName,
         simulationMode: mode,
-        backtestStartDate,
-        backtestEndDate,
+        backtestStartDate: activeParams.startDate,
+        backtestEndDate: activeParams.endDate,
         reinvestDividends: true,
-        principal,
-        annualRate: rate,
-        years,
-        dailyContribution: strategyBaseAmount / 30.42, // legacy field
-        strategyType,
-        strategyBaseAmount,
-        strategyIncreaseRate,
-        assetType,
-        accountType,
-        inflationRate,
+        principal: activeParams.principal,
+        annualRate: activeParams.rate,
+        years: activeParams.years,
+        dailyContribution: activeParams.contribution / 30.42, // legacy field
+        strategyType: activeParams.strategyType,
+        strategyBaseAmount: activeParams.contribution,
+        strategyIncreaseRate: activeParams.strategyIncreaseRate,
+        assetType: activeParams.assetType,
+        accountType: activeParams.accountType,
+        inflationRate: activeParams.inflationRate,
         buyFeeRate: 0.00015,
         sellFeeRate: 0.00015,
         taxDividendRate: 0.154,
@@ -218,25 +264,19 @@ function App() {
               
               <SimulationControls 
                 mode={mode} setMode={setMode}
-                principal={principal} setPrincipal={setPrincipal}
-                years={years} setYears={setYears}
-                strategyBaseAmount={strategyBaseAmount} setStrategyBaseAmount={setStrategyBaseAmount}
-                currency={currency} setCurrency={setCurrency}
+                params={activeParams}
+                setParams={handleUpdateParams}
+                currency={currency} setCurrency={handleCurrencyChange}
                 exchangeRate={exchangeRate}
-                contributionCycle={contributionCycle}
                 onOpenAdvanced={() => setIsAdvancedOpen(true)}
               />
 
               <AdvancedSettingsSheet 
                 isOpen={isAdvancedOpen}
                 onClose={() => setIsAdvancedOpen(false)}
-                assetType={assetType} setAssetType={setAssetType}
-                annualRate={rate} setAnnualRate={setRate}
-                strategyType={strategyType} setStrategyType={setStrategyType}
-                accountType={accountType} setAccountType={setAccountType}
-                inflationRate={inflationRate} setInflationRate={setInflationRate}
+                params={activeParams}
+                setParams={handleUpdateParams}
                 exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
-                contributionCycle={contributionCycle} setContributionCycle={setContributionCycle}
               />
 
               <motion.div layout className="flex gap-4 mb-16 w-full max-w-[500px]">
@@ -268,7 +308,7 @@ function App() {
                   {mode === 'PROJECTION' ? (
                     <>
                       <div className="mb-10 text-center">
-                        <span className="text-caption-strong text-apple-ink-muted-48 block mb-2 tracking-tight uppercase font-display">{years}년 후 예상 자산 (세후 실질 가치)</span>
+                        <span className="text-caption-strong text-apple-ink-muted-48 block mb-2 tracking-tight uppercase font-display">{projectionParams.years}년 후 예상 자산 (세후 실질 가치)</span>
                         <span className="text-display-lg text-apple-primary font-display tracking-tight">
                           {SnowballEngine.formatBigNumber(activeResult.postTaxValue, currency)}
                         </span>
@@ -336,7 +376,7 @@ function App() {
                   ) : (
                     activeBacktest && (
                       <div className="w-full max-w-[1200px]">
-                        <BacktestView result={activeBacktest} assetName={assetType === 'CUSTOM' ? 'SPY' : assetType} />
+                        <BacktestView result={activeBacktest} assetName={backtestParams.assetType === 'CUSTOM' ? 'SPY' : backtestParams.assetType} />
                       </div>
                     )
                   )}
@@ -362,17 +402,25 @@ function App() {
                     className={`bg-apple-canvas border rounded-lg p-6 transition-all cursor-pointer shadow-sm relative overflow-hidden ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-2 ring-apple-primary/20' : 'border-apple-hairline hover:border-apple-primary/30'}`}
                     onClick={() => {
                       setMode(s.simulationMode || 'PROJECTION');
-                      if (s.backtestStartDate) _setBacktestStartDate(s.backtestStartDate);
-                      if (s.backtestEndDate) _setBacktestEndDate(s.backtestEndDate);
-                      setAssetType(s.assetType || 'CUSTOM');
-                      setPrincipal(s.principal);
-                      setRate(s.annualRate);
-                      setYears(s.years);
-                      setStrategyType(s.strategyType);
-                      setStrategyBaseAmount(s.strategyBaseAmount);
-                      setStrategyIncreaseRate(s.strategyIncreaseRate || 0.05);
-                      setAccountType(s.accountType);
-                      setInflationRate(s.inflationRate);
+                      const newParams: SimulationParams = {
+                        principal: s.principal,
+                        contribution: s.strategyBaseAmount,
+                        cycle: s.contributionCycle || 'MONTHLY',
+                        assetType: s.assetType || 'CUSTOM',
+                        years: s.years,
+                        rate: s.annualRate,
+                        accountType: s.accountType,
+                        inflationRate: s.inflationRate,
+                        strategyType: s.strategyType,
+                        strategyIncreaseRate: s.strategyIncreaseRate || 0.05,
+                        startDate: s.backtestStartDate,
+                        endDate: s.backtestEndDate,
+                      };
+                      if (s.simulationMode === 'BACKTEST') {
+                        setBacktestParams(newParams);
+                      } else {
+                        setProjectionParams(newParams);
+                      }
                       setScenarioName(s.name);
                     }}
                   >

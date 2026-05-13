@@ -1,42 +1,33 @@
 import React from 'react';
-import { SimulationMode, ContributionCycle } from '../../types/finance';
+import { SimulationMode, SimulationParams } from '../../types/finance';
 import { motion } from 'framer-motion';
 import { BigNumberHelper } from '../common/BigNumberHelper';
 import { NumericInput } from '../common/NumericInput';
-import { SnowballEngine } from '../../core/SnowballEngine';
+import ScenarioPresetPicker, { PRESET_SCENARIOS } from '../common/ScenarioPresetPicker';
 
 interface SimulationControlsProps {
   mode: SimulationMode;
   setMode: (m: SimulationMode) => void;
-  principal: number;
-  setPrincipal: (v: number) => void;
-  years: number;
-  setYears: (v: number) => void;
-  strategyBaseAmount: number;
-  setStrategyBaseAmount: (v: number) => void;
+  params: SimulationParams;
+  setParams: (p: SimulationParams) => void;
   currency: 'KRW' | 'USD';
   setCurrency: (c: 'KRW' | 'USD') => void;
   exchangeRate: number;
-  contributionCycle: ContributionCycle;
   onOpenAdvanced: () => void;
 }
 
 const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
   const handleCurrencyToggle = (newCurrency: 'KRW' | 'USD') => {
-    if (newCurrency === props.currency) return;
-
-    // 통화 전환 시 현재 입력값들을 환산
-    const newPrincipal = SnowballEngine.convertCurrency(props.principal, props.exchangeRate, newCurrency);
-    const newBaseAmount = SnowballEngine.convertCurrency(props.strategyBaseAmount, props.exchangeRate, newCurrency);
-
     props.setCurrency(newCurrency);
-    props.setPrincipal(newPrincipal);
-    props.setStrategyBaseAmount(newBaseAmount);
+  };
+
+  const updateParam = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
+    props.setParams({ ...props.params, [key]: value });
   };
 
   const cycleLabel = 
-    props.contributionCycle === 'DAILY' ? '일' : 
-    props.contributionCycle === 'WEEKLY' ? '주' : '월';
+    props.params.cycle === 'DAILY' ? '일' : 
+    props.params.cycle === 'WEEKLY' ? '주' : '월';
 
   return (
     <div className="flex flex-col gap-8 mb-12 w-full max-w-[1000px] items-center">
@@ -108,22 +99,22 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
           </label>
           <NumericInput 
             id="principal-input"
-            value={props.principal}
-            onChange={props.setPrincipal}
+            value={props.params.principal}
+            onChange={(v) => updateParam('principal', v)}
             className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
           />
-          <BigNumberHelper value={props.principal} currency={props.currency} className="ml-4" />
+          <BigNumberHelper value={props.params.principal} currency={props.currency} className="ml-4" />
         </div>
 
         <div className="flex-1 flex flex-col items-start w-full">
           <label htmlFor="monthly-investment-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">매{cycleLabel} 납입액 ({props.currency})</label>
           <NumericInput 
             id="monthly-investment-input"
-            value={props.strategyBaseAmount}
-            onChange={props.setStrategyBaseAmount}
+            value={props.params.contribution}
+            onChange={(v) => updateParam('contribution', v)}
             className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
           />
-          <BigNumberHelper value={props.strategyBaseAmount} currency={props.currency} className="ml-4" />
+          <BigNumberHelper value={props.params.contribution} currency={props.currency} className="ml-4" />
         </div>
 
         {/* 2순위: 기간 */}
@@ -136,19 +127,52 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
                 type="range" 
                 min="1" 
                 max="30"
-                value={Math.min(props.years, 30)}
-                onChange={(e) => props.setYears(Number(e.target.value))}
+                value={Math.min(props.params.years, 30)}
+                onChange={(e) => updateParam('years', Number(e.target.value))}
                 className="flex-1 accent-apple-primary h-2 bg-apple-hairline rounded-pill appearance-none cursor-pointer"
                 aria-label="투자 기간 조절"
               />
               <NumericInput 
                 id="years-number"
-                value={props.years}
-                onChange={props.setYears}
+                value={props.params.years}
+                onChange={(v) => updateParam('years', v)}
                 className="w-20 h-12 bg-apple-canvas border border-apple-hairline rounded-pill text-body outline-none focus:border-apple-primary text-center font-text"
                 aria-label="투자 기간 직접 입력"
               />
             </div>
+          </div>
+        )}
+
+        {/* BACKTEST Dates */}
+        {props.mode === 'BACKTEST' && (
+          <div className="flex-[2] flex flex-col items-start w-full">
+             <label className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">백테스트 기간</label>
+             <div className="flex flex-col gap-4 w-full">
+               <div className="flex gap-4 w-full h-12">
+                 <input 
+                  type="date"
+                  value={props.params.startDate}
+                  onChange={(e) => updateParam('startDate', e.target.value)}
+                  className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 text-body outline-none focus:border-apple-primary transition-all font-text"
+                 />
+                 <input 
+                  type="date"
+                  value={props.params.endDate}
+                  onChange={(e) => updateParam('endDate', e.target.value)}
+                  className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 text-body outline-none focus:border-apple-primary transition-all font-text"
+                 />
+               </div>
+               <ScenarioPresetPicker 
+                 onSelect={(preset) => {
+                   props.setParams({
+                     ...props.params,
+                     startDate: preset.startDate,
+                     endDate: preset.endDate
+                   });
+                 }}
+                 activePresetName={PRESET_SCENARIOS.find(p => p.startDate === props.params.startDate && p.endDate === props.params.endDate)?.name}
+               />
+             </div>
           </div>
         )}
       </div>

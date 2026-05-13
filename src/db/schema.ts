@@ -16,6 +16,7 @@ export interface ScenarioDocument {
   strategyBaseAmount: number;
   strategyIncreaseRate?: number;
   strategyTargetGrowth?: number;
+  contributionCycle?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   assetType: AssetType;
   accountType: 'GENERAL' | 'ISA';
   inflationRate: number;
@@ -87,6 +88,10 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
     },
     strategyTargetGrowth: {
       type: 'number',
+    },
+    contributionCycle: {
+      type: 'string',
+      enum: ['DAILY', 'WEEKLY', 'MONTHLY'],
     },
     assetType: {
       type: 'string',

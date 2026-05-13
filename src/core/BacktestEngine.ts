@@ -25,9 +25,14 @@ export class BacktestEngine {
     const { 
       initialPrincipal, 
       monthlyInstallment, 
+      cycle,
       startDate, 
       endDate, 
-      reinvestDividends 
+      reinvestDividends,
+      accountType,
+      buyFeeRate,
+      taxIsaLimit,
+      taxIsaReducedRate
     } = params;
 
     // 기간 내 데이터 필터링 및 정렬
@@ -51,13 +56,12 @@ export class BacktestEngine {
     let unitPricePeak = new Decimal(-Infinity);
     let currentUnitPrice = new Decimal(100); // 기준가 100으로 시작
 
-    let lastInvestmentMonth = '';
+    let lastInvestmentDate = '';
 
     // 시뮬레이션 루프
     for (let i = 0; i < filteredData.length; i++) {
       const point = filteredData[i];
       const currentPrice = new Decimal(point.price);
-      const currentMonth = point.date.substring(0, 7); // YYYY-MM
       
       if (isLiquidated) {
         history.push({
@@ -76,20 +80,46 @@ export class BacktestEngine {
         currentUnitPrice = currentUnitPrice.times(assetReturn.plus(1));
       }
 
-      // 1. 자금 투입
-      // 초기 자본 투입 (첫 데이터 포인트에서만 실행)
+      // 1. 자금 투입 로직
+      let shouldInvest = false;
       if (i === 0) {
-        const initial = new Decimal(initialPrincipal);
-        cash = cash.plus(initial);
-        totalPrincipal = totalPrincipal.plus(initial);
+        shouldInvest = true;
+      } else {
+        const currentDate = new Date(point.date);
+        const prevInvestDate = new Date(lastInvestmentDate);
+        
+        if (cycle === 'DAILY') {
+          shouldInvest = true;
+        } else if (cycle === 'WEEKLY') {
+          const diffDays = Math.floor((currentDate.getTime() - prevInvestDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 7) {
+            shouldInvest = true;
+          }
+        } else if (cycle === 'MONTHLY') {
+          if (currentDate.getMonth() !== prevInvestDate.getMonth() || currentDate.getFullYear() !== prevInvestDate.getFullYear()) {
+            shouldInvest = true;
+          }
+        }
       }
-      
-      // 월간 적립금 투입 (월이 바뀔 때마다 실행)
-      if (currentMonth !== lastInvestmentMonth) {
-        const installment = new Decimal(monthlyInstallment);
-        cash = cash.plus(installment);
-        totalPrincipal = totalPrincipal.plus(installment);
-        lastInvestmentMonth = currentMonth;
+
+      if (shouldInvest) {
+        // 첫 투입 시 초기 자본과 첫 적립금을 동시에 투입
+        let totalInjection = new Decimal(0);
+        if (i === 0) {
+          totalInjection = totalInjection.plus(initialPrincipal).plus(monthlyInstallment);
+        } else {
+          totalInjection = totalInjection.plus(monthlyInstallment);
+        }
+        
+        if (totalInjection.gt(0)) {
+          // 매수 수수료 적용
+          const fee = totalInjection.times(buyFeeRate);
+          const netInjection = totalInjection.minus(fee);
+          
+          cash = cash.plus(netInjection);
+          totalPrincipal = totalPrincipal.plus(totalInjection);
+        }
+        lastInvestmentDate = point.date;
       }
 
       // 2. 보유 수량에 따른 현재 가치 계산 (배당 포함 전)
@@ -101,11 +131,14 @@ export class BacktestEngine {
       let currentValue = currentShares.times(currentPrice);
 
       // 3. 배당금 재투자 (TR)
+      // 배당금이 누락된 경우 자산의 일반적인 배당률을 사용할 수 있으나, 여기서는 0으로 처리하거나 
+      // 데이터가 있는 경우에만 처리 (Task 3: robust dividend handling)
       if (reinvestDividends && point.dividendYield && point.dividendYield > 0) {
         const dy = new Decimal(point.dividendYield);
         const dividendAmount = currentValue.times(dy);
         
         if (currentPrice.gt(0)) {
+          // 배당 재투자 시에도 매수 수수료가 발생하는지? (보통 발생하지 않거나 낮음, 여기서는 0으로 가정)
           currentShares = currentShares.plus(dividendAmount.dividedBy(currentPrice));
           currentValue = currentShares.times(currentPrice);
           // 단위 가격에도 배당 반영하여 TR(Total Return) 지수화
@@ -137,8 +170,21 @@ export class BacktestEngine {
       });
     }
 
-    const finalValue = history[history.length - 1].value;
+    let finalValue = history[history.length - 1].value;
     const finalTotalPrincipal = SnowballEngine.bankersRounding(totalPrincipal).toNumber();
+
+    // 6. 세금 계산 (ISA 특례 적용)
+    let estimatedTax = 0;
+    if (accountType === 'ISA' && finalValue > finalTotalPrincipal) {
+      const gains = finalValue - finalTotalPrincipal;
+      if (gains > taxIsaLimit) {
+        estimatedTax = (gains - taxIsaLimit) * taxIsaReducedRate;
+      }
+    }
+    // 일반 계좌의 경우 매도 시점에 양도소득세가 발생하지만, 백테스트 종료 시점의 '미실현 수익'에 대한
+    // 보수적 추정을 위해 여기서는 일단 ISA만 적용하거나 추후 확장 가능
+    finalValue = finalValue - estimatedTax;
+
     const totalReturn = finalTotalPrincipal > 0 ? (finalValue - finalTotalPrincipal) / finalTotalPrincipal : 0;
 
     // 최종 연 배당금 계산

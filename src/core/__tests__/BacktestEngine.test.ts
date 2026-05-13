@@ -10,15 +10,29 @@ describe('BacktestEngine', () => {
     { date: '2023-04-01', price: 121, dividendYield: 0.01 }, // 저점(99) 대비 22.2% 상승
   ];
 
+  const defaultParams: BacktestParams = {
+    initialPrincipal: 1000000,
+    monthlyInstallment: 0,
+    cycle: 'MONTHLY',
+    startDate: '2023-01-01',
+    endDate: '2023-04-01',
+    reinvestDividends: false,
+    assetId: 'SPY',
+    accountType: 'GENERAL',
+    buyFeeRate: 0,
+    sellFeeRate: 0,
+    taxDividendRate: 0,
+    taxCapitalGainRate: 0,
+    taxIsaLimit: 0,
+    taxIsaReducedRate: 0,
+  };
+
   describe('LumpSum Simulation (거치식)', () => {
     it('배당 재투자 없이 정확한 수익률을 계산해야 한다', () => {
       const params: BacktestParams = {
+        ...defaultParams,
         initialPrincipal: 1000000,
         monthlyInstallment: 0,
-        startDate: '2023-01-01',
-        endDate: '2023-04-01',
-        reinvestDividends: false,
-        assetId: 'SPY'
       };
 
       const result = BacktestEngine.run(params, sampleData);
@@ -30,12 +44,9 @@ describe('BacktestEngine', () => {
 
     it('MDD(최대 낙폭)를 올바르게 계산해야 한다', () => {
       const params: BacktestParams = {
+        ...defaultParams,
         initialPrincipal: 1000000,
         monthlyInstallment: 0,
-        startDate: '2023-01-01',
-        endDate: '2023-04-01',
-        reinvestDividends: false,
-        assetId: 'SPY'
       };
 
       const result = BacktestEngine.run(params, sampleData);
@@ -46,12 +57,10 @@ describe('BacktestEngine', () => {
 
     it('배당 재투자(TR) 반영 시 수익률이 증가해야 한다', () => {
       const params: BacktestParams = {
+        ...defaultParams,
         initialPrincipal: 1000000,
         monthlyInstallment: 0,
-        startDate: '2023-01-01',
-        endDate: '2023-04-01',
         reinvestDividends: true,
-        assetId: 'SPY'
       };
 
       const result = BacktestEngine.run(params, sampleData);
@@ -67,12 +76,9 @@ describe('BacktestEngine', () => {
   describe('Installment Simulation (적립식)', () => {
     it('매월 적립금이 정확히 반영되어야 한다', () => {
       const params: BacktestParams = {
+        ...defaultParams,
         initialPrincipal: 0,
         monthlyInstallment: 1000000,
-        startDate: '2023-01-01',
-        endDate: '2023-04-01',
-        reinvestDividends: false,
-        assetId: 'SPY'
       };
 
       const result = BacktestEngine.run(params, sampleData);
@@ -94,12 +100,11 @@ describe('BacktestEngine', () => {
       ];
 
       const params: BacktestParams = {
+        ...defaultParams,
         initialPrincipal: 1000000,
         monthlyInstallment: 0,
         startDate: '2023-01-01',
         endDate: '2023-02-01',
-        reinvestDividends: false,
-        assetId: 'SPY'
       };
 
       const result = BacktestEngine.run(params, crashData);
@@ -120,12 +125,11 @@ describe('BacktestEngine', () => {
       }
       
       const params: BacktestParams = {
+        ...defaultParams,
         initialPrincipal: 1000000,
         monthlyInstallment: 0,
         startDate: '2010-01-01',
         endDate: '2019-12-01',
-        reinvestDividends: false,
-        assetId: 'SPY'
       };
 
       const result = BacktestEngine.run(params, longData);
@@ -139,12 +143,9 @@ describe('BacktestEngine', () => {
 
     it('투자금이 모두 0이면 결과도 0이어야 한다', () => {
       const params: BacktestParams = {
+        ...defaultParams,
         initialPrincipal: 0,
         monthlyInstallment: 0,
-        startDate: '2023-01-01',
-        endDate: '2023-04-01',
-        reinvestDividends: false,
-        assetId: 'SPY'
       };
 
       const result = BacktestEngine.run(params, sampleData);
@@ -152,6 +153,77 @@ describe('BacktestEngine', () => {
       expect(result.metrics.finalValue).toBe(0);
       expect(result.metrics.totalPrincipal).toBe(0);
       expect(result.metrics.totalReturn).toBe(0);
+    });
+  });
+
+  describe('Cycle Support (D/W/M)', () => {
+    const dailyData = [
+      { date: '2023-01-01', price: 100 },
+      { date: '2023-01-02', price: 100 },
+      { date: '2023-01-03', price: 100 },
+      { date: '2023-01-04', price: 100 },
+      { date: '2023-01-05', price: 100 },
+      { date: '2023-01-06', price: 100 },
+      { date: '2023-01-07', price: 100 },
+      { date: '2023-01-08', price: 100 },
+    ];
+
+    it('DAILY cycle은 매 영업일(데이터 포인트)마다 투자해야 한다', () => {
+      const params: BacktestParams = {
+        ...defaultParams,
+        initialPrincipal: 0,
+        monthlyInstallment: 1000,
+        cycle: 'DAILY',
+        startDate: '2023-01-01',
+        endDate: '2023-01-08',
+      };
+
+      const result = BacktestEngine.run(params, dailyData);
+      // 8일 동안 매일 1000원씩 투자 -> 8000원
+      expect(result.metrics.totalPrincipal).toBe(8000);
+    });
+
+    it('WEEKLY cycle은 7일 간격으로 투자해야 한다', () => {
+      const params: BacktestParams = {
+        ...defaultParams,
+        initialPrincipal: 0,
+        monthlyInstallment: 1000,
+        cycle: 'WEEKLY',
+        startDate: '2023-01-01',
+        endDate: '2023-01-08',
+      };
+
+      const result = BacktestEngine.run(params, dailyData);
+      // 1월 1일(첫날) 투자, 그 후 1월 8일(7일 후) 투자 -> 2000원
+      expect(result.metrics.totalPrincipal).toBe(2000);
+    });
+  });
+
+  describe('Fees and Taxes', () => {
+    it('매수 수수료가 반영되어 최종 가치가 줄어들어야 한다', () => {
+      const params: BacktestParams = {
+        ...defaultParams,
+        buyFeeRate: 0.01, // 1% 수수료
+      };
+
+      const result = BacktestEngine.run(params, sampleData);
+      // 수수료 없을 때 1,210,000원이었음.
+      // 1% 수수료 적용 시 초기 100만 -> 99만 투자됨 -> 99만 * 1.21 = 1,197,900원
+      expect(result.metrics.finalValue).toBe(1197900);
+    });
+
+    it('ISA 계좌의 비과세 한도 초과 수익에 대해 세금이 적용되어야 한다', () => {
+      const params: BacktestParams = {
+        ...defaultParams,
+        accountType: 'ISA',
+        taxIsaLimit: 100000, // 10만 원 비과세
+        taxIsaReducedRate: 0.1, // 10% 과세
+      };
+
+      const result = BacktestEngine.run(params, sampleData);
+      // 수익 21만 원. 비과세 10만 원 제외 11만 원에 대해 10% 세금 -> 1.1만 원
+      // 최종 가치 = 121만 - 1.1만 = 1,199,000원
+      expect(result.metrics.finalValue).toBe(1199000);
     });
   });
 });

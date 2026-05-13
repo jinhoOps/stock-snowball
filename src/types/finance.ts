@@ -38,6 +38,21 @@ export interface SimulationResult {
   postTaxValue: number;
 }
 
+export interface SimulationParams {
+  principal: number;
+  contribution: number;
+  cycle: ContributionCycle;
+  assetType: AssetType;
+  years: number;
+  rate: number;
+  accountType: AccountType;
+  inflationRate: number;
+  strategyType: StrategyType;
+  strategyIncreaseRate: number;
+  startDate?: string;
+  endDate?: string;
+}
+
 /**
  * 백테스팅 관련 타입
  */
@@ -45,10 +60,18 @@ export interface SimulationResult {
 export interface BacktestParams {
   initialPrincipal: number;
   monthlyInstallment: number;
+  cycle: ContributionCycle;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   reinvestDividends: boolean;
   assetId: AssetType;
+  accountType: AccountType;
+  buyFeeRate: number;
+  sellFeeRate: number;
+  taxDividendRate: number;
+  taxCapitalGainRate: number;
+  taxIsaLimit: number;
+  taxIsaReducedRate: number;
 }
 
 export interface BacktestMetrics {
