@@ -6,6 +6,8 @@ export type AssetType = 'CUSTOM' | 'QQQM' | 'QLD' | 'TQQQ' | 'KOSPI' | 'KOSDAQ' 
 
 export type SimulationMode = 'PROJECTION' | 'BACKTEST';
 
+export type ContributionCycle = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
 export interface StrategyConfig {
   type: StrategyType;
   baseAmount: number; // 기본 불입금

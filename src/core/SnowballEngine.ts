@@ -125,21 +125,23 @@ export class SnowballEngine {
     ];
 
     let remaining = amount;
-    let result = '';
+    let parts: string[] = [];
 
     for (const { label, value: unitValue } of units) {
       if (remaining.gte(unitValue)) {
         const count = remaining.dividedBy(unitValue).floor();
-        result += `${count.toLocaleString()}${label} `;
+        parts.push(`${count.toNumber().toLocaleString()}${label}`);
         remaining = remaining.mod(unitValue);
       }
     }
 
-    if (remaining.gt(0) || result === '') {
-      result += `${remaining.toNumber().toLocaleString()}원`;
+    if (remaining.gt(0)) {
+      parts.push(`${remaining.toNumber().toLocaleString()}원`);
+    } else if (parts.length > 0) {
+      parts[parts.length - 1] += ' 원';
     }
 
-    return result.trim();
+    return parts.join(' ').trim();
   }
 
   /**
@@ -158,6 +160,43 @@ export class SnowballEngine {
    */
   static krwToUsd(krwAmount: Decimal | number | string, exchangeRate: number | Decimal): Decimal {
     return new Decimal(krwAmount).dividedBy(exchangeRate);
+  }
+
+  /**
+   * 통화 간의 자동 환산 기능을 수행합니다.
+   * @param value 변환할 금액
+   * @param rate 환율
+   * @param to 대상 통화
+   */
+  static convertCurrency(value: number, rate: number, to: 'KRW' | 'USD'): number {
+    const dValue = new Decimal(value);
+    const dRate = new Decimal(rate);
+    return to === 'USD' 
+      ? dValue.dividedBy(dRate).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN).toNumber()
+      : dValue.times(dRate).toDecimalPlaces(0, Decimal.ROUND_HALF_EVEN).toNumber();
+  }
+
+  /**
+   * 숫자를 달러(USD) 형식으로 포맷팅합니다.
+   * @param value 금액
+   */
+  static formatUSD(value: Decimal | number | string): string {
+    const amount = new Decimal(value);
+    if (amount.isZero()) return '$0';
+    
+    // Billion, Million 단위 대응
+    if (amount.abs().gte(1e9)) return `${amount.dividedBy(1e9).toFixed(2)} Billion $`;
+    if (amount.abs().gte(1e6)) return `${amount.dividedBy(1e6).toFixed(2)} Million $`;
+    return `${amount.toNumber().toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} $`;
+  }
+
+  /**
+   * 통화에 따라 대형 숫자를 읽기 쉬운 단위로 포맷팅합니다.
+   * @param value 금액
+   * @param currency 통화
+   */
+  static formatBigNumber(value: Decimal | number | string, currency: 'KRW' | 'USD'): string {
+    return currency === 'KRW' ? this.formatKoreanWon(value) : this.formatUSD(value);
   }
 
   /**

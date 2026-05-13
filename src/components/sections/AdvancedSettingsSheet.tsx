@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AccountType, StrategyType, AssetType } from '../../types/finance';
+import { AccountType, StrategyType, AssetType, ContributionCycle } from '../../types/finance';
 
 interface AdvancedSettingsSheetProps {
   isOpen: boolean;
@@ -15,6 +15,10 @@ interface AdvancedSettingsSheetProps {
   setAccountType: (v: AccountType) => void;
   inflationRate: number;
   setInflationRate: (v: number) => void;
+  exchangeRate: number;
+  setExchangeRate: (v: number) => void;
+  contributionCycle: ContributionCycle;
+  setContributionCycle: (v: ContributionCycle) => void;
 }
 
 const sheetVariants = {
@@ -38,7 +42,11 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
   accountType,
   setAccountType,
   inflationRate,
-  setInflationRate
+  setInflationRate,
+  exchangeRate,
+  setExchangeRate,
+  contributionCycle,
+  setContributionCycle
 }) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
@@ -90,7 +98,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                 </button>
               </div>
 
-              <div className="space-y-10 flex flex-col items-start">
+              <div className="space-y-10 flex flex-col items-start pb-10">
                 {/* 1. 자산 선택 및 기대 수익률 */}
                 <div className="w-full">
                   <label htmlFor="asset-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">투자 자산 (Backtest)</label>
@@ -138,10 +146,10 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   )}
                 </div>
 
-                {/* 2. 투자 전략 */}
+                {/* 2. 투자 전략 및 주기 */}
                 <div className="w-full">
                   <label htmlFor="strategy-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">투자 전략</label>
-                  <div className="relative">
+                  <div className="relative mb-6">
                     <select 
                       id="strategy-type-select"
                       value={strategyType}
@@ -156,9 +164,39 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </div>
                   </div>
+
+                  <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">납입 주기</label>
+                  <div className="flex gap-2 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline">
+                    {(['DAILY', 'WEEKLY', 'MONTHLY'] as ContributionCycle[]).map((cycle) => (
+                      <button
+                        key={cycle}
+                        onClick={() => setContributionCycle(cycle)}
+                        className={`flex-1 h-10 rounded-pill text-[13px] font-medium transition-all ${
+                          contributionCycle === cycle 
+                            ? 'bg-apple-surface-black text-apple-on-dark shadow-sm' 
+                            : 'text-apple-ink-muted-48 hover:text-apple-ink'
+                        }`}
+                      >
+                        {cycle === 'DAILY' ? '일' : cycle === 'WEEKLY' ? '주' : '월'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* 3. 계좌 유형 */}
+                {/* 3. 환율 설정 */}
+                <div className="w-full">
+                  <label htmlFor="exchange-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기준 환율 (KRW/USD)</label>
+                  <input 
+                    id="exchange-rate-input"
+                    type="number" 
+                    value={exchangeRate}
+                    onChange={(e) => setExchangeRate(Math.max(1, Number(e.target.value)))}
+                    className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
+                  />
+                  <p className="mt-3 text-fine-print text-apple-ink-muted-48 ml-1">통화 전환 및 자산 합산 시 사용됩니다.</p>
+                </div>
+
+                {/* 4. 계좌 유형 */}
                 <div className="w-full">
                   <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">계좌 유형</label>
                   <div className="flex gap-3 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline" role="radiogroup" aria-label="계좌 유형 선택">
@@ -181,7 +219,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   </div>
                 </div>
 
-                {/* 4. 물가상승률 */}
+                {/* 5. 물가상승률 */}
                 <div className="w-full">
                   <label htmlFor="inflation-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">물가상승률 (%)</label>
                   <input 

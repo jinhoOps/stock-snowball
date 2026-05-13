@@ -70,4 +70,36 @@ describe('SnowballEngine', () => {
       expect(a.plus(b).toNumber()).toBe(0.3);
     });
   });
+
+  describe('Currency Conversion & Formatting', () => {
+    const exchangeRate = 1450;
+
+    it('KRW -> USD 전환 시 Banker\'s Rounding이 적용되어야 합니다', () => {
+      // 1450원 -> 1달러
+      expect(SnowballEngine.convertCurrency(1450, exchangeRate, 'USD')).toBe(1);
+      // 2175원 -> 1.5달러
+      expect(SnowballEngine.convertCurrency(2175, exchangeRate, 'USD')).toBe(1.5);
+      // 725원 -> 0.5달러
+      expect(SnowballEngine.convertCurrency(725, exchangeRate, 'USD')).toBe(0.5);
+    });
+
+    it('USD -> KRW 전환 시 정수로 반올림되어야 합니다', () => {
+      expect(SnowballEngine.convertCurrency(1, exchangeRate, 'KRW')).toBe(1450);
+      expect(SnowballEngine.convertCurrency(1.5, exchangeRate, 'KRW')).toBe(2175);
+    });
+
+    it('한국어 금액 포맷팅 (억/만)이 정확해야 합니다', () => {
+      expect(SnowballEngine.formatKoreanWon(125000000)).toBe('1억 2,500만 원');
+      expect(SnowballEngine.formatKoreanWon(100000000)).toBe('1억 원');
+      expect(SnowballEngine.formatKoreanWon(10000)).toBe('1만 원');
+      expect(SnowballEngine.formatKoreanWon(12345)).toBe('1만 2,345원');
+    });
+
+    it('달러 금액 포맷팅 (Million/Billion)이 정확해야 합니다', () => {
+      expect(SnowballEngine.formatUSD(1000000)).toBe('1.00 Million $');
+      expect(SnowballEngine.formatUSD(1000000000)).toBe('1.00 Billion $');
+      expect(SnowballEngine.formatUSD(1234567)).toBe('1.23 Million $');
+      expect(SnowballEngine.formatUSD(500)).toBe('500 $');
+    });
+  });
 });

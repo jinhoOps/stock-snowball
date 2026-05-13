@@ -11,10 +11,11 @@ import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { useScenarios } from './hooks/useScenarios';
-import { AccountType, StrategyType, StrategyConfig, SimulationResult, AssetType, SimulationMode } from './types/finance';
+import { AccountType, StrategyType, StrategyConfig, SimulationResult, AssetType, SimulationMode, ContributionCycle } from './types/finance';
 import { getHistoricalData } from './data/historicalAssets';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
+// ... (omitting SCENARIO_COLORS for brevity in thoughts, but will include in actual call)
 
 // Fixed colors for scenarios to avoid re-renders
 const SCENARIO_COLORS = [
@@ -34,6 +35,9 @@ function App() {
   // Basic State
   const [mode, setMode] = useState<SimulationMode>('PROJECTION');
   const [assetType, setAssetType] = useState<AssetType>('CUSTOM');
+  const [currency, setCurrency] = useState<'KRW' | 'USD'>('KRW');
+  const [exchangeRate, setExchangeRate] = useState(1450); // 기본 환율
+  const [contributionCycle, setContributionCycle] = useState<ContributionCycle>('MONTHLY');
   const [principal, setPrincipal] = useState(10000000); 
   const [rate, setRate] = useState(0.08); 
   const [years, setYears] = useState(10);
@@ -202,7 +206,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-apple-canvas font-text">
-      <GlobalNav />
+      <GlobalNav onOpenAdvanced={() => setIsAdvancedOpen(true)} />
       
       <main>
         <LayoutGroup>
@@ -217,6 +221,9 @@ function App() {
                 principal={principal} setPrincipal={setPrincipal}
                 years={years} setYears={setYears}
                 strategyBaseAmount={strategyBaseAmount} setStrategyBaseAmount={setStrategyBaseAmount}
+                currency={currency} setCurrency={setCurrency}
+                exchangeRate={exchangeRate}
+                contributionCycle={contributionCycle}
                 onOpenAdvanced={() => setIsAdvancedOpen(true)}
               />
 
@@ -228,6 +235,8 @@ function App() {
                 strategyType={strategyType} setStrategyType={setStrategyType}
                 accountType={accountType} setAccountType={setAccountType}
                 inflationRate={inflationRate} setInflationRate={setInflationRate}
+                exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
+                contributionCycle={contributionCycle} setContributionCycle={setContributionCycle}
               />
 
               <motion.div layout className="flex gap-4 mb-16 w-full max-w-[500px]">
@@ -261,7 +270,7 @@ function App() {
                       <div className="mb-10 text-center">
                         <span className="text-caption-strong text-apple-ink-muted-48 block mb-2 tracking-tight uppercase font-display">{years}년 후 예상 자산 (세후 실질 가치)</span>
                         <span className="text-display-lg text-apple-primary font-display tracking-tight">
-                          {SnowballEngine.formatKoreanWon(activeResult.postTaxValue)}
+                          {SnowballEngine.formatBigNumber(activeResult.postTaxValue, currency)}
                         </span>
                       </div>
 
@@ -302,7 +311,7 @@ function App() {
                                       <span className="text-caption text-apple-gray truncate max-w-[100px]">{p.name}</span>
                                     </div>
                                     <span className="font-bold text-apple-ink text-body-strong">
-                                      {SnowballEngine.formatKoreanWon(p.value)}
+                                      {SnowballEngine.formatBigNumber(p.value, currency)}
                                     </span>
                                   </div>
                                 ))}
@@ -319,8 +328,8 @@ function App() {
                           totalReturn={totalReturn}
                           returnPercentage={returnPercentage}
                           cagr={cagr}
-                          currency="KRW"
-                          isMilestoneReached={MILESTONES.some(m => activeResult.postTaxValue >= m)}
+                          currency={currency}
+                          isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
                         />
                       </div>
                     </>

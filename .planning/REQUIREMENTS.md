@@ -50,7 +50,7 @@
 | UI-01 | Phase 1 | Complete |
 | UI-02 | Phase 1 | Complete |
 | UI-03 | Phase 4 | Complete |
-| UI-04 | Phase 4 | Pending |
+| UI-04 | Phase 4 | Complete |
 | UI-05 | Phase 2 | Complete |
 | UI-06 | Phase 3 | In Progress |
 | PWA-01 | Phase 2 | Complete |
