@@ -27,7 +27,7 @@ const tooltipStyles = {
   borderRadius: '12px',
   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
   padding: '12px',
-  color: '#1d1d1f',
+  color: 'var(--apple-ink)',
   fontSize: '13px',
   lineHeight: '1.4',
   pointerEvents: 'none' as const,
@@ -50,8 +50,8 @@ const BacktestChartInner: React.FC<{
   assetName: string;
   width: number; 
   height: number;
-}> = React.memo(({ history, width, height }) => {
-  const margin = { top: 60, right: 30, bottom: 50, left: 70 };
+}> = React.memo(({ history, assetName, width, height }) => {
+  const margin = { top: 64, right: 32, bottom: 48, left: 72 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -165,11 +165,11 @@ const BacktestChartInner: React.FC<{
         aria-label={`${assetName} 과거 백테스트 결과 차트. 가로축은 시간, 세로축은 자산 가치를 나타냅니다.`}
       >
         <defs>
-          <LinearGradient id="backtest-gradient" from="#007AFF" to="#007AFF" fromOpacity={0.15} toOpacity={0} />
+          <LinearGradient id="backtest-gradient" from="var(--apple-primary)" to="var(--apple-primary)" fromOpacity={0.15} toOpacity={0} />
         </defs>
         <Group left={margin.left} top={margin.top}>
-          <GridRows scale={valueScale} width={innerWidth} stroke="#f0f0f0" strokeDasharray="4,4" />
-          <GridColumns scale={dateScale} height={innerHeight} stroke="#f0f0f0" strokeDasharray="4,4" />
+          <GridRows scale={valueScale} width={innerWidth} stroke="var(--apple-divider-soft)" strokeDasharray="4,4" />
+          <GridColumns scale={dateScale} height={innerHeight} stroke="var(--apple-divider-soft)" strokeDasharray="4,4" />
 
           {/* Principal Area (Gray) */}
           <AreaClosed<{ principal: number, date: Date }>
@@ -177,7 +177,7 @@ const BacktestChartInner: React.FC<{
             x={d => dateScale(getDate(d)) ?? 0}
             y={d => valueScale(getPrincipal(d)) ?? 0}
             yScale={valueScale}
-            fill="#8e8e93"
+            fill="var(--apple-ink-muted-48)"
             fillOpacity={0.05}
             curve={curveMonotoneX}
           />
@@ -197,7 +197,7 @@ const BacktestChartInner: React.FC<{
             data={data}
             x={d => dateScale(getDate(d)) ?? 0}
             y={d => valueScale(getPrincipal(d)) ?? 0}
-            stroke="#8e8e93"
+            stroke="var(--apple-ink-muted-48)"
             strokeWidth={1}
             strokeDasharray="4,4"
             curve={curveMonotoneX}
@@ -208,10 +208,10 @@ const BacktestChartInner: React.FC<{
             data={data}
             x={d => dateScale(getDate(d)) ?? 0}
             y={d => valueScale(getValue(d)) ?? 0}
-            stroke="#007AFF"
+            stroke="var(--apple-primary)"
             strokeWidth={3}
             curve={curveMonotoneX}
-            style={{ filter: 'drop-shadow(0 0 8px rgba(0, 122, 255, 0.3))' }}
+            style={{ filter: 'drop-shadow(0 0 8px rgba(0, 102, 204, 0.3))' }}
           />
 
           {/* Interaction Bar */}
@@ -233,9 +233,9 @@ const BacktestChartInner: React.FC<{
           {/* Scrubbing Line */}
           {tooltipData && (
             <g>
-              <line x1={tooltipLeft} x2={tooltipLeft} y1={0} y2={innerHeight} stroke="#d1d1d6" strokeWidth={1} pointerEvents="none" />
-              <circle cx={tooltipLeft} cy={valueScale(tooltipData.value)} r={5} fill="white" stroke="#007AFF" strokeWidth={3} pointerEvents="none" />
-              <circle cx={tooltipLeft} cy={valueScale(tooltipData.principal)} r={4} fill="white" stroke="#8e8e93" strokeWidth={2} pointerEvents="none" />
+              <line x1={tooltipLeft} x2={tooltipLeft} y1={0} y2={innerHeight} stroke="var(--apple-hairline)" strokeWidth={1} pointerEvents="none" />
+              <circle cx={tooltipLeft} cy={valueScale(tooltipData.value)} r={5} fill="white" stroke="var(--apple-primary)" strokeWidth={3} pointerEvents="none" />
+              <circle cx={tooltipLeft} cy={valueScale(tooltipData.principal)} r={4} fill="white" stroke="var(--apple-ink-muted-48)" strokeWidth={2} pointerEvents="none" />
             </g>
           )}
 
@@ -244,16 +244,16 @@ const BacktestChartInner: React.FC<{
             top={innerHeight}
             scale={dateScale}
             numTicks={width > 520 ? 8 : 4}
-            stroke="#e0e0e0"
-            tickStroke="#e0e0e0"
-            tickLabelProps={{ fill: '#8e8e93', fontSize: 10, textAnchor: 'middle' }}
+            stroke="var(--apple-hairline)"
+            tickStroke="var(--apple-hairline)"
+            tickLabelProps={{ fill: 'var(--apple-ink-muted-48)', fontSize: 10, textAnchor: 'middle' }}
           />
           <AxisLeft
             scale={valueScale}
             numTicks={5}
             stroke="none"
             tickFormat={v => SnowballEngine.formatKoreanWon(Number(v))}
-            tickLabelProps={{ fill: '#8e8e93', fontSize: 10, textAnchor: 'end', dx: -4 }}
+            tickLabelProps={{ fill: 'var(--apple-ink-muted-48)', fontSize: 10, textAnchor: 'end', dx: -4 }}
           />
         </Group>
       </svg>
@@ -285,26 +285,26 @@ const BacktestChartInner: React.FC<{
         {tooltipData && (
           <TooltipWithBounds top={margin.top} left={tooltipLeft! + margin.left} style={tooltipStyles}>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div className="font-bold text-apple-ink mb-2 border-b border-apple-hairline pb-1">
+              <div className="font-semibold text-apple-ink mb-2 border-b border-apple-hairline pb-1">
                 {tooltipData.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
               </div>
               <div className="space-y-1.5 min-w-[140px]">
                 <div className="flex justify-between items-center gap-4">
-                  <span className="text-apple-ink-muted-48 text-[11px] font-bold uppercase">평가 금액</span>
-                  <span className="font-bold text-apple-primary text-[13px]">{SnowballEngine.formatKoreanWon(tooltipData.value)}</span>
+                  <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">평가 금액</span>
+                  <span className="font-semibold text-apple-primary text-caption">{SnowballEngine.formatKoreanWon(tooltipData.value)}</span>
                 </div>
                 <div className="flex justify-between items-center gap-4">
-                  <span className="text-apple-ink-muted-48 text-[11px] font-bold uppercase">투자 원금</span>
-                  <span className="font-bold text-apple-ink text-[13px]">{SnowballEngine.formatKoreanWon(tooltipData.principal)}</span>
+                  <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">투자 원금</span>
+                  <span className="font-semibold text-apple-ink text-caption">{SnowballEngine.formatKoreanWon(tooltipData.principal)}</span>
                 </div>
                 <div className="flex justify-between items-center gap-4 border-t border-apple-hairline pt-1 mt-1">
-                  <span className="text-apple-ink-muted-48 text-[11px] font-bold uppercase">수익률</span>
-                  <span className={`font-bold text-[13px] ${tooltipData.value >= tooltipData.principal ? 'text-apple-primary' : 'text-apple-error'}`}>
+                  <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">수익률</span>
+                  <span className={`font-semibold text-caption ${tooltipData.value >= tooltipData.principal ? 'text-apple-primary' : 'text-apple-error'}`}>
                     {(((tooltipData.value - tooltipData.principal) / tooltipData.principal) * 100).toFixed(2)}%
                   </span>
                 </div>
                 {tooltipData.isLiquidated && (
-                  <div className="mt-2 text-apple-error text-[10px] font-bold uppercase text-center bg-apple-error/10 py-1 rounded">
+                  <div className="mt-2 text-apple-error text-micro-legal font-semibold uppercase text-center bg-apple-error/10 py-1 rounded">
                     청산 발생 (Liquidation)
                   </div>
                 )}
@@ -332,11 +332,11 @@ const BacktestChart: React.FC<BacktestChartProps> = ({ history, assetName }) => 
       <div className="flex justify-center gap-6 mt-4">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-apple-primary" />
-          <span className="text-[11px] font-bold text-apple-ink uppercase tracking-wider">{assetName} 평가금</span>
+          <span className="text-fine-print font-semibold text-apple-ink uppercase tracking-wider">{assetName} 평가금</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#8e8e93]" />
-          <span className="text-[11px] font-bold text-apple-ink uppercase tracking-wider">투자 원금</span>
+          <div className="w-3 h-3 rounded-full bg-apple-ink-muted-48" />
+          <span className="text-fine-print font-semibold text-apple-ink uppercase tracking-wider">투자 원금</span>
         </div>
       </div>
     </div>
