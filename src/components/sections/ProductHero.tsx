@@ -17,7 +17,7 @@ const ProductHero: React.FC<ProductHeroProps> = ({ title, subtitle, ctaText, chi
         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
         className="mt-[80px] px-4"
       >
-        <h1 className="text-apple-ink text-hero mb-2 tracking-tight">
+        <h1 className="text-apple-ink text-4xl sm:text-hero mb-2 tracking-tight">
           {title}
         </h1>
         <p className="text-apple-ink text-lead mb-6 tracking-tight">

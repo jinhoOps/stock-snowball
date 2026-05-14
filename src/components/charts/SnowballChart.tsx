@@ -76,7 +76,12 @@ const SnowballChartInner: React.FC<{
   onPointSelect?: SnowballChartProps['onPointSelect'];
   onPointHover?: SnowballChartProps['onPointHover'];
 }> = React.memo(({ scenarios, width, height, comparisonMode, onPointHover }) => {
-  const margin = { top: 24, right: 32, bottom: 48, left: 72 };
+  const margin = useMemo(() => ({
+    top: 24, 
+    right: width > 520 ? 32 : 16, 
+    bottom: 48, 
+    left: width > 520 ? 72 : 48 
+  }), [width]);
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 

@@ -343,7 +343,7 @@ function App() {
                 exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
               />
 
-              <motion.div layout className="flex gap-4 mb-16 w-full max-w-[500px]">
+              <motion.div layout className="flex flex-col sm:flex-row gap-4 mb-16 w-full max-w-[500px] px-4">
                 <input 
                   type="text" value={scenarioName} onChange={(e) => setScenarioName(e.target.value)}
                   placeholder="시나리오 이름 입력"
@@ -369,12 +369,12 @@ function App() {
                     <span className="text-caption-strong text-apple-ink-muted-48 block mb-2 tracking-tight uppercase font-display">
                       {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후 실질 가치)` : '백테스트 최종 자산'}
                     </span>
-                    <span className="text-display-lg text-apple-primary font-display tracking-tight">
+                    <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
                       {SnowballEngine.formatDualCurrency(activeResult.postTaxValue, currency, exchangeRate)}
                     </span>
                   </div>
 
-                  <div className="w-full max-w-[1000px] mb-8 h-[480px] bg-apple-canvas border border-apple-hairline rounded-lg p-6 shadow-sm">
+                  <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-canvas border border-apple-hairline rounded-lg p-2 sm:p-6 shadow-sm">
                     <SnowballChart 
                       scenarios={chartScenarios} 
                       mode={mode}

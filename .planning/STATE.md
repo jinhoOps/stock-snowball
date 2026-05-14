@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: ui-ux-precision
-status: complete
-last_updated: "2026-05-13T14:00:00.000Z"
+milestone: v1.3
+milestone_name: ux-refinement-polish
+status: in-progress
+last_updated: "2026-05-14T00:00:00.000Z"
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 8
-  total_plans: 25
+  total_plans: 26
   completed_plans: 25
-  percent: 100
+  percent: 96
 ---
 
 # Project State: Stock Snowball
@@ -17,13 +17,13 @@ progress:
 ## Project Reference
 
 **Core Value**: 매일의 소액 투자가 거대한 자산으로 성장하는 과정을 시각화하는 고정밀 투자 시뮬레이션 플랫폼.
-**Current Focus**: 'What-If' Backtest Evolution & Future Projection Range (Phase 8) - COMPLETED.
+**Current Focus**: Scenario Preset UI Refinement & Duration-based Scenarios.
 
 ## Current Position
 
-**Phase**: 8 - 'What-If' Backtest Evolution & Future Projection Range
-**Status**: Phase 8 completed. Advanced backtesting and range projection (Cone of Uncertainty) implemented.
-**Progress**: 100% [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓]
+**Phase**: 9 - UX Refinement & Apple Polish
+**Status**: Implementing minimal scenario picker with "More" toggle and duration-based presets (YTD, 1M, etc.).
+**Progress**: 10% [▓░░░░░░░░░░░░░░░░░░░]
 
 ## Performance Metrics
 
@@ -37,14 +37,14 @@ progress:
 
 ### Roadmap Evolution
 
-- Phase 7: Completed input UX (NumericInput, Big Number Helper), dynamic labels, and currency auto-conversion.
+- Phase 8: Completed future projection range (Cone) and high-precision backtesting.
+- Phase 9 (Current): Refinement of Backtest scenario UI for minimalism and convenience.
 
 ### Key Decisions
 
-- **Currency Auto-Conversion**: Toggling between KRW and USD automatically scales input values using high-precision Decimal.js conversion.
-- **Big Number Guide**: Subtle hint text below inputs (e.g., "1억 2,500만 원") improves readability of large numbers.
-- **Fixed Slider Scale**: The UI slider remains fixed at 30 years for precision, while supporting higher manual inputs via NumericInput.
-- **Custom NumericInput**: Solved the '0' stickiness issue and improved mobile numeric input experience.
+- **Scenario More Toggle**: Hidden complex historical scenarios behind a "More" button to maintain Apple-style minimalism.
+- **Dynamic Duration Presets**: Added YTD, 1M, 6M, 1Y, 5Y, 10Y based on current system date (2026-05-14).
+- **Selection Effects**: Applied spring-based scale and highlight effects from DESIGN.md.
 
 ### Todos
 
@@ -56,6 +56,7 @@ progress:
 - [x] Phase 6: Accessibility & Design Refinement
 - [x] Phase 7: UI/UX & Financial Precision Refinement
 - [x] Phase 8: 'What-If' Backtest Evolution & Future Projection Range
+- [ ] Phase 9: UX Refinement & Feature Expansion (In-Progress)
 
 ### Blockers
 

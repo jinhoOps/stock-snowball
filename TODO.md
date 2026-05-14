@@ -24,7 +24,7 @@
     - [x] QQQM, QLD, TQQQ, KOSPI 일간 종가 데이터셋 구축
     - [x] 자산 기반 기대수익률 시뮬레이션 로직 구현
 
-## 🏗️ Phase 4: Apple Polish & Interactions (In-Progress)
+## ✅ Phase 4: Apple Polish & Interactions (Completed)
 - [x] **Smooth Numeric Transitions**: `AnimatedCounter` 기반 수치 애니메이션
 - [x] **Layout Transitions**: `AnimatePresence` 기반 화면 전환 효과
 - [x] **Milestone Celebration**: 자산 목표 달성 시 축하 UI (Confetti)
@@ -55,3 +55,9 @@
 - [x] **Cone of Uncertainty**: `SnowballEngine`을 통한 미래 예측 범위(낙관/평균/비관) 연산
 - [x] **High-Precision Backtesting**: 일/주/월 단위 정밀 백테스팅 및 영업일 분산 로직
 - [x] **Multi-Dimensional Visualization**: `visx Area`를 이용한 범위 시각화 및 비교 모드 구현
+
+## 🏗️ Phase 9: UX Refinement & Feature Expansion (In-Progress)
+- [x] **Scenario UI Refinement**: '더보기' 토글을 이용한 미니멀한 시나리오 선택기 구현
+- [x] **Duration-based Presets**: YTD, 1M, 6M, 1Y, 5Y, 10Y 간편 설정 기능 추가
+- [ ] **Result Sharing**: 시뮬레이션 결과 이미지 저장 및 공유 기능 (Social Share)
+- [ ] **Advanced Metrics**: 샤프 지수, 변동성 등 전문 금융 지표 추가 시각화

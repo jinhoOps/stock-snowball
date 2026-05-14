@@ -44,7 +44,7 @@ const KPICard = ({
     }}
     transition={{ duration: 0.5, delay: index * 0.1 }}
     whileTap={{ scale: 0.98 }}
-    className={`bg-apple-canvas border rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-apple-primary/30 shadow-sm relative overflow-hidden ${isHighlighted ? 'ring-2 ring-apple-primary/20' : 'border-apple-hairline'}`}
+    className={`bg-apple-canvas border rounded-lg p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-apple-primary/30 shadow-sm relative overflow-hidden ${isHighlighted ? 'ring-2 ring-apple-primary/20' : 'border-apple-hairline'}`}
   >
     {isHighlighted && (
       <div className="absolute top-0 left-0 w-full h-1 bg-apple-primary" />
@@ -53,7 +53,7 @@ const KPICard = ({
     <AnimatedCounter 
       value={value} 
       formatter={formatter} 
-      className={`text-2xl font-semibold mb-1 tracking-tight font-display ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
+      className={`text-xl sm:text-2xl font-semibold mb-1 tracking-tight font-display ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
     />
     
     <BigNumberHelper 

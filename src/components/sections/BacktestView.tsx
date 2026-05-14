@@ -98,7 +98,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName }) => {
   return (
     <div className="flex flex-col items-center w-full gap-8">
       {/* Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 w-full max-w-[1200px] px-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 w-full max-w-[1200px] px-4">
         {kpis.map((kpi, i) => (
           <MetricCard key={kpi.label} {...kpi} index={i} />
         ))}
