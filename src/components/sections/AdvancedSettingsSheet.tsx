@@ -85,7 +85,9 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
               <div className="space-y-10 flex flex-col items-start pb-10">
                 {/* 1. 자산 선택 및 기대 수익률 */}
                 <div className="w-full">
-                  <label htmlFor="asset-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">투자 자산 (Backtest)</label>
+                  <label htmlFor="asset-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">
+                    {params.startDate ? '투자 자산 (Backtest)' : '참조 자산 (Projection CAGR)'}
+                  </label>
                   <div className="relative">
                     <select 
                       id="asset-type-select"

@@ -4,6 +4,8 @@ import { SnowballEngine } from '../../core/SnowballEngine';
 interface BigNumberHelperProps {
   value: number;
   currency: 'KRW' | 'USD';
+  exchangeRate?: number;
+  showDual?: boolean;
   className?: string;
 }
 
@@ -13,14 +15,18 @@ interface BigNumberHelperProps {
 export const BigNumberHelper: React.FC<BigNumberHelperProps> = ({ 
   value, 
   currency,
+  exchangeRate = 1450,
+  showDual = true,
   className = ''
 }) => {
-  // 0일 경우 표시하지 않거나 0으로 표시 (기획에 따라 결정, 여기서는 0일 때도 표시)
   const formatted = SnowballEngine.formatBigNumber(value, currency);
+  const dualFormatted = showDual 
+    ? SnowballEngine.formatDualCurrency(value, currency, exchangeRate)
+    : formatted;
 
   return (
     <div className={`text-fine-print text-apple-ink-muted-48 mt-1 transition-all duration-300 ${className}`}>
-      {formatted}
+      {dualFormatted}
     </div>
   );
 };

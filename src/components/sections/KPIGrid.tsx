@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import AnimatedCounter from '../common/AnimatedCounter';
+import { BigNumberHelper } from '../common/BigNumberHelper';
 
 interface KPIGridProps {
   totalAsset: number;
@@ -10,6 +11,7 @@ interface KPIGridProps {
   returnPercentage: number;
   cagr: number;
   currency: 'USD' | 'KRW';
+  exchangeRate?: number;
   isMilestoneReached?: boolean;
 }
 
@@ -20,7 +22,9 @@ const KPICard = ({
   subValue, 
   subFormatter,
   index,
-  isHighlighted
+  isHighlighted,
+  currency,
+  exchangeRate
 }: { 
   label: string; 
   value: number; 
@@ -29,6 +33,8 @@ const KPICard = ({
   subFormatter?: (v: number) => string;
   index: number;
   isHighlighted?: boolean;
+  currency: 'USD' | 'KRW';
+  exchangeRate: number;
 }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
@@ -47,8 +53,17 @@ const KPICard = ({
     <AnimatedCounter 
       value={value} 
       formatter={formatter} 
-      className={`text-2xl font-semibold mb-2 tracking-tight font-display ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
+      className={`text-2xl font-semibold mb-1 tracking-tight font-display ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
     />
+    
+    <BigNumberHelper 
+      value={value} 
+      currency={currency} 
+      exchangeRate={exchangeRate} 
+      showDual={true} 
+      className="mb-3"
+    />
+
     {subValue !== undefined && subFormatter && (
       <div className="flex items-center gap-1 text-caption-strong text-apple-primary tracking-tight bg-apple-primary/5 px-3 py-1 rounded-pill">
         <span>+</span>
@@ -78,6 +93,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
   returnPercentage,
   cagr,
   currency,
+  exchangeRate = 1450,
   isMilestoneReached
 }) => {
   const formatCurrency = (val: number) => {
@@ -86,7 +102,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
       const truncated = Math.floor(val / 10000) * 10000;
       return SnowballEngine.formatKoreanWon(truncated);
     }
-    return `$${val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    return SnowballEngine.formatUSD(val);
   };
 
   const formatPercent = (val: number) => val.toFixed(2);
@@ -120,7 +136,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-[1000px] mt-12 px-4">
       {kpis.map((kpi, i) => (
-        <KPICard key={kpi.label} {...kpi} index={i} />
+        <KPICard key={kpi.label} {...kpi} index={i} currency={currency} exchangeRate={exchangeRate} />
       ))}
     </div>
   );

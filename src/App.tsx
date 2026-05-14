@@ -202,9 +202,10 @@ function App() {
             date: r.date, 
             value: r.postTaxValue,
             pessimistic: activeSimulation.pessimistic[i].postTaxValue,
-            optimistic: activeSimulation.optimistic[i].postTaxValue
+            optimistic: activeSimulation.optimistic[i].postTaxValue,
+            contribution: r.totalContribution
           }))
-        : (activeBacktest?.history.map(r => ({ date: new Date(r.date), value: r.value })) || [])
+        : (activeBacktest?.history.map(r => ({ date: new Date(r.date), value: r.value, contribution: r.principal })) || [])
     };
 
     const comparing = scenarios
@@ -232,7 +233,7 @@ function App() {
             id: s.id,
             name: s.name,
             color: SCENARIO_COLORS[(index + 1) % SCENARIO_COLORS.length],
-            points: bt.history.map(r => ({ date: new Date(r.date), value: r.value }))
+            points: bt.history.map(r => ({ date: new Date(r.date), value: r.value, contribution: r.principal }))
           };
         }
 
@@ -257,7 +258,8 @@ function App() {
             date: r.date, 
             value: r.postTaxValue,
             pessimistic: sim.pessimistic[i].postTaxValue,
-            optimistic: sim.optimistic[i].postTaxValue
+            optimistic: sim.optimistic[i].postTaxValue,
+            contribution: r.totalContribution
           }))
         };
       });
@@ -368,10 +370,7 @@ function App() {
                       {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후 실질 가치)` : '백테스트 최종 자산'}
                     </span>
                     <span className="text-display-lg text-apple-primary font-display tracking-tight">
-                      {currency === 'KRW' 
-                        ? SnowballEngine.formatKoreanWon(Math.floor(activeResult.postTaxValue / 10000) * 10000)
-                        : SnowballEngine.formatUSD(activeResult.postTaxValue)
-                      }
+                      {SnowballEngine.formatDualCurrency(activeResult.postTaxValue, currency, exchangeRate)}
                     </span>
                   </div>
 
@@ -425,6 +424,7 @@ function App() {
                       returnPercentage={returnPercentage}
                       cagr={cagr}
                       currency={currency}
+                      exchangeRate={exchangeRate}
                       isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
                     />
                   </div>

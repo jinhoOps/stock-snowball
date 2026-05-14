@@ -99,7 +99,14 @@ describe('SnowballEngine', () => {
       expect(SnowballEngine.formatUSD(1000000)).toBe('1.00 Million $');
       expect(SnowballEngine.formatUSD(1000000000)).toBe('1.00 Billion $');
       expect(SnowballEngine.formatUSD(1234567)).toBe('1.23 Million $');
-      expect(SnowballEngine.formatUSD(500)).toBe('500 $');
+      expect(SnowballEngine.formatUSD(500)).toBe('$500');
+    });
+
+    it('병행 표기(Dual Currency) 포맷팅이 정확해야 합니다', () => {
+      expect(SnowballEngine.formatDualCurrency(10000, 'KRW', 1450)).toContain('1만 원');
+      expect(SnowballEngine.formatDualCurrency(10000, 'KRW', 1450)).toContain('$6');
+      expect(SnowballEngine.formatDualCurrency(1000, 'USD', 1450)).toContain('$1,000');
+      expect(SnowballEngine.formatDualCurrency(1000, 'USD', 1450)).toContain('145만 원');
     });
   });
 

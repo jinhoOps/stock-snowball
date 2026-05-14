@@ -17,6 +17,7 @@ interface DataPoint {
   value: number;
   pessimistic?: number;
   optimistic?: number;
+  contribution?: number;
 }
 
 interface ScenarioData {
@@ -87,7 +88,7 @@ const SnowballChartInner: React.FC<{
   } = useTooltip<{
     date: Date;
     xValue: number | Date;
-    points: { name: string; value: number; color: string; pessimistic?: number; optimistic?: number }[];
+    points: { name: string; value: number; color: string; pessimistic?: number; optimistic?: number; contribution?: number }[];
   }>();
 
   // 1. Data Transformation for Comparison Mode
@@ -124,7 +125,7 @@ const SnowballChartInner: React.FC<{
 
   const valueScale = useMemo(() => {
     if (allProcessedPoints.length === 0) return scaleLinear({ range: [innerHeight, 0], domain: [0, 1000000] });
-    const maxValue = Math.max(...allProcessedPoints.map(d => Math.max(d.value, d.optimistic || 0))) * 1.1;
+    const maxValue = Math.max(...allProcessedPoints.map(d => Math.max(d.value, d.optimistic || 0, d.contribution || 0))) * 1.1;
     return scaleLinear({
       range: [innerHeight, 0],
       domain: [0, maxValue],
@@ -165,6 +166,7 @@ const SnowballChartInner: React.FC<{
           color: s.color,
           pessimistic: p.pessimistic,
           optimistic: p.optimistic,
+          contribution: p.contribution,
         };
       });
 
@@ -230,16 +232,30 @@ const SnowballChartInner: React.FC<{
 
           {/* 2. Main Lines */}
           {processedScenarios.map(s => (
-            <LinePath<any>
-              key={`line-${s.id}`}
-              data={s.transformedPoints}
-              x={d => xScale(comparisonMode ? d.monthsElapsed : d.date.getTime()) ?? 0}
-              y={d => valueScale(d.value) ?? 0}
-              stroke={s.color}
-              strokeWidth={3}
-              curve={curveMonotoneX}
-              style={{ filter: `drop-shadow(0 0 6px ${s.color}33)` }}
-            />
+            <React.Fragment key={`lines-${s.id}`}>
+              {/* Cumulative Contribution Line (Dashed) */}
+              {s.transformedPoints.some(p => p.contribution !== undefined) && (
+                <LinePath<any>
+                  data={s.transformedPoints}
+                  x={d => xScale(comparisonMode ? d.monthsElapsed : d.date.getTime()) ?? 0}
+                  y={d => valueScale(d.contribution || 0) ?? 0}
+                  stroke="var(--apple-gray-400)"
+                  strokeWidth={2}
+                  strokeDasharray="4,4"
+                  curve={curveMonotoneX}
+                />
+              )}
+              {/* Asset Growth Line */}
+              <LinePath<any>
+                data={s.transformedPoints}
+                x={d => xScale(comparisonMode ? d.monthsElapsed : d.date.getTime()) ?? 0}
+                y={d => valueScale(d.value) ?? 0}
+                stroke={s.color}
+                strokeWidth={3}
+                curve={curveMonotoneX}
+                style={{ filter: `drop-shadow(0 0 6px ${s.color}33)` }}
+              />
+            </React.Fragment>
           ))}
 
           {/* 3. Interaction */}
@@ -258,6 +274,7 @@ const SnowballChartInner: React.FC<{
                   <circle cx={tooltipLeft} cy={valueScale(p.value)} r={5} fill="white" stroke={p.color} strokeWidth={2} pointerEvents="none" />
                   {p.optimistic && <circle cx={tooltipLeft} cy={valueScale(p.optimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
                   {p.pessimistic && <circle cx={tooltipLeft} cy={valueScale(p.pessimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
+                  {p.contribution && <circle cx={tooltipLeft} cy={valueScale(p.contribution)} r={3} fill="var(--apple-gray-400)" pointerEvents="none" />}
                 </g>
               ))}
             </g>
@@ -298,6 +315,12 @@ const SnowballChartInner: React.FC<{
                     </div>
                     <span className="font-bold text-apple-ink text-caption">{formatCurrency(p.value)}</span>
                   </div>
+                  {p.contribution !== undefined && (
+                    <div className="flex justify-between pl-3 text-[10px] text-apple-ink-muted-48">
+                      <span>누적 투입금</span>
+                      <span>{formatCurrency(p.contribution)}</span>
+                    </div>
+                  )}
                   {p.optimistic && p.pessimistic && (
                     <div className="flex justify-between pl-3 text-[10px] text-apple-ink-muted-48 italic">
                       <span>최저 {formatCurrency(p.pessimistic)}</span>
@@ -337,6 +360,12 @@ const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparis
             <span className="text-caption text-apple-ink tracking-tight">{s.name}</span>
           </div>
         ))}
+        {scenarios.some(s => s.points.some(p => p.contribution !== undefined)) && (
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-1 bg-apple-gray-400" />
+            <span className="text-caption text-apple-ink-muted-48 tracking-tight italic">누적 투입금</span>
+          </div>
+        )}
       </div>
     </div>
   );

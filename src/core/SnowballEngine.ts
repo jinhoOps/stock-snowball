@@ -178,6 +178,7 @@ export class SnowballEngine {
 
   /**
    * 숫자를 달러(USD) 형식으로 포맷팅합니다.
+   * million 미만은 정수부분만 표시합니다.
    * @param value 금액
    */
   static formatUSD(value: Decimal | number | string): string {
@@ -187,7 +188,29 @@ export class SnowballEngine {
     // Billion, Million 단위 대응
     if (amount.abs().gte(1e9)) return `${amount.dividedBy(1e9).toFixed(2)} Billion $`;
     if (amount.abs().gte(1e6)) return `${amount.dividedBy(1e6).toFixed(2)} Million $`;
-    return `${amount.toNumber().toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} $`;
+    
+    // 1M 미만은 정수만 (사용자 요청)
+    return `$${amount.toNumber().toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  }
+
+  /**
+   * 큰 숫자를 읽기 쉽게 도와주는 헬퍼 텍스트를 생성합니다. (예: 50만 달러)
+   */
+  static getLargeNumberHelperText(value: number | Decimal, currency: 'KRW' | 'USD'): string {
+    const amount = new Decimal(value);
+    if (currency === 'KRW') {
+      return this.formatKoreanWon(amount);
+    } else {
+      // 달러의 경우 한국어로 '~만 달러', '~억 달러' 등으로 변환하여 읽기 지원
+      const krwEquivalent = amount.times(1450); // 환율 고정값이 아닌 참고용 (보통 1400-1500)
+      if (amount.gte(1e6)) {
+        return `${amount.dividedBy(1e6).toFixed(1)}M 달러`;
+      }
+      if (amount.gte(1e4)) {
+        return `${amount.dividedBy(1e4).toFixed(0)}만 달러`;
+      }
+      return `${amount.toFixed(0)} 달러`;
+    }
   }
 
   /**
@@ -197,6 +220,26 @@ export class SnowballEngine {
    */
   static formatBigNumber(value: Decimal | number | string, currency: 'KRW' | 'USD'): string {
     return currency === 'KRW' ? this.formatKoreanWon(value) : this.formatUSD(value);
+  }
+
+  /**
+   * 병행 표기(Dual Currency)를 포함한 포맷팅을 수행합니다.
+   * @param value 금액 (현재 통화 기준)
+   * @param currentCurrency 현재 표시 통화
+   * @param exchangeRate 환율
+   */
+  static formatDualCurrency(value: number, currentCurrency: 'KRW' | 'USD', exchangeRate: number): string {
+    const amount = new Decimal(value);
+    const main = this.formatBigNumber(amount, currentCurrency);
+    
+    if (currentCurrency === 'KRW') {
+      const usd = amount.dividedBy(exchangeRate).floor();
+      return `${main} (약 $${usd.toNumber().toLocaleString()})`;
+    } else {
+      const krw = amount.times(exchangeRate).floor();
+      const krwFormatted = this.formatKoreanWon(krw);
+      return `${main} (약 ${krwFormatted})`;
+    }
   }
 
   /**
@@ -243,6 +286,9 @@ export class SnowballEngine {
 
     let currentExchangeRate = new Decimal(exchangeRateConfig.base);
 
+    // 일일 성장 연산 (Projection 모드에서는 과거 낙폭을 재현하지 않고 고정 CAGR 기반 성장)
+    const dailyRate = new Decimal(annualRate).dividedBy(365);
+    
     for (let d = 0; d <= totalDays; d++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + d);
@@ -277,15 +323,12 @@ export class SnowballEngine {
 
       if (d === totalDays) break;
 
-      // 일일 성장 연산
-      const baseDailyRate = new Decimal(getDailyReturn(assetType, d, annualRate));
-      
       // 분산 적용 (Pessimistic / Average / Optimistic)
       const dailyVariance = new Decimal(variance).dividedBy(365);
       
-      states.average.currentNominal = states.average.currentNominal.times(baseDailyRate.plus(1));
-      states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(baseDailyRate.minus(dailyVariance).plus(1));
-      states.optimistic.currentNominal = states.optimistic.currentNominal.times(baseDailyRate.plus(dailyVariance).plus(1));
+      states.average.currentNominal = states.average.currentNominal.times(dailyRate.plus(1));
+      states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(dailyRate.minus(dailyVariance).plus(1));
+      states.optimistic.currentNominal = states.optimistic.currentNominal.times(dailyRate.plus(dailyVariance).plus(1));
       
       // 환율 변동
       currentExchangeRate = currentExchangeRate.times(dailyExchangeChange.plus(1));
