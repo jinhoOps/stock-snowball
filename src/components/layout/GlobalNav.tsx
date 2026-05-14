@@ -12,7 +12,7 @@ const GlobalNav: React.FC<GlobalNavProps> = ({ onOpenAdvanced }) => {
       <div className="w-full max-w-[980px] mx-auto h-full flex items-center justify-between">
         {/* Snowball Logo */}
         <motion.a 
-          href="/" 
+          href={import.meta.env.BASE_URL} 
           className="flex items-center justify-center h-full min-w-[44px] hover:opacity-80 transition-opacity"
           whileTap={{ scale: 0.95 }}
         >

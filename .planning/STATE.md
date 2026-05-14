@@ -65,9 +65,9 @@ progress:
 - [ ] Phase 9: UX Refinement & Feature Expansion (In-Progress)
     - [x] **Hotfix**: Patch Backtest globalization and summary metric loss.
     - [x] **Hotfix**: Resolve RxDB DB6 schema conflict.
-    - [ ] Implementation: Result Sharing (Image/PDF export).
+    - [ ] Implementation: Advanced Metrics (Sharpe, MDD) visualization.
 
 ## Session Continuity
 
 **Last Turn**: Milestone v1.2 Summary Report generated. Scenario UI refinement with "More" toggle and duration presets completed.
-**Next Step**: Phase 9 - Advanced Metrics implementation or UI Polish.
+**Next Step**: Phase 9 - Advanced Metrics (/gsd:discuss requested).
