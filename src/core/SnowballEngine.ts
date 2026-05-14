@@ -200,7 +200,140 @@ export class SnowballEngine {
   }
 
   /**
+   * 주말(토, 일)을 제외한 영업일 여부를 확인합니다.
+   */
+  static isBusinessDay(date: Date): boolean {
+    const day = date.getDay();
+    return day !== 0 && day !== 6;
+  }
+
+  /**
    * 상세 시뮬레이션을 수행합니다. (일 단위 반복 연산)
+   * 3가지 시나리오(Pessimistic, Average, Optimistic)를 동시에 연산합니다.
+   */
+  static simulateRange(
+    principal: number,
+    annualRate: number,
+    years: number,
+    strategy: StrategyConfig = { type: 'FIXED', baseAmount: 0 },
+    inflationRate: number = 0,
+    accountType: AccountType = 'GENERAL',
+    taxConfig: TaxConfig = { dividendTaxRate: 0.154, capitalGainTaxRate: 0.22, isaTaxFreeLimit: 2000000, isaReducedTaxRate: 0.095 },
+    feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
+    exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
+    intervalDays: number = 30,
+    assetType: AssetType = 'CUSTOM'
+  ): { pessimistic: SimulationResult[]; average: SimulationResult[]; optimistic: SimulationResult[] } {
+    const totalDays = years * 365;
+    const startDate = new Date();
+
+    const buyFeeRate = new Decimal(feeConfig.buyFeeRate);
+    const sellFeeRate = new Decimal(feeConfig.sellFeeRate);
+    const dailyInflation = new Decimal(inflationRate).dividedBy(365);
+    const dailyExchangeChange = new Decimal(exchangeRateConfig.annualChangeRate).dividedBy(365);
+
+    const initialNominal = new Decimal(principal).minus(new Decimal(principal).times(buyFeeRate));
+    
+    // 3가지 시나리오용 상태
+    let states = {
+      pessimistic: { currentNominal: initialNominal, totalContribution: new Decimal(principal), totalFees: new Decimal(principal).times(buyFeeRate), results: [] as SimulationResult[] },
+      average: { currentNominal: initialNominal, totalContribution: new Decimal(principal), totalFees: new Decimal(principal).times(buyFeeRate), results: [] as SimulationResult[] },
+      optimistic: { currentNominal: initialNominal, totalContribution: new Decimal(principal), totalFees: new Decimal(principal).times(buyFeeRate), results: [] as SimulationResult[] },
+    };
+
+    let currentExchangeRate = new Decimal(exchangeRateConfig.base);
+
+    for (let d = 0; d <= totalDays; d++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + d);
+      const yearsPassed = d / 365;
+      const variance = 0.0025 * yearsPassed; // ±0.25% * n_years
+
+      // 데이터 포인트 기록
+      if (d % intervalDays === 0 || d === totalDays) {
+        for (const key of ['pessimistic', 'average', 'optimistic'] as const) {
+          const state = states[key];
+          const currentNominalInKrw = state.currentNominal.times(currentExchangeRate);
+          const sellFees = currentNominalInKrw.times(sellFeeRate);
+          const totalFeesWithSell = state.totalFees.plus(sellFees);
+          const totalContributionInKrw = state.totalContribution.times(currentExchangeRate);
+          const totalGains = currentNominalInKrw.minus(totalContributionInKrw).minus(sellFees);
+          const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
+          const postTaxValue = currentNominalInKrw.minus(sellFees).minus(estimatedTax);
+          const realValue = postTaxValue.dividedBy(dailyInflation.plus(1).pow(d));
+
+          state.results.push({
+            date: new Date(date),
+            nominalValue: this.bankersRounding(currentNominalInKrw).toNumber(),
+            realValue: this.bankersRounding(realValue).toNumber(),
+            totalContribution: this.bankersRounding(totalContributionInKrw).toNumber(),
+            totalGains: this.bankersRounding(totalGains).toNumber(),
+            totalFees: this.bankersRounding(totalFeesWithSell).toNumber(),
+            estimatedTax: this.bankersRounding(estimatedTax).toNumber(),
+            postTaxValue: this.bankersRounding(postTaxValue).toNumber(),
+          });
+        }
+      }
+
+      if (d === totalDays) break;
+
+      // 일일 성장 연산
+      const baseDailyRate = new Decimal(getDailyReturn(assetType, d, annualRate));
+      
+      // 분산 적용 (Pessimistic / Average / Optimistic)
+      const dailyVariance = new Decimal(variance).dividedBy(365);
+      
+      states.average.currentNominal = states.average.currentNominal.times(baseDailyRate.plus(1));
+      states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(baseDailyRate.minus(dailyVariance).plus(1));
+      states.optimistic.currentNominal = states.optimistic.currentNominal.times(baseDailyRate.plus(dailyVariance).plus(1));
+      
+      // 환율 변동
+      currentExchangeRate = currentExchangeRate.times(dailyExchangeChange.plus(1));
+
+      // 추가 불입 (21영업일 로직 적용)
+      const isBizDay = this.isBusinessDay(date);
+      let dailyContribution = new Decimal(0);
+      
+      if (isBizDay) {
+        if (strategy.type === 'FIXED') {
+          // 연간 약 261영업일 기준 (261 / 12 = 21.75)
+          dailyContribution = new Decimal(strategy.baseAmount).dividedBy(21.75);
+        } else if (strategy.type === 'STEP_UP') {
+          const year = Math.floor(d / 365);
+          const annualIncrease = new Decimal(strategy.increaseRate || 0).plus(1).pow(year);
+          dailyContribution = new Decimal(strategy.baseAmount).times(annualIncrease).dividedBy(21.75);
+        } else if (strategy.type === 'VALUE_AVERAGING') {
+          if (d > 0 && d % 30 === 0) {
+            const targetValue = new Decimal(strategy.targetGrowth || 0).times(d / 30).plus(principal);
+            if (states.average.currentNominal.lt(targetValue)) {
+              dailyContribution = targetValue.minus(states.average.currentNominal);
+            }
+          }
+        }
+      }
+
+      if (dailyContribution.gt(0)) {
+        const fee = dailyContribution.times(buyFeeRate);
+        const netContribution = dailyContribution.minus(fee);
+        
+        for (const key of ['pessimistic', 'average', 'optimistic'] as const) {
+          states[key].currentNominal = states[key].currentNominal.plus(netContribution);
+          states[key].totalContribution = states[key].totalContribution.plus(dailyContribution);
+          states[key].totalFees = states[key].totalFees.plus(fee);
+        }
+      }
+    }
+
+    return {
+      pessimistic: states.pessimistic.results,
+      average: states.average.results,
+      optimistic: states.optimistic.results,
+    };
+  }
+
+  /**
+   * 상세 시뮬레이션을 수행합니다. (일 단위 반복 연산)
+   * 하위 호환성을 위해 유지하며 simulateRange의 average 결과를 반환합니다.
    */
   static simulate(
     principal: number,
@@ -215,83 +348,9 @@ export class SnowballEngine {
     intervalDays: number = 30,
     assetType: AssetType = 'CUSTOM'
   ): SimulationResult[] {
-    const results: SimulationResult[] = [];
-    const totalDays = years * 365;
-    const startDate = new Date();
-
-    const buyFeeRate = new Decimal(feeConfig.buyFeeRate);
-    const sellFeeRate = new Decimal(feeConfig.sellFeeRate);
-    const dailyInflation = new Decimal(inflationRate).dividedBy(365);
-    const dailyExchangeChange = new Decimal(exchangeRateConfig.annualChangeRate).dividedBy(365);
-
-    let currentNominal = new Decimal(principal).minus(new Decimal(principal).times(buyFeeRate));
-    let totalContribution = new Decimal(principal);
-    let totalFees = new Decimal(principal).times(buyFeeRate);
-    let currentExchangeRate = new Decimal(exchangeRateConfig.base);
-
-    for (let d = 0; d <= totalDays; d++) {
-      // 데이터 포인트 기록
-      if (d % intervalDays === 0 || d === totalDays) {
-        const date = new Date(startDate);
-        date.setDate(startDate.getDate() + d);
-
-        const currentNominalInKrw = currentNominal.times(currentExchangeRate);
-        const sellFees = currentNominalInKrw.times(sellFeeRate);
-        const totalFeesWithSell = totalFees.plus(sellFees);
-        const totalContributionInKrw = totalContribution.times(currentExchangeRate); // 단순화를 위해 현재 환율 적용
-        const totalGains = currentNominalInKrw.minus(totalContributionInKrw).minus(sellFees);
-        const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
-        const postTaxValue = currentNominalInKrw.minus(sellFees).minus(estimatedTax);
-        const realValue = postTaxValue.dividedBy(dailyInflation.plus(1).pow(d));
-
-        results.push({
-          date,
-          nominalValue: this.bankersRounding(currentNominalInKrw).toNumber(),
-          realValue: this.bankersRounding(realValue).toNumber(),
-          totalContribution: this.bankersRounding(totalContributionInKrw).toNumber(),
-          totalGains: this.bankersRounding(totalGains).toNumber(),
-          totalFees: this.bankersRounding(totalFeesWithSell).toNumber(),
-          estimatedTax: this.bankersRounding(estimatedTax).toNumber(),
-          postTaxValue: this.bankersRounding(postTaxValue).toNumber(),
-        });
-      }
-
-      if (d === totalDays) break;
-
-      // 일일 성장 (자산별 데이터 또는 고정 이율 사용)
-      const dailyRate = new Decimal(getDailyReturn(assetType, d, annualRate));
-      currentNominal = currentNominal.times(dailyRate.plus(1));
-      
-      // 환율 변동
-      currentExchangeRate = currentExchangeRate.times(dailyExchangeChange.plus(1));
-
-      // 추가 불입 (전략에 따라)
-      let dailyContribution = new Decimal(0);
-      if (strategy.type === 'FIXED') {
-        dailyContribution = new Decimal(strategy.baseAmount).dividedBy(30.42); // 월간 불입금을 일간으로 환산
-      } else if (strategy.type === 'STEP_UP') {
-        const year = Math.floor(d / 365);
-        const annualIncrease = new Decimal(strategy.increaseRate || 0).plus(1).pow(year);
-        dailyContribution = new Decimal(strategy.baseAmount).times(annualIncrease).dividedBy(30.42);
-      } else if (strategy.type === 'VALUE_AVERAGING') {
-        // 매달 정해진 성장 목표(targetGrowth)를 맞추기 위해 부족분만큼 불입
-        if (d > 0 && d % 30 === 0) {
-          const targetValue = new Decimal(strategy.targetGrowth || 0).times(d / 30).plus(principal);
-          if (currentNominal.lt(targetValue)) {
-            dailyContribution = targetValue.minus(currentNominal);
-          }
-        }
-      }
-
-      if (dailyContribution.gt(0)) {
-        const fee = dailyContribution.times(buyFeeRate);
-        currentNominal = currentNominal.plus(dailyContribution.minus(fee));
-        totalContribution = totalContribution.plus(dailyContribution);
-        totalFees = totalFees.plus(fee);
-      }
-    }
-
-    return results;
+    return this.simulateRange(
+      principal, annualRate, years, strategy, inflationRate, accountType, taxConfig, feeConfig, exchangeRateConfig, intervalDays, assetType
+    ).average;
   }
 
   /**

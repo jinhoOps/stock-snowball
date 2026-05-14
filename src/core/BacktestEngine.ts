@@ -57,6 +57,7 @@ export class BacktestEngine {
     let currentUnitPrice = new Decimal(100); // 기준가 100으로 시작
 
     let lastInvestmentDate = '';
+    let lastKnownDividendYield = new Decimal(0);
 
     // 시뮬레이션 루프
     for (let i = 0; i < filteredData.length; i++) {
@@ -82,46 +83,51 @@ export class BacktestEngine {
 
       // 1. 자금 투입 로직
       let shouldInvest = false;
+      let injectionAmount = new Decimal(0);
+      
+      const currentDate = new Date(point.date);
+      const isBizDay = SnowballEngine.isBusinessDay(currentDate);
+
       if (i === 0) {
         shouldInvest = true;
-      } else {
-        const currentDate = new Date(point.date);
-        const prevInvestDate = new Date(lastInvestmentDate);
-        
+        // 첫 투입 시 초기 자본과 첫 적립금을 동시에 투입
         if (cycle === 'DAILY') {
-          shouldInvest = true;
+          injectionAmount = new Decimal(initialPrincipal).plus(new Decimal(monthlyInstallment).dividedBy(21));
         } else if (cycle === 'WEEKLY') {
+          injectionAmount = new Decimal(initialPrincipal).plus(new Decimal(monthlyInstallment).dividedBy(4));
+        } else {
+          injectionAmount = new Decimal(initialPrincipal).plus(monthlyInstallment);
+        }
+      } else {
+        const prevInvestDate = lastInvestmentDate ? new Date(lastInvestmentDate) : null;
+        
+        if (cycle === 'DAILY' && isBizDay) {
+          shouldInvest = true;
+          injectionAmount = new Decimal(monthlyInstallment).dividedBy(21);
+        } else if (cycle === 'WEEKLY' && prevInvestDate) {
           const diffDays = Math.floor((currentDate.getTime() - prevInvestDate.getTime()) / (1000 * 60 * 60 * 24));
           if (diffDays >= 7) {
             shouldInvest = true;
+            injectionAmount = new Decimal(monthlyInstallment).dividedBy(4);
           }
-        } else if (cycle === 'MONTHLY') {
+        } else if (cycle === 'MONTHLY' && prevInvestDate) {
           if (currentDate.getMonth() !== prevInvestDate.getMonth() || currentDate.getFullYear() !== prevInvestDate.getFullYear()) {
             shouldInvest = true;
+            injectionAmount = new Decimal(monthlyInstallment);
           }
         }
       }
 
-      if (shouldInvest) {
-        // 첫 투입 시 초기 자본과 첫 적립금을 동시에 투입
-        let totalInjection = new Decimal(0);
-        if (i === 0) {
-          totalInjection = totalInjection.plus(initialPrincipal).plus(monthlyInstallment);
-        } else {
-          totalInjection = totalInjection.plus(monthlyInstallment);
-        }
+      if (shouldInvest && injectionAmount.gt(0)) {
+        // 매수 수수료 적용
+        const fee = injectionAmount.times(buyFeeRate);
+        const netInjection = injectionAmount.minus(fee);
         
-        if (totalInjection.gt(0)) {
-          // 매수 수수료 적용
-          const fee = totalInjection.times(buyFeeRate);
-          const netInjection = totalInjection.minus(fee);
-          
-          cash = cash.plus(netInjection);
-          totalPrincipal = totalPrincipal.plus(totalInjection);
-        }
+        cash = cash.plus(netInjection);
+        totalPrincipal = totalPrincipal.plus(injectionAmount);
         lastInvestmentDate = point.date;
       }
-
+      
       // 2. 보유 수량에 따른 현재 가치 계산 (배당 포함 전)
       if (cash.gt(0) && currentPrice.gt(0)) {
         currentShares = currentShares.plus(cash.dividedBy(currentPrice));
@@ -131,18 +137,20 @@ export class BacktestEngine {
       let currentValue = currentShares.times(currentPrice);
 
       // 3. 배당금 재투자 (TR)
-      // 배당금이 누락된 경우 자산의 일반적인 배당률을 사용할 수 있으나, 여기서는 0으로 처리하거나 
-      // 데이터가 있는 경우에만 처리 (Task 3: robust dividend handling)
-      if (reinvestDividends && point.dividendYield && point.dividendYield > 0) {
-        const dy = new Decimal(point.dividendYield);
+      let currentDividendYield = new Decimal(point.dividendYield || 0);
+      if (currentDividendYield.isZero() && lastKnownDividendYield.gt(0)) {
+        currentDividendYield = lastKnownDividendYield;
+      }
+
+      if (reinvestDividends && currentDividendYield.gt(0)) {
+        const dy = currentDividendYield;
         const dividendAmount = currentValue.times(dy);
         
         if (currentPrice.gt(0)) {
-          // 배당 재투자 시에도 매수 수수료가 발생하는지? (보통 발생하지 않거나 낮음, 여기서는 0으로 가정)
           currentShares = currentShares.plus(dividendAmount.dividedBy(currentPrice));
           currentValue = currentShares.times(currentPrice);
-          // 단위 가격에도 배당 반영하여 TR(Total Return) 지수화
           currentUnitPrice = currentUnitPrice.times(dy.plus(1));
+          lastKnownDividendYield = dy;
         }
       }
 

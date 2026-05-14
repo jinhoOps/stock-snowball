@@ -158,43 +158,41 @@ describe('BacktestEngine', () => {
 
   describe('Cycle Support (D/W/M)', () => {
     const dailyData = [
-      { date: '2023-01-01', price: 100 },
-      { date: '2023-01-02', price: 100 },
+      { date: '2023-01-02', price: 100 }, // 월
       { date: '2023-01-03', price: 100 },
       { date: '2023-01-04', price: 100 },
       { date: '2023-01-05', price: 100 },
       { date: '2023-01-06', price: 100 },
-      { date: '2023-01-07', price: 100 },
-      { date: '2023-01-08', price: 100 },
+      { date: '2023-01-09', price: 100 }, // 월 (주말 건너뜀)
     ];
 
-    it('DAILY cycle은 매 영업일(데이터 포인트)마다 투자해야 한다', () => {
+    it('DAILY cycle은 매 영업일마다 월간 불입금의 1/21을 투자해야 한다', () => {
       const params: BacktestParams = {
         ...defaultParams,
         initialPrincipal: 0,
-        monthlyInstallment: 1000,
+        monthlyInstallment: 21000,
         cycle: 'DAILY',
-        startDate: '2023-01-01',
-        endDate: '2023-01-08',
+        startDate: '2023-01-02',
+        endDate: '2023-01-09',
       };
 
       const result = BacktestEngine.run(params, dailyData);
-      // 8일 동안 매일 1000원씩 투자 -> 8000원
-      expect(result.metrics.totalPrincipal).toBe(8000);
+      // 6일 동안 매일 21000/21 = 1000원씩 투자 -> 6000원
+      expect(result.metrics.totalPrincipal).toBe(6000);
     });
 
-    it('WEEKLY cycle은 7일 간격으로 투자해야 한다', () => {
+    it('WEEKLY cycle은 7일 간격으로 월간 불입금의 1/4을 투자해야 한다', () => {
       const params: BacktestParams = {
         ...defaultParams,
         initialPrincipal: 0,
-        monthlyInstallment: 1000,
+        monthlyInstallment: 4000,
         cycle: 'WEEKLY',
-        startDate: '2023-01-01',
-        endDate: '2023-01-08',
+        startDate: '2023-01-02',
+        endDate: '2023-01-09',
       };
 
       const result = BacktestEngine.run(params, dailyData);
-      // 1월 1일(첫날) 투자, 그 후 1월 8일(7일 후) 투자 -> 2000원
+      // 1월 2일(첫날) 투자(1000원), 1월 9일(7일 후) 투자(1000원) -> 2000원
       expect(result.metrics.totalPrincipal).toBe(2000);
     });
   });

@@ -71,6 +71,45 @@ export const getHistoricalData = (asset: AssetType): IndexPoint[] => {
   return datasets[asset]?.data || spyData.data;
 };
 
+/**
+ * 자산별 과거 데이터를 기반으로 1년 단위 구르는(Rolling) 연평균 수익률(CAGR)의 중앙값을 계산합니다.
+ * @param asset 자산 유형
+ * @returns 중앙값 수익률 (예: 0.12 for 12%)
+ */
+export const calculateMedianCAGR = (asset: AssetType): number => {
+  if (asset === 'CUSTOM') return 0.08; // 기본값 8%
+  
+  const data = getHistoricalData(asset);
+  if (!data || data.length < 365) return 0.1; // 데이터 부족 시 10% 기본값
+
+  const annualReturns: number[] = [];
+  const windowSize = 365; // 약 1년 (휴장일 포함 데이터일 경우 252일이 적절하나, 현재 데이터셋 형식을 따름)
+
+  for (let i = 0; i <= data.length - windowSize; i++) {
+    const start = data[i].price;
+    const end = data[i + windowSize - 1].price;
+    
+    if (start === 0) continue;
+
+    // 단순 수익률 (1년 기간이므로 CAGR와 동일)
+    // 배당 수익률은 현재 포인트 데이터에 dividendYield(연간/365 추정)가 포함되어 있으나 
+    // 여기서는 단순 가격 변동 중앙값을 기준으로 함 (보수적 접근)
+    const annualReturn = (end / start) - 1;
+    annualReturns.push(annualReturn);
+  }
+
+  if (annualReturns.length === 0) return 0.1;
+
+  // 중앙값 계산
+  annualReturns.sort((a, b) => a - b);
+  const mid = Math.floor(annualReturns.length / 2);
+  
+  if (annualReturns.length % 2 === 0) {
+    return (annualReturns[mid - 1] + annualReturns[mid]) / 2;
+  }
+  return annualReturns[mid];
+};
+
 export const getDailyReturn = (asset: AssetType, dayIndex: number, defaultRate: number): number => {
   if (asset === 'CUSTOM') return defaultRate / 365;
   const returns = HISTORICAL_DAILY_RETURNS[asset];

@@ -9,7 +9,7 @@ interface SimulationControlsProps {
   mode: SimulationMode;
   setMode: (m: SimulationMode) => void;
   params: SimulationParams;
-  setParams: (p: SimulationParams) => void;
+  onUpdate: (p: Partial<SimulationParams>) => void;
   currency: 'KRW' | 'USD';
   setCurrency: (c: 'KRW' | 'USD') => void;
   exchangeRate: number;
@@ -22,7 +22,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
   };
 
   const updateParam = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
-    props.setParams({ ...props.params, [key]: value });
+    props.onUpdate({ [key]: value });
   };
 
   const cycleLabel = 
@@ -164,8 +164,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
                </div>
                <ScenarioPresetPicker 
                  onSelect={(preset) => {
-                   props.setParams({
-                     ...props.params,
+                   props.onUpdate({
                      startDate: preset.startDate,
                      endDate: preset.endDate
                    });

@@ -49,3 +49,9 @@
 - [x] **NumericInput**: '0' 값 처리 UX 개선 및 모바일 최적화
 - [x] **Advanced Settings**: 헤더 톱니바퀴 아이콘을 통한 진입점 일원화
 - [x] **Slider UX**: 30년 고정 스케일 및 초과 입력 지원 로직 완성
+
+## ✅ Phase 8: 'What-If' Backtest Evolution & Future Projection Range (Completed)
+- [x] **State Isolation**: Projection과 Backtest 상태의 완전한 분리
+- [x] **Cone of Uncertainty**: `SnowballEngine`을 통한 미래 예측 범위(낙관/평균/비관) 연산
+- [x] **High-Precision Backtesting**: 일/주/월 단위 정밀 백테스팅 및 영업일 분산 로직
+- [x] **Multi-Dimensional Visualization**: `visx Area`를 이용한 범위 시각화 및 비교 모드 구현

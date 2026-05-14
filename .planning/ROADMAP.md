@@ -8,23 +8,25 @@
 - [x] **Phase 4: Apple Polish & Interactions** - Framer Motion 애니메이션 및 고도화된 스크러빙 UX 완성 (completed 2026-05-13)
 - [x] **Phase 6: Accessibility & Design Refinement** - WCAG AA 준수 및 디자인 토큰 정합성 확보 (디자인 부채 해결)
 - [x] **Phase 7: UI/UX & Financial Precision Refinement** - [Completed] 입력 편의성 개선, 통화 자동 환산 및 고급 설정 UI 고도화 (completed 2026-05-13)
-- [ ] **Phase 8: 'What-If' Backtest Evolution** - Decoupled high-precision backtesting with historical presets and comparison mode
+- [x] **Phase 8: 'What-If' Backtest Evolution & Future Projection Range** - [Completed] Decoupled high-precision backtesting with historical presets and future "Cone of Uncertainty" (completed 2026-05-14)
 
 ## Phase Details
 
-### Phase 8: 'What-If' Backtest Evolution
-**Goal**: Decoupled, high-precision 'What-if' backtesting system implementation with historical scenario presets and comparison visualization.
+### Phase 8: 'What-If' Backtest Evolution & Future Projection Range
+**Goal**: Decoupled, high-precision 'What-if' backtesting system implementation with historical scenario presets and future "Cone of Uncertainty" range visualization.
 **Depends on**: Phase 7
-**Requirements**: CORE-06, DATA-02, UI-03, UI-06
+**Requirements**: CORE-06, DATA-02, UI-02, UI-06
 **Success Criteria**:
   1. Projection and Backtest parameter states are fully decoupled.
-  2. BacktestEngine supports Daily/Weekly/Monthly cycles with Tax and Fee logic.
-  3. Historical presets (Dot-com, GFC, COVID) are selectable and functional.
-  4. Chart supports 'Comparison Mode' using 'Months Elapsed' as a common axis.
-**Plans**: 3 plans
-- [ ] [08-01-PLAN.md](./phases/08-backtest-evolution/08-01-PLAN.md) — State Decoupling & Mode-Aware UI
-- [ ] [08-02-PLAN.md](./phases/08-backtest-evolution/08-02-PLAN.md) — Advanced Backtest Engine
-- [ ] [08-03-PLAN.md](./phases/08-backtest-evolution/08-03-PLAN.md) — What-if Logic & Visualization
+  2. SnowballEngine calculates Median CAGR and generates pessimistic/average/optimistic series (Cone).
+  3. BacktestEngine supports Daily/Weekly/Monthly cycles with Tax and Fee logic parity.
+  4. Both engines distribute contributions across 21 business days.
+  5. Chart supports 'Comparison Mode' and visualizes the future range using visx Area.
+**Plans**: 4 plans
+- [x] [08-01-PLAN.md](./phases/08-backtest-evolution/08-01-PLAN.md) — State Isolation & Scenario UI
+- [x] [08-02-PLAN.md](./phases/08-backtest-evolution/08-02-PLAN.md) — Engine Evolution - Future Projection & Median CAGR
+- [x] [08-03-PLAN.md](./phases/08-backtest-evolution/08-03-PLAN.md) — Engine Evolution - Precision Backtesting
+- [x] [08-04-PLAN.md](./phases/08-backtest-evolution/08-04-PLAN.md) — Multi-Dimensional Visualization & Finalization
 
 ### Phase 7: UI/UX & Financial Precision Refinement
 **Goal**: 자산 및 납입액 입력 UX를 개선하고, 환율 기반 통화 전환 및 고정밀 연산을 통해 현실적인 투자 시뮬레이션 경험 제공.
@@ -140,4 +142,4 @@
 | 5. Legacy Integration (migrated) | 4/4 | Completed | 2026-05-13 |
 | 6. Accessibility & Design Refinement | 2/2 | Completed | 2026-05-13 |
 | 7. UI/UX & Financial Precision | 3/3 | Completed | 2026-05-13 |
-| 8. 'What-If' Backtest Evolution | 0/3 | Pending | - |
+| 8. 'What-If' Backtest Evolution | 4/4 | Completed | 2026-05-14 |

@@ -102,4 +102,56 @@ describe('SnowballEngine', () => {
       expect(SnowballEngine.formatUSD(500)).toBe('500 $');
     });
   });
+
+  describe('Range Projection (Cone of Uncertainty)', () => {
+    it('3가지 시나리오가 모두 생성되어야 하며 상/하한 관계가 정합적이어야 합니다', () => {
+      const principal = 10000000;
+      const rate = 0.1; // 10%
+      const years = 10;
+      
+      const result = SnowballEngine.simulateRange(principal, rate, years);
+      
+      expect(result.average).toBeDefined();
+      expect(result.pessimistic).toBeDefined();
+      expect(result.optimistic).toBeDefined();
+      
+      const lastAvg = result.average[result.average.length - 1].postTaxValue;
+      const lastPes = result.pessimistic[result.pessimistic.length - 1].postTaxValue;
+      const lastOpt = result.optimistic[result.optimistic.length - 1].postTaxValue;
+      
+      expect(lastOpt).toBeGreaterThan(lastAvg);
+      expect(lastAvg).toBeGreaterThan(lastPes);
+    });
+
+    it('시간이 경과할수록 범위(Variance)가 넓어져야 합니다', () => {
+       const principal = 10000000;
+       const rate = 0.1;
+       const years = 5;
+       // 365일 간격으로 포인트 기록 (1년 단위 확인 용이)
+       const result = SnowballEngine.simulateRange(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365);
+       
+       // 1년차(index 1) 차이 vs 5년차(index 5) 차이
+       const diffYear1 = result.optimistic[1].postTaxValue - result.pessimistic[1].postTaxValue;
+       const diffYear5 = result.optimistic[5].postTaxValue - result.pessimistic[5].postTaxValue;
+       
+       expect(diffYear5).toBeGreaterThan(diffYear1);
+    });
+  });
+
+  describe('Business Day Logic', () => {
+    it('일별 매수 시 주말을 제외하고 21영업일 기준으로 투자되어야 합니다', () => {
+      const monthlyAmount = 2100000; // 계산 편의를 위해 210만원
+      const principal = 0;
+      const years = 1; // 1년
+      
+      // 수익률 0%로 설정하여 원금 합계만 확인
+      const result = SnowballEngine.simulate(principal, 0, years, { type: 'FIXED', baseAmount: monthlyAmount }, 0);
+      
+      const lastResult = result[result.length - 1];
+      // 1년 = 12개월. 월 210만원씩 총 2520만원 적립되어야 함.
+      const expectedTotal = monthlyAmount * 12;
+      // 수수료 및 소수점 오차 감안하여 근사치 확인
+      expect(Math.abs(lastResult.totalContribution - expectedTotal)).toBeLessThan(100000);
+    });
+  });
 });

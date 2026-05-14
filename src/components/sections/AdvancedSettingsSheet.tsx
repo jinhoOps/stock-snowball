@@ -6,7 +6,7 @@ interface AdvancedSettingsSheetProps {
   isOpen: boolean;
   onClose: () => void;
   params: SimulationParams;
-  setParams: (p: SimulationParams) => void;
+  onUpdate: (p: Partial<SimulationParams>) => void;
   exchangeRate: number;
   setExchangeRate: (v: number) => void;
 }
@@ -24,14 +24,14 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
   isOpen,
   onClose,
   params,
-  setParams,
+  onUpdate,
   exchangeRate,
   setExchangeRate,
 }) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const updateParam = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
-    setParams({ ...params, [key]: value });
+    onUpdate({ [key]: value });
   };
 
   // Prevent scrolling on body when sheet is open

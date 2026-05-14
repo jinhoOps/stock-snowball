@@ -38,6 +38,12 @@ export interface SimulationResult {
   postTaxValue: number;
 }
 
+export interface SimulationRangeResult {
+  pessimistic: SimulationResult[];
+  average: SimulationResult[];
+  optimistic: SimulationResult[];
+}
+
 export interface SimulationParams {
   principal: number;
   contribution: number;
