@@ -33,8 +33,8 @@ const config: Config = {
         }
       },
       fontFamily: {
-        display: ["SF Pro Display", "Inter", "system-ui", "-apple-system", "sans-serif"],
-        text: ["SF Pro Text", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        display: ["SF Pro Display", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        text: ["SF Pro Text", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       fontSize: {
         'hero': ['56px', { lineHeight: '1.07', letterSpacing: '-0.28px', fontWeight: '600' }],

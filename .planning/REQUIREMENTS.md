@@ -12,6 +12,8 @@
 - **CORE-04**: 환율 변동성, 증권사 수수료, 세금(ISA 등) 반영 로직.
 - **CORE-05**: 다양한 투자 전략(정액 적립식, 가치 적립식 등) 지원.
 - **CORE-06**: 과거 시계열 데이터(QQQM, QLD, TQQQ, KOSPI 등) 기반 백테스트 및 미래 시나리오(5단계 수익률) 연산 로직.
+- **REQ-09-01**: 연율화된 변동성(Annualized Volatility) 계산 로직 추가.
+- **REQ-09-04**: 인플레이션을 반영한 실질 가치(Real Value) 리베이스 연산.
 
 ### [DATA] 데이터 관리 및 영속성
 - **DATA-01**: `RxDB (IndexedDB)`를 활용한 로컬 퍼스트 아키텍처 구축.
@@ -25,6 +27,9 @@
 - **UI-04**: 고정밀 스크러빙(Scrubbing) 인터랙션을 통한 시점별 자산 탐색.
 - **UI-05**: 결과 요약 대시보드 (KPI Grid) 구현.
 - **UI-06**: 메인 화면은 '투자 단위(매일/매주/매월)' 및 '금액' 입력에만 집중. 복잡한 표기 옵션(원/달러, 실질/명목)과 변수 설정(기준금리, 환율)은 별도의 설정 슬라이드/모달로 분리하여 미니멀리즘 유지.
+- **REQ-09-03**: 최대 3개 자산 동시 백테스트 비교 UI.
+- **REQ-09-05**: 다중 라인 차트 및 범례 시각화.
+- **REQ-09-06**: `html-to-image` 기반 Apple 스타일 공유 카드 생성.
 
 ### [PWA] 앱 경험
 - **PWA-01**: 서비스 워커를 통한 오프라인 구동 및 즉각적인 로딩.
@@ -33,6 +38,7 @@
 ### [VAL] 무결성 검증 (Financial Integrity)
 - **VAL-01**: 누적 오차 확산 방지를 위한 단위 테스트 및 금융 시나리오 검증.
 - **VAL-02**: 디자인 시스템 정합성 체크 (DESIGN.md 준수 여부).
+- **REQ-09-02**: 성능 보호를 위한 입력 기간 제한 (전체 50년, 일간 30년).
 
 ## Traceability
 
@@ -57,3 +63,9 @@
 | PWA-02 | Phase 2 | Complete |
 | VAL-01 | Phase 1 | Complete |
 | VAL-02 | Phase 1 | Complete |
+| REQ-09-01 | Phase 9 | Planned |
+| REQ-09-02 | Phase 9 | Planned |
+| REQ-09-03 | Phase 9 | Planned |
+| REQ-09-04 | Phase 9 | Planned |
+| REQ-09-05 | Phase 9 | Planned |
+| REQ-09-06 | Phase 9 | Planned |

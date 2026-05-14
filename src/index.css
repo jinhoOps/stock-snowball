@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    font-family: "SF Pro Text", "Inter", system-ui, -apple-system, sans-serif;
+    font-family: "SF Pro Text", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     --apple-primary: #0066cc;
     --apple-ink: #1d1d1f;
     --apple-ink-muted-48: #7a7a7a;
@@ -71,24 +71,57 @@
 
 @font-face {
   font-family: 'SF Pro Display';
+  src: local('SF Pro Display Light'), local('.SFNSDisplay-Light');
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
   src: local('SF Pro Display'), local('.SFNSDisplay-Regular');
   font-weight: 400;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'SF Pro Display';
   src: local('SF Pro Display Semibold'), local('.SFNSDisplay-Semibold');
   font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF Pro Display';
+  src: local('SF Pro Display Bold'), local('.SFNSDisplay-Bold');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF Pro Text';
+  src: local('SF Pro Text Light'), local('.SFNSText-Light');
+  font-weight: 300;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'SF Pro Text';
   src: local('SF Pro Text'), local('.SFNSText-Regular');
   font-weight: 400;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'SF Pro Text';
   src: local('SF Pro Text Semibold'), local('.SFNSText-Semibold');
   font-weight: 600;
+  font-display: swap;
 }
+
+@font-face {
+  font-family: 'SF Pro Text';
+  src: local('SF Pro Text Bold'), local('.SFNSText-Bold');
+  font-weight: 700;
+  font-display: swap;
+}
+

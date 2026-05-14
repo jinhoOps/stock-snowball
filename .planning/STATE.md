@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: ux-refinement-polish
 status: in-progress
-last_updated: "2026-05-14T17:30:00.000Z"
+last_updated: "2026-05-14T18:00:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 8
-  total_plans: 26
-  completed_plans: 25
-  percent: 97
+  total_plans: 29
+  completed_plans: 26
+  percent: 89
 ---
 
 # Project State: Stock Snowball
@@ -17,13 +17,13 @@ progress:
 ## Project Reference
 
 **Core Value**: 매일의 소액 투자가 거대한 자산으로 성장하는 과정을 시각화하는 고정밀 투자 시뮬레이션 플랫폼.
-**Current Focus**: Scenario Preset UI Refinement & Mobile UX Polish.
+**Current Focus**: Advanced Metrics, Multi-asset Comparison & Apple-style Sharing.
 
 ## Current Position
 
-**Phase**: 9 - UX Refinement & Apple Polish
-**Status**: Implementing minimal scenario picker and refined mobile UI for scenario saving. Hotfixed DB schema (v4) and Backtest globalization.
-**Progress**: 30% [██████░░░░░░░░░░░░░░]
+**Phase**: 9 - Advanced Metrics, Comparison & Sharing
+**Status**: Planning complete. Execution ready for Engine & Logic refinement.
+**Progress**: 0% [░░░░░░░░░░░░░░░░░░░░]
 
 ## Performance Metrics
 
@@ -43,14 +43,14 @@ progress:
     - Patched Backtest globalization (USD support in charts/views).
     - Fixed summary metric loss (Mapped estimatedTax and totalFees from BacktestEngine).
     - **UI Fix**: Refined Scenario Save UI to be side-by-side on mobile and robust against overflows.
-- Phase 9 (Current): Refinement of Backtest scenario UI and Result Sharing features.
+- Phase 9 (Current): Advanced Metrics (Volatility), Performance Constraints (Duration), Multi-Asset Backtest Comparison, and Apple-style Share Card.
 
 ### Key Decisions
 
-- **Schema Migration v4**: Added `contributionCycle` to schema and handled migration to avoid DB6 errors.
-- **Backtest Globalization**: Decoupled currency formatting in BacktestView/Chart to respect global `currency` setting.
-- **Scenario More Toggle**: Hidden complex historical scenarios behind a "More" button to maintain Apple-style minimalism.
-- **Mobile Compact UI**: Prefer side-by-side layout for input+CTA on small screens to reduce vertical sprawl in Hero area.
+- **Volatility Standard**: Annualized Standard Deviation of daily returns * sqrt(252).
+- **Duration Constraints**: Global 50Y max, Daily 30Y max to ensure client-side performance.
+- **Multi-Asset UI**: Support up to 3 assets for comparison on the same timeline.
+- **Share Technology**: Use `html-to-image` for high-fidelity PNG export of the results.
 
 ### Todos
 
@@ -62,12 +62,12 @@ progress:
 - [x] Phase 6: Accessibility & Design Refinement
 - [x] Phase 7: UI/UX & Financial Precision Refinement
 - [x] Phase 8: 'What-If' Backtest Evolution & Future Projection Range
-- [ ] Phase 9: UX Refinement & Feature Expansion (In-Progress)
-    - [x] **Hotfix**: Patch Backtest globalization and summary metric loss.
-    - [x] **Hotfix**: Resolve RxDB DB6 schema conflict.
-    - [ ] Implementation: Advanced Metrics (Sharpe, MDD) visualization.
+- [ ] Phase 9: Advanced Metrics, Comparison & Sharing (In-Progress)
+    - [ ] Plan 09-01: Metrics & Constraints (Engine & Logic)
+    - [ ] Plan 09-02: Multi-Asset Backtest Comparison (UI/UX)
+    - [ ] Plan 09-03: Real-Value Rebase & Share Card (Polish)
 
 ## Session Continuity
 
-**Last Turn**: Milestone v1.2 Summary Report generated. Scenario UI refinement with "More" toggle and duration presets completed.
-**Next Step**: Phase 9 - Advanced Metrics (/gsd:discuss requested).
+**Last Turn**: Phase 9 Planning completed. Created 3 executable plans covering metrics, comparison, and sharing features.
+**Next Step**: Execute `/gsd:execute-phase 09` to start implementing Engine & Logic changes.
