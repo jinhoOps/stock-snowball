@@ -72,6 +72,14 @@ const createDatabase = async (): Promise<MyDatabase> => {
             reinvestDividends: true,
             updatedAt: Date.now(),
           };
+        },
+        // Version 3 -> 4 migration
+        4: (oldDoc: any) => {
+          return {
+            ...oldDoc,
+            contributionCycle: 'DAILY',
+            updatedAt: Date.now(),
+          };
         }
       }
     },

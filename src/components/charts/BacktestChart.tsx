@@ -16,6 +16,7 @@ import { SnowballEngine } from '../../core/SnowballEngine';
 interface BacktestChartProps {
   history: BacktestHistoryPoint[];
   assetName: string;
+  currency: 'KRW' | 'USD';
 }
 
 const tooltipStyles = {
@@ -48,17 +49,22 @@ const bisectDate = (points: { date: Date }[], x0: Date) => {
 const BacktestChartInner: React.FC<{ 
   history: BacktestHistoryPoint[]; 
   assetName: string;
+  currency: 'KRW' | 'USD';
   width: number; 
   height: number;
-}> = React.memo(({ history, assetName, width, height }) => {
+}> = React.memo(({ history, assetName, currency, width, height }) => {
   const margin = useMemo(() => ({
     top: 64, 
     right: width > 520 ? 32 : 16, 
     bottom: 48, 
-    left: width > 520 ? 72 : 48 
+    left: width > 520 ? 84 : 56 
   }), [width]);
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
+
+  const formatCurrency = useCallback((val: number) => {
+    return SnowballEngine.formatBigNumber(val, currency);
+  }, [currency]);
 
   // Process data for chart
   const data = useMemo(() => history.map(p => ({
@@ -257,7 +263,7 @@ const BacktestChartInner: React.FC<{
             scale={valueScale}
             numTicks={5}
             stroke="none"
-            tickFormat={v => SnowballEngine.formatKoreanWon(Number(v))}
+            tickFormat={v => formatCurrency(Number(v))}
             tickLabelProps={{ fill: 'var(--apple-ink-muted-48)', fontSize: 10, textAnchor: 'end', dx: -4 }}
           />
         </Group>
@@ -277,8 +283,8 @@ const BacktestChartInner: React.FC<{
             {tableData.map((row, idx) => (
               <tr key={idx}>
                 <td>{row.date.toLocaleDateString()}</td>
-                <td>{row.value.toLocaleString()}원</td>
-                <td>{row.principal.toLocaleString()}원</td>
+                <td>{formatCurrency(row.value)}</td>
+                <td>{formatCurrency(row.principal)}</td>
               </tr>
             ))}
           </tbody>
@@ -296,11 +302,11 @@ const BacktestChartInner: React.FC<{
               <div className="space-y-1.5 min-w-[140px]">
                 <div className="flex justify-between items-center gap-4">
                   <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">평가 금액</span>
-                  <span className="font-semibold text-apple-primary text-caption">{SnowballEngine.formatKoreanWon(tooltipData.value)}</span>
+                  <span className="font-semibold text-apple-primary text-caption">{formatCurrency(tooltipData.value)}</span>
                 </div>
                 <div className="flex justify-between items-center gap-4">
                   <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">투자 원금</span>
-                  <span className="font-semibold text-apple-ink text-caption">{SnowballEngine.formatKoreanWon(tooltipData.principal)}</span>
+                  <span className="font-semibold text-apple-ink text-caption">{formatCurrency(tooltipData.principal)}</span>
                 </div>
                 <div className="flex justify-between items-center gap-4 border-t border-apple-hairline pt-1 mt-1">
                   <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">수익률</span>
@@ -322,13 +328,13 @@ const BacktestChartInner: React.FC<{
   );
 });
 
-const BacktestChart: React.FC<BacktestChartProps> = ({ history, assetName }) => {
+const BacktestChart: React.FC<BacktestChartProps> = ({ history, assetName, currency }) => {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 min-h-[300px] relative">
         <ParentSize>
           {({ width, height }) => (
-            <BacktestChartInner history={history} assetName={assetName} width={width} height={height} />
+            <BacktestChartInner history={history} assetName={assetName} currency={currency} width={width} height={height} />
           )}
         </ParentSize>
       </div>

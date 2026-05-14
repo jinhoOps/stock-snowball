@@ -8,6 +8,7 @@ import BacktestChart from '../charts/BacktestChart';
 interface BacktestViewProps {
   result: BacktestResult;
   assetName: string;
+  currency: 'KRW' | 'USD';
 }
 
 const MetricCard = ({ 
@@ -51,13 +52,16 @@ const MetricCard = ({
   </motion.div>
 );
 
-const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName }) => {
+const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency }) => {
   const { metrics, history } = result;
 
   const formatCurrency = (val: number) => {
-    // 만원 미만 단위 절삭 (미니멀을 위함)
-    const truncated = Math.floor(val / 10000) * 10000;
-    return SnowballEngine.formatKoreanWon(truncated);
+    if (currency === 'KRW') {
+      // 만원 미만 단위 절삭 (미니멀을 위함)
+      const truncated = Math.floor(val / 10000) * 10000;
+      return SnowballEngine.formatKoreanWon(truncated);
+    }
+    return SnowballEngine.formatUSD(val);
   };
 
   const kpis = [
@@ -115,7 +119,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName }) => {
             {history[0].date} ~ {history[history.length - 1].date}
           </p>
         </div>
-        <BacktestChart history={history} assetName={assetName} />
+        <BacktestChart history={history} assetName={assetName} currency={currency} />
       </div>
     </div>
   );

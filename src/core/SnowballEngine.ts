@@ -1,6 +1,6 @@
 import { Decimal } from 'decimal.js';
 import { AccountType, FeeConfig, TaxConfig, SimulationResult, StrategyConfig, AssetType } from '../types/finance';
-import { getDailyReturn } from '../data/historicalAssets';
+
 
 // Decimal 설정: 금융 연산을 위해 정밀도를 높게 설정 (기본 20 -> 40)
 Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
@@ -202,7 +202,7 @@ export class SnowballEngine {
       return this.formatKoreanWon(amount);
     } else {
       // 달러의 경우 한국어로 '~만 달러', '~억 달러' 등으로 변환하여 읽기 지원
-      const krwEquivalent = amount.times(1450); // 환율 고정값이 아닌 참고용 (보통 1400-1500)
+      // 환율 참고값 (보통 1400-1500): amount.times(1450) 등으로 변환 가능
       if (amount.gte(1e6)) {
         return `${amount.dividedBy(1e6).toFixed(1)}M 달러`;
       }
@@ -265,7 +265,7 @@ export class SnowballEngine {
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
     exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
     intervalDays: number = 30,
-    assetType: AssetType = 'CUSTOM'
+    _assetType: AssetType = 'CUSTOM'
   ): { pessimistic: SimulationResult[]; average: SimulationResult[]; optimistic: SimulationResult[] } {
     const totalDays = years * 365;
     const startDate = new Date();
@@ -389,10 +389,10 @@ export class SnowballEngine {
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
     exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
     intervalDays: number = 30,
-    assetType: AssetType = 'CUSTOM'
+    _assetType: AssetType = 'CUSTOM'
   ): SimulationResult[] {
     return this.simulateRange(
-      principal, annualRate, years, strategy, inflationRate, accountType, taxConfig, feeConfig, exchangeRateConfig, intervalDays, assetType
+      principal, annualRate, years, strategy, inflationRate, accountType, taxConfig, feeConfig, exchangeRateConfig, intervalDays, _assetType
     ).average;
   }
 

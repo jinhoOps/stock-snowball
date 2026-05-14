@@ -46,6 +46,7 @@ export class BacktestEngine {
 
     let currentShares = new Decimal(0);
     let totalPrincipal = new Decimal(0);
+    let totalFees = new Decimal(0);
     let cash = new Decimal(0);
     const history: BacktestHistoryPoint[] = [];
     
@@ -123,6 +124,7 @@ export class BacktestEngine {
         const fee = injectionAmount.times(buyFeeRate);
         const netInjection = injectionAmount.minus(fee);
         
+        totalFees = totalFees.plus(fee);
         cash = cash.plus(netInjection);
         totalPrincipal = totalPrincipal.plus(injectionAmount);
         lastInvestmentDate = point.date;
@@ -224,6 +226,8 @@ export class BacktestEngine {
         finalValue,
         totalPrincipal: finalTotalPrincipal,
         finalAnnualDividend,
+        estimatedTax: SnowballEngine.bankersRounding(estimatedTax).toNumber(),
+        totalFees: SnowballEngine.bankersRounding(totalFees).toNumber(),
       },
       history
     };

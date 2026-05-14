@@ -88,6 +88,8 @@ export interface BacktestMetrics {
   finalValue: number;
   totalPrincipal: number;
   finalAnnualDividend: number;
+  estimatedTax: number;
+  totalFees: number;
 }
 
 export interface BacktestHistoryPoint {

@@ -35,7 +35,7 @@ export interface ScenarioDocument {
 
 export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
   title: 'scenario schema',
-  version: 3, // Bumped for simulationMode & backtest fields
+  version: 4, // Bumped for contributionCycle support
   description: 'describes a snowball investment scenario',
   primaryKey: 'id',
   type: 'object',

@@ -56,8 +56,3 @@
 - [x] **High-Precision Backtesting**: 일/주/월 단위 정밀 백테스팅 및 영업일 분산 로직
 - [x] **Multi-Dimensional Visualization**: `visx Area`를 이용한 범위 시각화 및 비교 모드 구현
 
-## 🏗️ Phase 9: UX Refinement & Feature Expansion (In-Progress)
-- [x] **Scenario UI Refinement**: '더보기' 토글을 이용한 미니멀한 시나리오 선택기 구현
-- [x] **Duration-based Presets**: YTD, 1M, 6M, 1Y, 5Y, 10Y 간편 설정 기능 추가
-- [ ] **Result Sharing**: 시뮬레이션 결과 이미지 저장 및 공유 기능 (Social Share)
-- [ ] **Advanced Metrics**: 샤프 지수, 변동성 등 전문 금융 지표 추가 시각화

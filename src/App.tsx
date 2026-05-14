@@ -162,8 +162,8 @@ function App() {
         nominalValue: activeBacktest?.metrics.finalValue || 0,
         realValue: activeBacktest?.metrics.finalValue || 0,
         totalGains: (activeBacktest?.metrics.finalValue || 0) - (activeBacktest?.metrics.totalPrincipal || 0),
-        totalFees: 0,
-        estimatedTax: 0,
+        totalFees: activeBacktest?.metrics.totalFees || 0,
+        estimatedTax: activeBacktest?.metrics.estimatedTax || 0,
         date: new Date()
       } as SimulationResult);
 
@@ -343,16 +343,16 @@ function App() {
                 exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
               />
 
-              <motion.div layout className="flex flex-col sm:flex-row gap-4 mb-16 w-full max-w-[500px] px-4">
+              <motion.div layout className="flex flex-row gap-2 sm:gap-4 mb-16 w-full max-w-[500px] px-4">
                 <input 
                   type="text" value={scenarioName} onChange={(e) => setScenarioName(e.target.value)}
                   placeholder="시나리오 이름 입력"
-                  className="flex-1 h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary transition-all font-text shadow-sm"
+                  className="flex-1 min-w-0 h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-4 sm:px-6 text-body outline-none focus:border-apple-primary transition-all font-text shadow-sm"
                 />
                 <motion.button 
                   onClick={handleSaveScenario}
                   whileTap={{ scale: 0.95 }}
-                  className="h-12 bg-apple-primary text-apple-on-dark px-10 rounded-pill text-button-utility font-semibold hover:bg-apple-primary-focus transition-all shadow-md"
+                  className="h-12 bg-apple-primary text-apple-on-dark px-6 sm:px-10 rounded-pill text-button-utility font-semibold hover:bg-apple-primary-focus transition-all shadow-md flex-shrink-0 whitespace-nowrap"
                 >
                   저장하기
                 </motion.button>
@@ -431,7 +431,7 @@ function App() {
 
                   {mode === 'BACKTEST' && activeBacktest && (
                     <div className="w-full max-w-[1200px] mt-12">
-                      <BacktestView result={activeBacktest} assetName={backtestParams.assetType} />
+                      <BacktestView result={activeBacktest} assetName={backtestParams.assetType} currency={currency} />
                     </div>
                   )}
                 </motion.div>
