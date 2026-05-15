@@ -161,7 +161,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
           className="mt-10 flex items-center gap-2 bg-apple-ink text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink/90 transition-all group"
         >
           <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-          성과 공유하기 (이미지 저장)
+          공유(이미지)
         </motion.button>
       )}
     </div>

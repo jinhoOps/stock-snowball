@@ -56,3 +56,10 @@
 - [x] **High-Precision Backtesting**: 일/주/월 단위 정밀 백테스팅 및 영업일 분산 로직
 - [x] **Multi-Dimensional Visualization**: `visx Area`를 이용한 범위 시각화 및 비교 모드 구현
 
+## ✅ Phase 10: UX Fix & Input Refinement (Completed)
+- [x] NumericInput UX 개선 (0 유지, 커서 위치 보존)
+- [x] 1억 원 이상 금액 절삭 로직 반영
+- [x] '미래 예측' -> '스노우볼' 리브랜딩 적용
+- [x] '공유(이미지)' 기능 고도화 및 버튼 텍스트 최적화
+- [x] `localStorage`를 통한 통화 및 환율 설정 영속화
+

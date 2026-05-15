@@ -536,8 +536,8 @@ function App() {
           <div className="w-full max-w-[1000px]">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 bg-apple-canvas p-8 rounded-2xl border border-apple-hairline shadow-sm">
               <div className="flex-1 w-full">
-                <h2 className="text-display-sm text-apple-ink mb-2 tracking-tight font-display">현재 시나리오 저장</h2>
-                <p className="text-caption text-apple-ink-muted-48 font-text">현재 설정을 이름과 함께 보관하여 나중에 비교해보세요.</p>
+                <h2 className="text-display-sm text-apple-ink mb-2 tracking-tight font-display">시나리오 저장 및 비교군 추가</h2>
+                <p className="text-caption text-apple-ink-muted-48 font-text">현재 설정을 저장하고 비교 차트에 즉시 추가하여 분석하세요.</p>
               </div>
               <div className="flex w-full md:w-auto gap-3">
                 <input 
@@ -551,7 +551,7 @@ function App() {
                   onClick={handleSaveScenario}
                   className="h-12 px-8 rounded-pill bg-apple-primary text-apple-on-dark font-semibold text-button-utility hover:bg-apple-primary-focus transition-all shadow-md active:scale-95"
                 >
-                  저장하기
+                  저장 및 비교
                 </button>
               </div>
             </div>
