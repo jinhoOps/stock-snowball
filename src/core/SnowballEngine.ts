@@ -119,6 +119,9 @@ export class SnowballEngine {
     const amount = new Decimal(value).floor();
     if (amount.isZero()) return '0원';
 
+    // 1억 원(10^8) 이상일 경우 1만 원 미만 단위는 반드시 절삭 (사용자 요청)
+    const effectiveSimplified = amount.gte(100000000) ? true : simplified;
+
     const units = [
       { label: '조', value: new Decimal('1000000000000') },
       { label: '억', value: new Decimal('100000000') },
@@ -136,11 +139,11 @@ export class SnowballEngine {
       }
     }
 
-    if (!simplified && remaining.gt(0)) {
+    if (!effectiveSimplified && remaining.gt(0)) {
       parts.push(`${remaining.toNumber().toLocaleString()}원`);
     } else if (parts.length > 0) {
       parts[parts.length - 1] += ' 원';
-    } else if (simplified && amount.lt(10000)) {
+    } else if (effectiveSimplified && amount.lt(10000)) {
       // 만 원 미만인데 심플 모드인 경우 0만 원 대신 실제 원 표시
       return `${amount.toNumber().toLocaleString()}원`;
     }
@@ -349,24 +352,37 @@ export class SnowballEngine {
       // 환율 변동
       currentExchangeRate = currentExchangeRate.times(dailyExchangeChange.plus(1));
 
-      // 추가 불입 (21영업일 로직 적용)
+      // 추가 불입 (납입 주기에 따른 로직 적용)
       const isBizDay = this.isBusinessDay(date);
+      const cycle = strategy.cycle || 'MONTHLY';
       let dailyContribution = new Decimal(0);
       
-      if (isBizDay) {
-        if (strategy.type === 'FIXED') {
-          // 연간 약 261영업일 기준 (261 / 12 = 21.75)
-          dailyContribution = new Decimal(strategy.baseAmount).dividedBy(21.75);
-        } else if (strategy.type === 'STEP_UP') {
-          const year = Math.floor(d / 365);
-          const annualIncrease = new Decimal(strategy.increaseRate || 0).plus(1).pow(year);
-          dailyContribution = new Decimal(strategy.baseAmount).times(annualIncrease).dividedBy(21.75);
-        } else if (strategy.type === 'VALUE_AVERAGING') {
-          if (d > 0 && d % 30 === 0) {
-            const targetValue = new Decimal(strategy.targetGrowth || 0).times(d / 30).plus(principal);
-            if (states.average.currentNominal.lt(targetValue)) {
-              dailyContribution = targetValue.minus(states.average.currentNominal);
-            }
+      if (strategy.type === 'FIXED') {
+        if (cycle === 'DAILY' && isBizDay) {
+          dailyContribution = new Decimal(strategy.baseAmount);
+        } else if (cycle === 'WEEKLY' && date.getDay() === 1) { // 매주 월요일
+          dailyContribution = new Decimal(strategy.baseAmount);
+        } else if (cycle === 'MONTHLY' && date.getDate() === 1) { // 매달 1일
+          dailyContribution = new Decimal(strategy.baseAmount);
+        }
+      } else if (strategy.type === 'STEP_UP') {
+        const year = Math.floor(d / 365);
+        const annualIncrease = new Decimal(strategy.increaseRate || 0).plus(1).pow(year);
+        const base = new Decimal(strategy.baseAmount).times(annualIncrease);
+        
+        if (cycle === 'DAILY' && isBizDay) {
+          dailyContribution = base;
+        } else if (cycle === 'WEEKLY' && date.getDay() === 1) {
+          dailyContribution = base;
+        } else if (cycle === 'MONTHLY' && date.getDate() === 1) {
+          dailyContribution = base;
+        }
+      } else if (strategy.type === 'VALUE_AVERAGING') {
+        // VA는 월 단위로만 동작하도록 단순화 (필요 시 확장)
+        if (d > 0 && d % 30 === 0) {
+          const targetValue = new Decimal(strategy.targetGrowth || 0).times(d / 30).plus(principal);
+          if (states.average.currentNominal.lt(targetValue)) {
+            dailyContribution = targetValue.minus(states.average.currentNominal);
           }
         }
       }

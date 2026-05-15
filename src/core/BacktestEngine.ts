@@ -108,24 +108,18 @@ export class BacktestEngine {
       if (i === 0) {
         shouldInvest = true;
         // 첫 투입 시 초기 자본과 첫 적립금을 동시에 투입
-        if (cycle === 'DAILY') {
-          injectionAmount = new Decimal(initialPrincipal).plus(new Decimal(monthlyInstallment).dividedBy(21));
-        } else if (cycle === 'WEEKLY') {
-          injectionAmount = new Decimal(initialPrincipal).plus(new Decimal(monthlyInstallment).dividedBy(4));
-        } else {
-          injectionAmount = new Decimal(initialPrincipal).plus(monthlyInstallment);
-        }
+        injectionAmount = new Decimal(initialPrincipal).plus(monthlyInstallment);
       } else {
         const prevInvestDate = lastInvestmentDate ? new Date(lastInvestmentDate) : null;
         
         if (cycle === 'DAILY' && isBizDay) {
           shouldInvest = true;
-          injectionAmount = new Decimal(monthlyInstallment).dividedBy(21);
+          injectionAmount = new Decimal(monthlyInstallment);
         } else if (cycle === 'WEEKLY' && prevInvestDate) {
           const diffDays = Math.floor((currentDate.getTime() - prevInvestDate.getTime()) / (1000 * 60 * 60 * 24));
           if (diffDays >= 7) {
             shouldInvest = true;
-            injectionAmount = new Decimal(monthlyInstallment).dividedBy(4);
+            injectionAmount = new Decimal(monthlyInstallment);
           }
         } else if (cycle === 'MONTHLY' && prevInvestDate) {
           if (currentDate.getMonth() !== prevInvestDate.getMonth() || currentDate.getFullYear() !== prevInvestDate.getFullYear()) {

@@ -110,6 +110,13 @@ describe('SnowballEngine', () => {
       expect(SnowballEngine.formatKoreanWon(12345)).toBe('1만 2,345원');
     });
 
+    it('1억 원 이상 금액은 만 원 단위 미만을 절삭해야 합니다 (D-02)', () => {
+      // 123,456,789원 -> 1억 2,345만 원
+      expect(SnowballEngine.formatKoreanWon(123456789)).toBe('1억 2,345만 원');
+      // 100,000,001원 -> 1억 원
+      expect(SnowballEngine.formatKoreanWon(100000001)).toBe('1억 원');
+    });
+
     it('달러 금액 포맷팅 (Million/Billion)이 정확해야 합니다', () => {
       expect(SnowballEngine.formatUSD(1000000)).toBe('1.00 Million $');
       expect(SnowballEngine.formatUSD(1000000000)).toBe('1.00 Billion $');
@@ -178,19 +185,30 @@ describe('SnowballEngine', () => {
   });
 
   describe('Business Day Logic', () => {
-    it('일별 매수 시 주말을 제외하고 21영업일 기준으로 투자되어야 합니다', () => {
-      const monthlyAmount = 2100000; // 계산 편의를 위해 210만원
+    it('MONTHLY 주기로 설정 시 매달 1일 적립금이 투입되어야 합니다', () => {
+      const monthlyAmount = 2100000;
       const principal = 0;
       const years = 1; // 1년
       
-      // 수익률 0%로 설정하여 원금 합계만 확인
-      const result = SnowballEngine.simulate(principal, 0, years, { type: 'FIXED', baseAmount: monthlyAmount }, 0);
+      const result = SnowballEngine.simulate(principal, 0, years, { type: 'FIXED', baseAmount: monthlyAmount, cycle: 'MONTHLY' }, 0);
       
       const lastResult = result[result.length - 1];
-      // 1년 = 12개월. 월 210만원씩 총 2520만원 적립되어야 함.
+      // 1년 = 12개월. 매달 210만원씩 총 2520만원 적립 (복리 0% 가정이므로 원금만 합산)
       const expectedTotal = monthlyAmount * 12;
-      // 수수료 및 소수점 오차 감안하여 근사치 확인
-      expect(Math.abs(lastResult.totalContribution - expectedTotal)).toBeLessThan(100000);
+      expect(lastResult.totalContribution).toBe(expectedTotal);
+    });
+
+    it('DAILY 주기로 설정 시 매 영업일 적립금이 투입되어야 합니다', () => {
+      const dailyAmount = 100000; // 일 10만원
+      const principal = 0;
+      const years = 1;
+      
+      const result = SnowballEngine.simulate(principal, 0, years, { type: 'FIXED', baseAmount: dailyAmount, cycle: 'DAILY' }, 0);
+      
+      const lastResult = result[result.length - 1];
+      // 1년 영업일은 약 261일. (주말 제외)
+      expect(lastResult.totalContribution).toBeGreaterThan(25000000);
+      expect(lastResult.totalContribution).toBeLessThan(27000000);
     });
   });
 });
