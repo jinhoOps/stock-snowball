@@ -9,6 +9,7 @@ import { ParentSize } from '@visx/responsive';
 import { GridRows, GridColumns } from '@visx/grid';
 import { useTooltip, TooltipWithBounds, defaultStyles } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
+import { Tooltip as CommonTooltip } from '../common/Tooltip';
 import { AnimatePresence } from 'framer-motion';
 import { SimulationMode } from '../../types/finance';
 
@@ -33,6 +34,7 @@ interface SnowballChartProps {
   mode: SimulationMode;
   comparisonMode?: boolean;
   showRealValue?: boolean;
+  onShowRealValueChange?: (show: boolean) => void;
   onPointSelect?: (data: { date: Date; points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number }[] }) => void;
   onPointHover?: (data: { date: Date; points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number }[] } | null) => void;
 }
@@ -369,7 +371,7 @@ const SnowballChartInner: React.FC<{
   );
 });
 
-const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparisonMode, showRealValue, onPointSelect, onPointHover }) => {
+const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparisonMode, showRealValue, onShowRealValueChange, onPointSelect, onPointHover }) => {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 min-h-[300px] relative">
@@ -392,10 +394,16 @@ const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparis
             <span className="text-caption text-apple-ink tracking-tight">{s.name}</span>
           </div>
         ))}
-        {scenarios.some(s => s.points.some(p => p.contribution !== undefined)) && (
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-1 bg-apple-gray-400" />
-            <span className="text-caption text-apple-ink-muted-48 tracking-tight italic">누적 투입금</span>
+        {onShowRealValueChange && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <label className="flex items-center gap-2 cursor-pointer bg-apple-canvas-parchment/80 backdrop-blur-sm border border-apple-hairline rounded-pill px-3 py-1 shadow-sm hover:border-apple-primary/30 transition-all">
+              <input 
+                type="checkbox" checked={showRealValue} onChange={(e) => onShowRealValueChange(e.target.checked)}
+                className="w-3.5 h-3.5 rounded-sm border-apple-hairline text-apple-primary focus:ring-apple-primary/20 cursor-pointer"
+              />
+              <span className="text-[11px] font-semibold text-apple-ink tracking-tight">실질 가치로 보기</span>
+            </label>
+            <CommonTooltip content="설정된 물가상승률을 반영하여, 십수년 뒤 예상 자산이 현재 시점에서 어느 정도의 체감 가치(구매력)를 가지는지 환산하여 보여줍니다." />
           </div>
         )}
         {showRealValue && (

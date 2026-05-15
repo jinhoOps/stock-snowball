@@ -452,14 +452,6 @@ function App() {
                       <span className="text-caption-strong text-apple-ink-muted-48 tracking-tight uppercase font-display">
                         {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후)` : '백테스트 최종 자산'}
                       </span>
-                      <label className="flex items-center gap-2 cursor-pointer bg-apple-canvas-parchment/80 backdrop-blur-sm border border-apple-hairline rounded-pill px-3 py-1 shadow-sm hover:border-apple-primary/30 transition-all">
-                        <input 
-                          type="checkbox" checked={showRealValue} onChange={(e) => setShowRealValue(e.target.checked)}
-                          className="w-3.5 h-3.5 rounded-sm border-apple-hairline text-apple-primary focus:ring-apple-primary/20"
-                        />
-                        <span className="text-[11px] font-semibold text-apple-ink tracking-tight">실질 가치로 보기</span>
-                      </label>
-                      <Tooltip content="설정된 물가상승률을 반영하여, 십수년 뒤 예상 자산이 현재 시점에서 어느 정도의 체감 가치(구매력)를 가지는지 환산하여 보여줍니다." />
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
@@ -477,6 +469,7 @@ function App() {
                       mode={mode}
                       comparisonMode={comparingScenarioIds.length > 0}
                       showRealValue={showRealValue}
+                      onShowRealValueChange={setShowRealValue}
                       onPointHover={(d) => d && setSelectedPoint(d as any)}
                       onPointSelect={(d) => setSelectedPoint(d as any)}
                     />

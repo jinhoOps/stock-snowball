@@ -315,7 +315,7 @@ export class SnowballEngine {
       date.setDate(startDate.getDate() + d);
       const yearsPassed = d / 365;
       const varianceMultiplier = _assetType === 'QLD' ? 4 : _assetType === 'TQQQ' ? 8 : 1;
-      const variance = 0.0025 * yearsPassed * varianceMultiplier; // ±0.25% * n_years * leverage_weight
+      const variance = 0.0075 * yearsPassed * varianceMultiplier; // ±0.75% * n_years * leverage_weight
 
       // 데이터 포인트 기록
       if (d % intervalDays === 0 || d === totalDays) {
