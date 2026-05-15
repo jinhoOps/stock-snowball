@@ -7,6 +7,7 @@ import { Share2 } from 'lucide-react';
 
 interface KPIGridProps {
   totalAsset: number;
+  initialPrincipal: number;
   totalContribution: number;
   totalReturn: number;
   returnPercentage: number;
@@ -90,6 +91,7 @@ const KPICard = ({
 
 const KPIGrid: React.FC<KPIGridProps> = ({
   totalAsset,
+  initialPrincipal,
   totalContribution,
   totalReturn,
   returnPercentage,
@@ -123,6 +125,11 @@ const KPIGrid: React.FC<KPIGridProps> = ({
       formatter: formatCurrency,
     },
     {
+      label: '누적 적립금',
+      value: totalContribution - initialPrincipal,
+      formatter: formatCurrency,
+    },
+    {
       label: '총 수익금',
       value: totalReturn,
       formatter: formatCurrency,
@@ -130,7 +137,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
       subFormatter: formatPercent,
     },
     {
-      label: '연평균 수익률 (CAGR)',
+      label: '연복리 수익률 (CAGR)',
       value: cagr,
       formatter: (v: number) => `${formatPercent(v)}%`,
     },
@@ -138,9 +145,9 @@ const KPIGrid: React.FC<KPIGridProps> = ({
 
   return (
     <div className="flex flex-col items-center w-full max-w-[1000px] mt-12 px-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
         {kpis.map((kpi, i) => (
-          <KPICard key={kpi.label} {...kpi} index={i} currency={currency} exchangeRate={exchangeRate} />
+          <KPICard key={`${kpi.label}-${i}`} {...kpi} index={i} currency={currency} exchangeRate={exchangeRate} />
         ))}
       </div>
       

@@ -11,7 +11,7 @@ import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { useScenarios } from './hooks/useScenarios';
-import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult } from './types/finance';
+import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
 import { getHistoricalData, calculateMedianCAGR } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
@@ -35,8 +35,14 @@ function App() {
 
   // Basic State
   const [mode, setMode] = useState<SimulationMode>('PROJECTION');
-  const [currency, setCurrency] = useState<'KRW' | 'USD'>('KRW');
-  const [exchangeRate, setExchangeRate] = useState(1450); // 기본 환율
+  const [currency, setCurrency] = useState<'KRW' | 'USD'>(() => {
+    const cached = localStorage.getItem('currency');
+    return (cached as 'KRW' | 'USD') || 'KRW';
+  });
+  const [exchangeRate, setExchangeRate] = useState(() => {
+    const cached = localStorage.getItem('exchange_rate');
+    return cached ? Number(cached) : 1450;
+  });
   const [scenarioName, setScenarioName] = useState('기본 시나리오');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [showRealValue, setShowRealValue] = useState(false);
@@ -87,6 +93,14 @@ function App() {
     localStorage.setItem('backtest_params', JSON.stringify(backtestParams));
   }, [backtestParams]);
 
+  useEffect(() => {
+    localStorage.setItem('currency', currency);
+  }, [currency]);
+
+  useEffect(() => {
+    localStorage.setItem('exchange_rate', exchangeRate.toString());
+  }, [exchangeRate]);
+
   const activeParams = mode === 'PROJECTION' ? projectionParams : backtestParams;
   
   const handleUpdateParams = (newParams: Partial<SimulationParams>) => {
@@ -103,6 +117,17 @@ function App() {
       setProjectionParams(prev => applyLimits(prev, newParams));
     } else {
       setBacktestParams(prev => applyLimits(prev, newParams));
+    }
+  };
+
+  const handleResetAll = () => {
+    if (confirm('모든 설정을 초기값으로 되돌리시겠습니까? (저장된 시나리오는 유지됩니다)')) {
+      setProjectionParams(DEFAULT_PROJECTION_PARAMS);
+      setBacktestParams(DEFAULT_BACKTEST_PARAMS);
+      setExchangeRate(DEFAULT_EXCHANGE_RATE);
+      setCurrency('KRW');
+      setScenarioName('기본 시나리오');
+      setIsAdvancedOpen(false);
     }
   };
 
@@ -224,7 +249,7 @@ function App() {
   const chartScenarios = useMemo(() => {
     const main = {
       id: 'active-scenario',
-      name: scenarioName || (mode === 'PROJECTION' ? '현재 예측' : '현재 백테스트'),
+      name: scenarioName || (mode === 'PROJECTION' ? '현재 스노우볼' : '현재 백테스트'),
       color: mode === 'PROJECTION' ? SCENARIO_COLORS[0] : '#FF9500',
       points: mode === 'PROJECTION' 
         ? activeSimulation.average.map((r, i) => ({ 
@@ -409,22 +434,9 @@ function App() {
                 params={activeParams}
                 onUpdate={handleUpdateParams}
                 exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
+                mode={mode}
+                onReset={handleResetAll}
               />
-
-              <motion.div layout className="flex flex-row gap-2 sm:gap-4 mb-16 w-full max-w-[500px] px-4">
-                <input 
-                  type="text" value={scenarioName} onChange={(e) => setScenarioName(e.target.value)}
-                  placeholder="시나리오 이름 입력"
-                  className="flex-1 min-w-0 h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-4 sm:px-6 text-body outline-none focus:border-apple-primary transition-all font-text shadow-sm"
-                />
-                <motion.button 
-                  onClick={handleSaveScenario}
-                  whileTap={{ scale: 0.95 }}
-                  className="h-12 bg-apple-primary text-apple-on-dark px-6 sm:px-10 rounded-pill text-button-utility font-semibold hover:bg-apple-primary-focus transition-all shadow-md flex-shrink-0 whitespace-nowrap"
-                >
-                  비교군에 추가
-                </motion.button>
-              </motion.div>
 
               <AnimatePresence mode="wait">
                 <motion.div 
@@ -497,6 +509,7 @@ function App() {
                   <div className="w-full max-w-[1000px]">
                     <KPIGrid 
                       totalAsset={activeResult.postTaxValue}
+                      initialPrincipal={activeParams.principal}
                       totalContribution={activeResult.totalContribution}
                       totalReturn={totalReturn}
                       returnPercentage={returnPercentage}
@@ -521,6 +534,28 @@ function App() {
 
         <section className="bg-apple-canvas-parchment py-section px-4 flex flex-col items-center border-t border-apple-hairline">
           <div className="w-full max-w-[1000px]">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 bg-apple-canvas p-8 rounded-2xl border border-apple-hairline shadow-sm">
+              <div className="flex-1 w-full">
+                <h2 className="text-display-sm text-apple-ink mb-2 tracking-tight font-display">현재 시나리오 저장</h2>
+                <p className="text-caption text-apple-ink-muted-48 font-text">현재 설정을 이름과 함께 보관하여 나중에 비교해보세요.</p>
+              </div>
+              <div className="flex w-full md:w-auto gap-3">
+                <input 
+                  type="text"
+                  placeholder="시나리오 이름 (예: 나스닥 100 적립)"
+                  value={scenarioName}
+                  onChange={(e) => setScenarioName(e.target.value)}
+                  className="flex-1 md:w-64 h-12 bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
+                />
+                <button 
+                  onClick={handleSaveScenario}
+                  className="h-12 px-8 rounded-pill bg-apple-primary text-apple-on-dark font-semibold text-button-utility hover:bg-apple-primary-focus transition-all shadow-md active:scale-95"
+                >
+                  저장하기
+                </button>
+              </div>
+            </div>
+
             <h2 className="text-display-sm text-apple-ink mb-10 tracking-tight font-display">저장된 시나리오</h2>
             {loading ? (
               <p className="font-text text-apple-ink-muted-48">불러오는 중...</p>

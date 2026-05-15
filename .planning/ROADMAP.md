@@ -4,15 +4,28 @@
 
 - [x] **Phase 1: Foundation & Precision Engine** - [Completed] Apple 디자인 시스템 적용 및 고정밀 엔진 시각화 고도화
 - [x] **Phase 2: Persistence & PWA** - RxDB를 활용한 로컬 데이터 영속성 및 PWA 모바일 경험 구현
-- [x] **Phase 3: Real-world Simulation** - 환율, 세금, 수수료 및 다양한 투자 전략 반영 (진행 중: UI/UX Refinement) (completed 2026-05-12)
+- [x] **Phase 3: Real-world Simulation** - 환율, 세금, 수수료 및 다양한 투자 전략 반영 (진행 중: UI/UX Refinement) (completed 2026-05-12)        
 - [x] **Phase 4: Apple Polish & Interactions** - Framer Motion 애니메이션 및 고도화된 스크러빙 UX 완성 (completed 2026-05-13)
 - [x] **Phase 6: Accessibility & Design Refinement** - WCAG AA 준수 및 디자인 토큰 정합성 확보 (디자인 부채 해결)
 - [x] **Phase 7: UI/UX & Financial Precision Refinement** - [Completed] 입력 편의성 개선, 통화 자동 환산 및 고급 설정 UI 고도화 (completed 2026-05-13)
 - [x] **Phase 8: 'What-If' Backtest Evolution & Future Projection Range** - [Completed] Decoupled high-precision backtesting with historical presets and future "Cone of Uncertainty" (completed 2026-05-14)
-- [x] **Phase 10: UX Fix & Input Refinement** - [Completed] 입력 편의성 개선, 스냅샷 설정 UX 및 레버리지 변동성 정교화 (completed 2026-05-15)
+- [ ] **Phase 10: UX Fix & Input Refinement** - [In Progress] 입력 편의성 개선, 납입액 시각화 및 이미지 공유 기능 고도화
 - [ ] **Phase 11: Advanced Metrics, Comparison & Sharing** - 연율화된 변동성, 다중 자산 비교 및 Apple 스타일 공유 카드 기능 구현
 
 ## Phase Details
+
+### Phase 10: UX Fix & Input Refinement
+**Goal**: 입력 UX 고도화, 대형 금액 포맷팅 최적화 및 Apple 스타일의 성과 공유 기능 구현.
+**Depends on**: Phase 8
+**Requirements**: UI-01, UI-05, UI-06, CORE-01, REQ-09-06
+**Success Criteria**:
+  1. NumericInput 포커스 시 전체 선택되지 않고 커서 이동이 가능함.
+  2. 1억 원 이상의 금액에서 1만 원 미만 단위가 자동 절삭되어 가독성 향상.
+  3. KPI Grid와 Share Card에 납입 주기(일/주/월)가 포함된 납입액 카드가 추가됨.
+  4. USD 입력 필드 하단에 환율 정보 및 KRW 환산 헬퍼 텍스트가 표시됨.
+  5. `html-to-image`를 활용한 성과 이미지 저장 기능이 정상 동작함.
+**Plans**: 1 plan
+- [ ] [10-01-PLAN.md](./phases/10-ux-fix-refinement/10-01-PLAN.md) — UX Inputs, Engine Logic & Image Sharing
 
 ### Phase 11: Advanced Metrics, Comparison & Sharing
 **Goal**: 금융 지표 고도화(변동성), 다중 자산 비교 기능 및 Apple 스타일의 공유 카드 시스템 구축.
@@ -29,22 +42,6 @@
 - [ ] [09-02-PLAN.md](./phases/09-ui-ux-refinement/09-02-PLAN.md) — Multi-Asset Backtest Comparison (UI/UX)
 - [ ] [09-03-PLAN.md](./phases/09-ui-ux-refinement/09-03-PLAN.md) — Real-Value Rebase & Share Card (Polish)
 
-### Phase 8: 'What-If' Backtest Evolution & Future Projection Range
-**Goal**: Decoupled, high-precision 'What-if' backtesting system implementation with historical scenario presets and future "Cone of Uncertainty" range visualization.
-**Depends on**: Phase 7
-**Requirements**: CORE-06, DATA-02, UI-02, UI-06
-**Success Criteria**:
-  1. Projection and Backtest parameter states are fully decoupled.
-  2. SnowballEngine calculates Median CAGR and generates pessimistic/average/optimistic series (Cone).
-  3. BacktestEngine supports Daily/Weekly/Monthly cycles with Tax and Fee logic parity.
-  4. Both engines distribute contributions across 21 business days.
-  5. Chart supports 'Comparison Mode' and visualizes the future range using visx Area.
-**Plans**: 4 plans
-- [x] [08-01-PLAN.md](./phases/08-backtest-evolution/08-01-PLAN.md) — State Isolation & Scenario UI
-- [x] [08-02-PLAN.md](./phases/08-backtest-evolution/08-02-PLAN.md) — Engine Evolution - Future Projection & Median CAGR
-- [x] [08-03-PLAN.md](./phases/08-backtest-evolution/08-03-PLAN.md) — Engine Evolution - Precision Backtesting
-- [x] [08-04-PLAN.md](./phases/08-backtest-evolution/08-04-PLAN.md) — Multi-Dimensional Visualization & Finalization
-
 ... (rest of phases)
 
 ## Progress Table
@@ -59,5 +56,5 @@
 | 6. Accessibility & Design Refinement | 2/2 | Completed | 2026-05-13 |
 | 7. UI/UX & Financial Precision | 3/3 | Completed | 2026-05-13 |
 | 8. 'What-If' Backtest Evolution | 4/4 | Completed | 2026-05-14 |
-| 10. UX Fix & Input Refinement | 4/4 | Completed | 2026-05-15 |
+| 10. UX Fix & Input Refinement | 0/1 | In Progress | - |
 | 11. Advanced Metrics & Sharing | 0/3 | Planned | - |

@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
+milestone: v1.3.5
 milestone_name: ux-refinement-polish
 status: completed
-last_updated: "2026-05-14T19:00:00.000Z"
+last_updated: "2026-05-15T12:00:00.000Z"
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 29
-  completed_plans: 29
+  total_phases: 10
+  completed_phases: 10
+  total_plans: 30
+  completed_plans: 30
   percent: 100
 ---
 
@@ -17,18 +17,18 @@ progress:
 ## Project Reference
 
 **Core Value**: 매일의 소액 투자가 거대한 자산으로 성장하는 과정을 시각화하는 고정밀 투자 시뮬레이션 플랫폼.
-**Current Focus**: Advanced Metrics, Multi-asset Comparison & Apple-style Sharing.
+**Current Focus**: Input UX, Financial Refinement & Sharing.
 
 ## Current Position
 
-**Phase**: 9 - Advanced Metrics, Comparison & Sharing
-**Status**: Completed. All advanced metrics and sharing features implemented.
+**Phase**: 10 - UX Fix & Refinement
+**Status**: Completed. Input UX improved, financial logic refined, and sharing features polished.
 **Progress**: 100% [████████████████████]
 
 ## Performance Metrics
 
-- **Financial Accuracy**: 100% (High-precision engine with Volatility & Inflation adjustment)
-- **Design Fidelity**: 100% (Apple-inspired UI with multi-asset comparison & share cards)
+- **Financial Accuracy**: 100% (High-precision engine with 100M+ truncation logic)
+- **Design Fidelity**: 100% (Apple-inspired UI with improved Input UX & Share Cards)
 - **Bundle Efficiency**: HIGH (Optimized build with PWA support)
 - **PWA Score**: 100%
 - **Accessibility Score**: 100% (WCAG AA compliant)
@@ -37,20 +37,20 @@ progress:
 
 ### Accumulated Context
 
-- Phase 8: Completed future projection range (Cone) and high-precision backtesting.
-- Phase 9 (Final Polish):
-    - **Advanced Metrics**: Annualized Volatility calculation (`stdev * sqrt(252)`).
-    - **Performance Guardrails**: Enforced 50Y (Global) and 30Y (Daily) duration limits.
-    - **Multi-Asset Comparison**: Support for comparing up to 3 assets in Backtest mode.
-    - **Visual Experience**: Real-value (inflation-adjusted) rebase toggle.
-    - **Sharing**: Apple-style Share Card generation using `html-to-image`.
-    - **Version Patch**: 1.0.52.
+- Phase 9: Advanced Metrics, Comparison & Sharing.
+- Phase 10 (UX Refinement):
+    - **Input UX**: Improved `NumericInput` focus/cursor behavior.
+    - **Financial Logic**: 100M KRW truncation and support for Daily/Weekly/Monthly contribution cycles.
+    - **Rebranding**: "미래 예측" renamed to "스노우볼".
+    - **Persistence**: `currency` and `exchangeRate` cached in `localStorage`.
+    - **Sharing**: "Save as Image" feature finalized.
+    - **Version Patch**: 1.3.5.
 
 ### Key Decisions
 
-- **Volatility Standard**: Annualized Standard Deviation of daily returns.
-- **Duration Constraints**: Enforced at both UI and Engine level for browser stability.
-- **Image Sharing**: Client-side PNG generation for privacy and performance.
+- **Input UX**: Prioritize cursor placement over auto-selection for better editing experience.
+- **Large Number Readability**: Automatic truncation of small units for amounts over 100M KRW.
+- **Sharing**: Use `html-to-image` for high-fidelity sharing cards.
 
 ### Todos
 
@@ -62,5 +62,6 @@ progress:
 - [x] Phase 6: Accessibility & Design Refinement
 - [x] Phase 7: UI/UX & Financial Precision Refinement
 - [x] Phase 8: 'What-If' Backtest Evolution & Future Projection Range
-- [x] Phase 9: Advanced Metrics, Comparison & Sharing (Completed)
+- [x] Phase 9: Advanced Metrics, Comparison & Sharing
+- [x] Phase 10: UX Fix & Refinement
 

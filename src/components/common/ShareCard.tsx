@@ -17,6 +17,7 @@ interface ShareCardProps {
 const ShareCard: React.FC<ShareCardProps> = ({
   scenarioName,
   totalAsset,
+  totalContribution,
   totalReturn,
   returnPercentage,
   cagr,
@@ -84,14 +85,18 @@ const ShareCard: React.FC<ShareCardProps> = ({
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4 w-full z-10">
-          <div className="bg-white/60 backdrop-blur-md rounded-3xl p-4 border border-white shadow-sm">
-            <span className="text-[9px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">수익금</span>
-            <span className="text-sm font-bold text-apple-ink">{SnowballEngine.formatBigNumber(totalReturn, currency)}</span>
+        <div className="grid grid-cols-3 gap-3 w-full z-10">
+          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 border border-white shadow-sm flex flex-col items-center text-center">
+            <span className="text-[8px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">총 납입액</span>
+            <span className="text-xs font-bold text-apple-ink">{SnowballEngine.formatBigNumber(totalContribution, currency, true)}</span>
           </div>
-          <div className="bg-white/60 backdrop-blur-md rounded-3xl p-4 border border-white shadow-sm">
-            <span className="text-[9px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">연환산 수익률</span>
-            <span className="text-sm font-bold text-apple-ink">{cagr.toFixed(2)}%</span>
+          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 border border-white shadow-sm flex flex-col items-center text-center">
+            <span className="text-[8px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">수익금</span>
+            <span className="text-xs font-bold text-apple-ink">{SnowballEngine.formatBigNumber(totalReturn, currency, true)}</span>
+          </div>
+          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 border border-white shadow-sm flex flex-col items-center text-center">
+            <span className="text-[8px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">수익률</span>
+            <span className="text-xs font-bold text-apple-ink">{cagr.toFixed(1)}%</span>
           </div>
         </div>
 

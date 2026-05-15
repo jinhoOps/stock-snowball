@@ -11,6 +11,7 @@ export type ContributionCycle = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 export interface StrategyConfig {
   type: StrategyType;
   baseAmount: number; // 기본 불입금
+  cycle?: ContributionCycle; // 납입 주기
   increaseRate?: number; // STEP_UP용: 연간 불입금 증가율 (e.g., 0.05)
   targetGrowth?: number; // VALUE_AVERAGING용: 목표 월간 성장 금액
 }
@@ -104,3 +105,33 @@ export interface BacktestResult {
   metrics: BacktestMetrics;
   history: BacktestHistoryPoint[];
 }
+
+export const DEFAULT_EXCHANGE_RATE = 1450;
+
+export const DEFAULT_PROJECTION_PARAMS: SimulationParams = {
+  principal: 10000000,
+  contribution: 30000,
+  cycle: 'DAILY',
+  assetType: 'CUSTOM',
+  years: 10,
+  rate: 0.08,
+  accountType: 'GENERAL',
+  inflationRate: 0.02,
+  strategyType: 'FIXED',
+  strategyIncreaseRate: 0.05,
+};
+
+export const DEFAULT_BACKTEST_PARAMS: SimulationParams = {
+  principal: 10000000,
+  contribution: 30000,
+  cycle: 'DAILY',
+  assetType: 'SPY',
+  years: 10,
+  rate: 0.08,
+  accountType: 'GENERAL',
+  inflationRate: 0.02,
+  strategyType: 'FIXED',
+  strategyIncreaseRate: 0.05,
+  startDate: '2010-01-01',
+  endDate: '2024-01-01',
+};

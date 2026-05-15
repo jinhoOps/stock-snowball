@@ -25,10 +25,6 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     props.onUpdate({ [key]: value });
   };
 
-  const cycleLabel = 
-    props.params.cycle === 'DAILY' ? '일' : 
-    props.params.cycle === 'WEEKLY' ? '주' : '월';
-
   return (
     <div className="flex flex-col gap-8 mb-12 w-full max-w-[1000px] items-center">
       <div className="flex flex-col md:flex-row justify-between w-full items-center gap-4">
@@ -37,7 +33,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
           <button
             onClick={() => props.setMode('PROJECTION')}
             aria-pressed={props.mode === 'PROJECTION'}
-            aria-label="미래 예측 모드"
+            aria-label="스노우볼 모드"
             className={`relative px-6 py-2 rounded-pill text-caption-strong tracking-tight transition-all duration-300 ${
               props.mode === 'PROJECTION' ? 'text-apple-ink' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
             }`}
@@ -49,7 +45,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
                 transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
               />
             )}
-            <span className="relative z-10">미래 예측</span>
+            <span className="relative z-10">스노우볼</span>
           </button>
           <button
             onClick={() => props.setMode('BACKTEST')}
@@ -107,14 +103,35 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         </div>
 
         <div className="flex-1 flex flex-col items-start w-full">
-          <label htmlFor="monthly-investment-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">매{cycleLabel} 납입액 ({props.currency})</label>
+          <div className="flex justify-between w-full items-center mb-3 px-2">
+            <label htmlFor="monthly-investment-input" className="text-caption-strong text-apple-ink tracking-tight">납입액 ({props.currency})</label>
+            <div className="flex gap-1 bg-apple-surface-chip-translucent p-0.5 rounded-pill border border-apple-hairline scale-90 origin-right">
+              {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => updateParam('cycle', c)}
+                  className={`px-3 py-1 rounded-pill text-[10px] font-bold transition-all ${
+                    props.params.cycle === c ? 'bg-white text-apple-ink shadow-sm' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
+                  }`}
+                >
+                  {c === 'DAILY' ? '일' : c === 'WEEKLY' ? '주' : '월'}
+                </button>
+              ))}
+            </div>
+          </div>
           <NumericInput 
             id="monthly-investment-input"
             value={props.params.contribution}
             onChange={(v) => updateParam('contribution', v)}
             className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
           />
-          <BigNumberHelper value={props.params.contribution} currency={props.currency} className="ml-4" />
+          <BigNumberHelper 
+            value={props.params.contribution} 
+            currency={props.currency} 
+            exchangeRate={props.exchangeRate}
+            showExchangeRate={true}
+            className="ml-4" 
+          />
         </div>
 
         {/* 2순위: 기간 */}
@@ -182,4 +199,3 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
 };
 
 export default SimulationControls;
-

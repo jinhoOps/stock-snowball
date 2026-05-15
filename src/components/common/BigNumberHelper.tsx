@@ -6,6 +6,7 @@ interface BigNumberHelperProps {
   currency: 'KRW' | 'USD';
   exchangeRate?: number;
   showDual?: boolean;
+  showExchangeRate?: boolean;
   className?: string;
 }
 
@@ -17,6 +18,7 @@ export const BigNumberHelper: React.FC<BigNumberHelperProps> = ({
   currency,
   exchangeRate = 1450,
   showDual = true,
+  showExchangeRate = false,
   className = ''
 }) => {
   const formatted = SnowballEngine.formatBigNumber(value, currency);
@@ -26,7 +28,12 @@ export const BigNumberHelper: React.FC<BigNumberHelperProps> = ({
 
   return (
     <div className={`text-fine-print text-apple-ink-muted-48 mt-1 transition-all duration-300 ${className}`}>
-      {dualFormatted}
+      <div>{dualFormatted}</div>
+      {showExchangeRate && currency === 'USD' && (
+        <div className="text-[10px] text-apple-primary/80 mt-0.5 font-medium">
+          적용 환율: {exchangeRate.toLocaleString()}원
+        </div>
+      )}
     </div>
   );
 };

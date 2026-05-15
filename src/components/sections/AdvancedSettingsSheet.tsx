@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StrategyType, AssetType, SimulationParams, ContributionCycle } from '../../types/finance';
+import { StrategyType, AssetType, SimulationParams, ContributionCycle, SimulationMode, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS, DEFAULT_EXCHANGE_RATE } from '../../types/finance';
 import { calculateMedianCAGR } from '../../data/historicalAssets';
 
 interface AdvancedSettingsSheetProps {
@@ -10,6 +10,8 @@ interface AdvancedSettingsSheetProps {
   onUpdate: (p: Partial<SimulationParams>) => void;
   exchangeRate: number;
   setExchangeRate: (v: number) => void;
+  mode: SimulationMode;
+  onReset: () => void;
 }
 
 const sheetVariants = {
@@ -28,6 +30,8 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
   onUpdate,
   exchangeRate: parentExchangeRate,
   setExchangeRate,
+  mode,
+  onReset,
 }) => {
   const [localParams, setLocalParams] = React.useState<SimulationParams>(parentParams);
   const [localExchangeRate, setLocalExchangeRate] = React.useState<number>(parentExchangeRate);
@@ -42,7 +46,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
       setLocalExchangeRate(parentExchangeRate);
       setSnapshot({ params: parentParams, rate: parentExchangeRate });
     }
-  }, [isOpen]);
+  }, [isOpen, parentParams, parentExchangeRate]);
 
   const hasChanges = snapshot && (
     JSON.stringify(localParams) !== JSON.stringify(snapshot.params) || 
@@ -111,7 +115,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                 </button>
               </div>
 
-              <div className="space-y-10 flex flex-col items-start pb-10">
+              <div className="space-y-10 flex flex-col items-start pb-6">
                 {/* 1. 자산 선택 및 기대 수익률 */}
                 <div className="w-full">
                   <label htmlFor="asset-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">
@@ -153,10 +157,10 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     </div>
                   ) : (
                     <div className="flex flex-col items-start">
-                      <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (%)</label>
+                      <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (CAGR)</label>
                       <div className="w-full h-12 flex items-center justify-between bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-6 text-body font-text opacity-70">
-                        <span>과거 데이터 자동 적용</span>
-                        <span className="text-apple-primary font-semibold">약 {(calculateMedianCAGR(localParams.assetType) * 100).toFixed(1)}%/년</span>
+                        <span className="text-[12px] text-apple-ink-muted-48">과거 데이터 자동 적용</span>
+                        <span className="text-apple-ink font-medium">약 {(calculateMedianCAGR(localParams.assetType) * 100).toFixed(1)}%</span>
                       </div>
                     </div>
                   )}
@@ -248,6 +252,20 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   />
                   <p className="mt-3 text-fine-print text-apple-ink-muted-48 ml-1">실질 가치 계산을 위해 사용됩니다.</p>
                 </div>
+              </div>
+
+              {/* Reset Button (Minimalist - 'Seen Later') */}
+              <div className="mt-16 mb-8 flex justify-center border-t border-apple-hairline/30 pt-10">
+                <button 
+                  onClick={onReset}
+                  className="text-[13px] text-apple-ink-muted-48 hover:text-red-500/80 transition-colors flex items-center gap-2 opacity-50 hover:opacity-100 font-medium"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                  </svg>
+                  모든 데이터 및 설정 초기화
+                </button>
               </div>
 
               {/* Confirmation Footer */}
