@@ -1,33 +1,35 @@
 import React, { useMemo, useCallback } from 'react';
 import { Group } from '@visx/group';
-import { LinePath, AreaClosed, Bar } from '@visx/shape';
+import { LinePath, Bar } from '@visx/shape';
 import { curveMonotoneX } from '@visx/curve';
 import { scaleTime, scaleLinear } from '@visx/scale';
-import { LinearGradient } from '@visx/gradient';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { ParentSize } from '@visx/responsive';
 import { GridRows, GridColumns } from '@visx/grid';
 import { useTooltip, TooltipWithBounds, defaultStyles } from '@visx/tooltip';
 import { localPoint } from '@visx/event';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BacktestHistoryPoint } from '../../types/finance';
+import { BacktestResult, BacktestHistoryPoint } from '../../types/finance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 
 interface BacktestChartProps {
-  history: BacktestHistoryPoint[];
-  assetName: string;
+  results: {
+    assetId: string;
+    result: BacktestResult;
+    color: string;
+  }[];
   currency: 'KRW' | 'USD';
 }
 
 const tooltipStyles = {
   ...defaultStyles,
-  background: 'rgba(255, 255, 255, 0.8)',
-  backdropFilter: 'blur(12px)',
-  WebkitBackdropFilter: 'blur(12px)',
-  border: '1px solid rgba(255, 255, 255, 0.3)',
-  borderRadius: '12px',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-  padding: '12px',
+  background: 'rgba(255, 255, 255, 0.9)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(255, 255, 255, 0.4)',
+  borderRadius: '16px',
+  boxShadow: '0 12px 48px rgba(0, 0, 0, 0.15)',
+  padding: '16px',
   color: 'var(--apple-ink)',
   fontSize: '13px',
   lineHeight: '1.4',
@@ -47,12 +49,11 @@ const bisectDate = (points: { date: Date }[], x0: Date) => {
 };
 
 const BacktestChartInner: React.FC<{ 
-  history: BacktestHistoryPoint[]; 
-  assetName: string;
+  results: { assetId: string; result: BacktestResult; color: string; }[]; 
   currency: 'KRW' | 'USD';
   width: number; 
   height: number;
-}> = React.memo(({ history, assetName, currency, width, height }) => {
+}> = React.memo(({ results, currency, width, height }) => {
   const margin = useMemo(() => ({
     top: 64, 
     right: width > 520 ? 32 : 16, 
@@ -66,13 +67,25 @@ const BacktestChartInner: React.FC<{
     return SnowballEngine.formatBigNumber(val, currency);
   }, [currency]);
 
-  // Process data for chart
-  const data = useMemo(() => history.map(p => ({
+  // Primary data for scales and primary axis
+  const primaryData = useMemo(() => results[0].result.history.map((p: BacktestHistoryPoint) => ({
     date: new Date(p.date),
     value: p.value,
     principal: p.principal,
     isLiquidated: p.isLiquidated
-  })), [history]);
+  })), [results]);
+
+  // All datasets mapped for quick access during tooltipping
+  const allData = useMemo(() => results.map(r => ({
+    assetId: r.assetId,
+    color: r.color,
+    points: r.result.history.map((p: BacktestHistoryPoint) => ({
+      date: new Date(p.date),
+      value: p.value,
+      principal: p.principal,
+      isLiquidated: p.isLiquidated
+    }))
+  })), [results]);
 
   const {
     showTooltip,
@@ -81,30 +94,24 @@ const BacktestChartInner: React.FC<{
     tooltipLeft,
   } = useTooltip<{
     date: Date;
-    value: number;
-    principal: number;
-    isLiquidated?: boolean;
+    points: { assetId: string; value: number; color: string; principal: number; isLiquidated?: boolean }[];
   }>();
-
-  // Accessors
-  const getDate = useCallback((d: { date: Date }) => d.date, []);
-  const getValue = useCallback((d: { value: number }) => d.value, []);
-  const getPrincipal = useCallback((d: { principal: number }) => d.principal, []);
 
   // Scales
   const dateScale = useMemo(() => scaleTime({
     range: [0, innerWidth],
-    domain: [Math.min(...data.map(d => d.date.getTime())), Math.max(...data.map(d => d.date.getTime()))],
-  }), [data, innerWidth]);
+    domain: [Math.min(...primaryData.map(d => d.date.getTime())), Math.max(...primaryData.map(d => d.date.getTime()))],
+  }), [primaryData, innerWidth]);
 
   const valueScale = useMemo(() => {
-    const maxValue = Math.max(...data.map(d => Math.max(d.value, d.principal)));
+    const allValues = results.flatMap(r => r.result.history.map(p => Math.max(p.value, p.principal)));
+    const maxValue = Math.max(...allValues);
     return scaleLinear({
       range: [innerHeight, 0],
       domain: [0, maxValue * 1.1],
       nice: true,
     });
-  }, [data, innerHeight]);
+  }, [results, innerHeight]);
 
   const handleTooltip = useCallback((event: React.MouseEvent<SVGRectElement> | React.TouchEvent<SVGRectElement>) => {
     const { x } = localPoint(event) || { x: 0 };
@@ -115,9 +122,9 @@ const BacktestChartInner: React.FC<{
     }
     
     const x0 = dateScale.invert(xLeft);
-    const index = bisectDate(data, x0);
-    const d0 = data[index - 1];
-    const d1 = data[index];
+    const index = bisectDate(primaryData, x0);
+    const d0 = primaryData[index - 1];
+    const d1 = primaryData[index];
     let d = d0;
     if (d1 && d1.date) {
       if (x0.valueOf() - d0.date.valueOf() > d1.date.valueOf() - x0.valueOf()) {
@@ -125,47 +132,32 @@ const BacktestChartInner: React.FC<{
       }
     }
 
-    showTooltip({
-      tooltipData: d,
-      tooltipLeft: dateScale(d.date),
-      tooltipTop: valueScale(d.value),
+    if (!d) return;
+
+    // Collect points from all datasets for this date
+    const datePoints = allData.map(asset => {
+      // Find matching date in this asset's points (assume same date alignment for now)
+      const assetIndex = bisectDate(asset.points, d.date);
+      const assetPoint = asset.points[assetIndex - 1] || asset.points[0];
+      return {
+        assetId: asset.assetId,
+        value: assetPoint.value,
+        principal: assetPoint.principal,
+        color: asset.color,
+        isLiquidated: assetPoint.isLiquidated
+      };
     });
-  }, [showTooltip, hideTooltip, dateScale, valueScale, data, margin.left, innerWidth]);
-
-  // Keyboard Navigation Handler
-  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (data.length === 0) return;
-    
-    let currentIndex = -1;
-    if (tooltipData) {
-      currentIndex = data.findIndex(p => p.date.getTime() === tooltipData.date.getTime());
-    }
-
-    let nextIndex = currentIndex;
-    if (event.key === 'ArrowRight') {
-      nextIndex = Math.min(currentIndex + 1, data.length - 1);
-      if (currentIndex === -1) nextIndex = 0;
-    } else if (event.key === 'ArrowLeft') {
-      nextIndex = Math.max(currentIndex - 1, 0);
-      if (currentIndex === -1) nextIndex = data.length - 1;
-    } else {
-      return;
-    }
-
-    event.preventDefault();
-    const d = data[nextIndex];
 
     showTooltip({
-      tooltipData: d,
+      tooltipData: {
+        date: d.date,
+        points: datePoints
+      },
       tooltipLeft: dateScale(d.date),
-      tooltipTop: valueScale(d.value),
     });
-  }, [data, tooltipData, showTooltip, dateScale, valueScale]);
+  }, [showTooltip, hideTooltip, dateScale, valueScale, primaryData, allData, margin.left, innerWidth]);
 
   if (width < 10) return null;
-
-  // Generate representative data for the hidden table (SR only)
-  const tableData = data.filter((_, i) => i % Math.max(1, Math.floor(data.length / 10)) === 0 || i === data.length - 1);
 
   return (
     <div style={{ position: 'relative' }}>
@@ -173,57 +165,36 @@ const BacktestChartInner: React.FC<{
         width={width} 
         height={height}
         role="img"
-        aria-label={`${assetName} 과거 백테스트 결과 차트. 가로축은 시간, 세로축은 자산 가치를 나타냅니다.`}
+        aria-label="과거 백테스트 결과 다중 자산 비교 차트"
       >
-        <defs>
-          <LinearGradient id="backtest-gradient" from="var(--apple-primary)" to="var(--apple-primary)" fromOpacity={0.15} toOpacity={0} />
-        </defs>
         <Group left={margin.left} top={margin.top}>
           <GridRows scale={valueScale} width={innerWidth} stroke="var(--apple-divider-soft)" strokeDasharray="4,4" />
           <GridColumns scale={dateScale} height={innerHeight} stroke="var(--apple-divider-soft)" strokeDasharray="4,4" />
 
-          {/* Principal Area (Gray) */}
-          <AreaClosed<{ principal: number, date: Date }>
-            data={data}
-            x={d => dateScale(getDate(d)) ?? 0}
-            y={d => valueScale(getPrincipal(d)) ?? 0}
-            yScale={valueScale}
-            fill="var(--apple-ink-muted-48)"
-            fillOpacity={0.05}
-            curve={curveMonotoneX}
-          />
-
-          {/* Asset Area */}
-          <AreaClosed<{ value: number, date: Date }>
-            data={data}
-            x={d => dateScale(getDate(d)) ?? 0}
-            y={d => valueScale(getValue(d)) ?? 0}
-            yScale={valueScale}
-            fill="url(#backtest-gradient)"
-            curve={curveMonotoneX}
-          />
-          
-          {/* Principal Line */}
+          {/* Common Principal Line (using first result) */}
           <LinePath<{ principal: number, date: Date }>
-            data={data}
-            x={d => dateScale(getDate(d)) ?? 0}
-            y={d => valueScale(getPrincipal(d)) ?? 0}
+            data={primaryData}
+            x={d => dateScale(d.date) ?? 0}
+            y={d => valueScale(d.principal) ?? 0}
             stroke="var(--apple-ink-muted-48)"
             strokeWidth={1}
             strokeDasharray="4,4"
             curve={curveMonotoneX}
           />
 
-          {/* Value Line */}
-          <LinePath<{ value: number, date: Date }>
-            data={data}
-            x={d => dateScale(getDate(d)) ?? 0}
-            y={d => valueScale(getValue(d)) ?? 0}
-            stroke="var(--apple-primary)"
-            strokeWidth={3}
-            curve={curveMonotoneX}
-            style={{ filter: 'drop-shadow(0 0 8px rgba(0, 102, 204, 0.3))' }}
-          />
+          {/* Multi-asset Value Lines */}
+          {allData.map((asset, i) => (
+            <LinePath<{ value: number, date: Date }>
+              key={asset.assetId}
+              data={asset.points}
+              x={d => dateScale(d.date) ?? 0}
+              y={d => valueScale(d.value) ?? 0}
+              stroke={asset.color}
+              strokeWidth={i === 0 ? 3 : 2}
+              curve={curveMonotoneX}
+              style={{ filter: i === 0 ? `drop-shadow(0 0 8px ${asset.color}44)` : 'none' }}
+            />
+          ))}
 
           {/* Interaction Bar */}
           <Bar
@@ -236,17 +207,16 @@ const BacktestChartInner: React.FC<{
             onTouchMove={handleTooltip}
             onMouseMove={handleTooltip}
             onMouseLeave={() => hideTooltip()}
-            onKeyDown={handleKeyDown}
             tabIndex={0}
-            aria-label="차트 상호작용 영역. 화살표 키로 데이터를 탐색할 수 있습니다."
           />
 
           {/* Scrubbing Line */}
           {tooltipData && (
             <g>
               <line x1={tooltipLeft} x2={tooltipLeft} y1={0} y2={innerHeight} stroke="var(--apple-hairline)" strokeWidth={1} pointerEvents="none" />
-              <circle cx={tooltipLeft} cy={valueScale(tooltipData.value)} r={5} fill="white" stroke="var(--apple-primary)" strokeWidth={3} pointerEvents="none" />
-              <circle cx={tooltipLeft} cy={valueScale(tooltipData.principal)} r={4} fill="white" stroke="var(--apple-ink-muted-48)" strokeWidth={2} pointerEvents="none" />
+              {tooltipData.points.map((p, i) => (
+                <circle key={i} cx={tooltipLeft} cy={valueScale(p.value)} r={i === 0 ? 5 : 4} fill="white" stroke={p.color} strokeWidth={i === 0 ? 3 : 2} pointerEvents="none" />
+              ))}
             </g>
           )}
 
@@ -269,56 +239,36 @@ const BacktestChartInner: React.FC<{
         </Group>
       </svg>
 
-      {/* Screen Reader Only Table */}
-      <div className="sr-only">
-        <table summary="과거 백테스트 데이터 상세 정보">
-          <thead>
-            <tr>
-              <th>날짜</th>
-              <th>평가 금액</th>
-              <th>투자 원금</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tableData.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.date.toLocaleDateString()}</td>
-                <td>{formatCurrency(row.value)}</td>
-                <td>{formatCurrency(row.principal)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
       {/* Tooltip Card */}
       <AnimatePresence>
         {tooltipData && (
           <TooltipWithBounds top={margin.top} left={tooltipLeft! + margin.left} style={tooltipStyles}>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div className="font-semibold text-apple-ink mb-2 border-b border-apple-hairline pb-1">
-                {tooltipData.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              <div className="font-semibold text-apple-ink mb-3 border-b border-apple-hairline pb-2 flex justify-between items-center">
+                <span>{tooltipData.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                <span className="text-[10px] bg-apple-surface-chip-translucent px-2 py-0.5 rounded-sm uppercase tracking-wider text-apple-ink-muted-48">Value Comparison</span>
               </div>
-              <div className="space-y-1.5 min-w-[140px]">
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">평가 금액</span>
-                  <span className="font-semibold text-apple-primary text-caption">{formatCurrency(tooltipData.value)}</span>
-                </div>
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">투자 원금</span>
-                  <span className="font-semibold text-apple-ink text-caption">{formatCurrency(tooltipData.principal)}</span>
-                </div>
-                <div className="flex justify-between items-center gap-4 border-t border-apple-hairline pt-1 mt-1">
-                  <span className="text-apple-ink-muted-48 text-micro-legal font-semibold uppercase">수익률</span>
-                  <span className={`font-semibold text-caption ${tooltipData.value >= tooltipData.principal ? 'text-apple-primary' : 'text-apple-error'}`}>
-                    {(((tooltipData.value - tooltipData.principal) / tooltipData.principal) * 100).toFixed(2)}%
-                  </span>
-                </div>
-                {tooltipData.isLiquidated && (
-                  <div className="mt-2 text-apple-error text-micro-legal font-semibold uppercase text-center bg-apple-error/10 py-1 rounded">
-                    청산 발생 (Liquidation)
+              <div className="space-y-3 min-w-[200px]">
+                {tooltipData.points.map((p, i) => (
+                  <div key={i} className={`flex flex-col gap-1 p-2 rounded-lg ${i === 0 ? 'bg-apple-surface-chip-translucent ring-1 ring-apple-primary/10' : ''}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                      <span className="text-micro-legal font-bold text-apple-ink uppercase tracking-wider">{p.assetId}</span>
+                      {i === 0 && <span className="text-[8px] text-apple-primary font-bold">(MAIN)</span>}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-body-strong font-display font-bold text-apple-ink">{formatCurrency(p.value)}</span>
+                      <span className={`text-[11px] font-bold ${(p.value >= p.principal) ? 'text-apple-primary' : 'text-apple-error'}`}>
+                        {(((p.value - p.principal) / p.principal) * 100).toFixed(2)}%
+                      </span>
+                    </div>
                   </div>
-                )}
+                ))}
+                
+                <div className="pt-2 border-t border-apple-hairline flex justify-between items-center text-apple-ink-muted-48">
+                  <span className="text-micro-legal font-semibold uppercase tracking-widest">투자 원금</span>
+                  <span className="font-semibold text-caption">{formatCurrency(tooltipData.points[0].principal)}</span>
+                </div>
               </div>
             </motion.div>
           </TooltipWithBounds>
@@ -328,26 +278,32 @@ const BacktestChartInner: React.FC<{
   );
 });
 
-const BacktestChart: React.FC<BacktestChartProps> = ({ history, assetName, currency }) => {
+const BacktestChart: React.FC<BacktestChartProps> = ({ results, currency }) => {
+  if (!results || results.length === 0) return null;
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 min-h-[300px] relative">
         <ParentSize>
           {({ width, height }) => (
-            <BacktestChartInner history={history} assetName={assetName} currency={currency} width={width} height={height} />
+            <BacktestChartInner results={results} currency={currency} width={width} height={height} />
           )}
         </ParentSize>
       </div>
       
       {/* Legend */}
-      <div className="flex justify-center gap-6 mt-4">
+      <div className="flex flex-wrap justify-center gap-6 mt-6 pb-2">
+        {results.map((r, i) => (
+          <div key={r.assetId} className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: r.color }} />
+            <span className="text-fine-print font-bold text-apple-ink uppercase tracking-widest">
+              {r.assetId} {i === 0 && '(Main)'}
+            </span>
+          </div>
+        ))}
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-apple-primary" />
-          <span className="text-fine-print font-semibold text-apple-ink uppercase tracking-wider">{assetName} 평가금</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-apple-ink-muted-48" />
-          <span className="text-fine-print font-semibold text-apple-ink uppercase tracking-wider">투자 원금</span>
+          <div className="w-4 h-0.5 bg-apple-ink-muted-48 border-t border-dashed" />
+          <span className="text-fine-print font-bold text-apple-ink-muted-48 uppercase tracking-widest">투자 원금</span>
         </div>
       </div>
     </div>

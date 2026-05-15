@@ -283,7 +283,7 @@ function App() {
     }
 
     try {
-      await addScenario({
+      const newId = await addScenario({
         name: scenarioName,
         simulationMode: mode,
         backtestStartDate: activeParams.startDate,
@@ -311,8 +311,12 @@ function App() {
         exchangeAnnualChangeRate: 0,
       });
       
+      // 즉시 비교군에 추가
+      if (newId) {
+        setComparingScenarioIds(prev => [...prev, newId]);
+      }
+
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.8 }, colors: ['#34C759', '#30B0C7', '#FFFFFF'] });
-      alert(`'${scenarioName}' 시나리오가 저장되었습니다.`);
     } catch (e) {
       console.error('Failed to save scenario:', e);
       alert('시나리오 저장에 실패했습니다.');
@@ -363,7 +367,7 @@ function App() {
                   whileTap={{ scale: 0.95 }}
                   className="h-12 bg-apple-primary text-apple-on-dark px-6 sm:px-10 rounded-pill text-button-utility font-semibold hover:bg-apple-primary-focus transition-all shadow-md flex-shrink-0 whitespace-nowrap"
                 >
-                  저장하기
+                  비교군에 추가
                 </motion.button>
               </motion.div>
 
@@ -440,7 +444,7 @@ function App() {
 
                   {mode === 'BACKTEST' && activeBacktest && (
                     <div className="w-full max-w-[1200px] mt-12">
-                      <BacktestView result={activeBacktest} assetName={backtestParams.assetType} currency={currency} />
+                      <BacktestView result={activeBacktest} assetName={backtestParams.assetType} currency={currency} params={backtestParams} />
                     </div>
                   )}
                 </motion.div>
