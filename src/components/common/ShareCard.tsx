@@ -75,7 +75,6 @@ const ShareCard: React.FC<ShareCardProps> = ({
           <div className={`text-base font-semibold flex items-center justify-center gap-1 ${totalReturn >= 0 ? 'text-apple-success' : 'text-apple-error'}`}>
             <span>{totalReturn >= 0 ? '▲' : '▼'}</span>
             <span className="whitespace-nowrap">{returnPercentage.toFixed(1)}%</span>
-            <span className="text-apple-ink-muted-48 text-[10px] font-normal ml-1">({years}년)</span>
           </div>
         </div>
 

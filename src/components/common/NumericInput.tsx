@@ -34,13 +34,13 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let rawValue = e.target.value;
 
-    // Remove non-numeric characters (except for the first zero if it's the only character)
+    // Remove non-numeric characters
     rawValue = rawValue.replace(/[^0-9]/g, '');
 
-    // Prevent multiple leading zeros
-    if (rawValue.length > 1 && rawValue.startsWith('0')) {
-      rawValue = rawValue.replace(/^0+/, '');
-      if (rawValue === '') rawValue = '0';
+    // Handle initial zero stickiness:
+    // If the current value is "0" and the user types a digit, replace the "0"
+    if (inputValue === '0' && rawValue.length > 1 && rawValue.startsWith('0')) {
+      rawValue = rawValue.substring(1);
     }
 
     setInputValue(rawValue);

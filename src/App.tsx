@@ -396,7 +396,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-apple-canvas font-text">
+    <div className="min-h-screen font-text">
       <GlobalNav onOpenAdvanced={() => setIsAdvancedOpen(true)} />
       
       {/* Hidden ShareCard for Capture */}

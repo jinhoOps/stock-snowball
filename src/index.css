@@ -20,7 +20,9 @@
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    @apply bg-apple-canvas text-apple-body;
+    background: linear-gradient(135deg, #f0f2f5 0%, #e6eef5 100%);
+    background-attachment: fixed;
+    @apply text-apple-body;
   }
 
   /* SF Pro / Inter Font Stack Tightening */

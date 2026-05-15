@@ -10,7 +10,7 @@ interface ProductHeroProps {
 
 const ProductHero: React.FC<ProductHeroProps> = ({ title, subtitle, ctaText, children }) => {
   return (
-    <section className="relative w-full min-h-[90vh] pt-[44px] bg-apple-canvas flex flex-col items-center justify-start text-center overflow-hidden">
+    <section className="relative w-full min-h-[90vh] pt-[44px] flex flex-col items-center justify-start text-center overflow-hidden">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
