@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { StrategyType, AssetType, SimulationParams, ContributionCycle, SimulationMode, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS, DEFAULT_EXCHANGE_RATE } from '../../types/finance';
+import { StrategyType, AssetType, SimulationParams, ContributionCycle } from '../../types/finance';
 import { calculateMedianCAGR } from '../../data/historicalAssets';
 
 interface AdvancedSettingsSheetProps {
@@ -10,7 +10,6 @@ interface AdvancedSettingsSheetProps {
   onUpdate: (p: Partial<SimulationParams>) => void;
   exchangeRate: number;
   setExchangeRate: (v: number) => void;
-  mode: SimulationMode;
   onReset: () => void;
 }
 
@@ -30,7 +29,6 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
   onUpdate,
   exchangeRate: parentExchangeRate,
   setExchangeRate,
-  mode,
   onReset,
 }) => {
   const [localParams, setLocalParams] = React.useState<SimulationParams>(parentParams);

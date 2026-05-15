@@ -434,7 +434,6 @@ function App() {
                 params={activeParams}
                 onUpdate={handleUpdateParams}
                 exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
-                mode={mode}
                 onReset={handleResetAll}
               />
 
