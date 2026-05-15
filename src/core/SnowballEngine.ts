@@ -288,6 +288,21 @@ export class SnowballEngine {
     intervalDays: number = 30,
     _assetType: AssetType = 'CUSTOM'
   ): { pessimistic: SimulationResult[]; average: SimulationResult[]; optimistic: SimulationResult[] } {
+    // 자산군별 기대 변동성 (연율화 표준편차)
+    const getVolatility = (type: AssetType): number => {
+      switch (type) {
+        case 'SPY': return 0.15;
+        case 'QQQM': return 0.18;
+        case 'QLD': return 0.35;
+        case 'TQQQ': return 0.55;
+        case 'SCHD': return 0.12;
+        case 'GOLD': return 0.15;
+        case 'KOSPI': return 0.18;
+        case 'KOSDAQ': return 0.25;
+        default: return 0.20; // CUSTOM
+      }
+    };
+
     const totalDays = years * 365;
     const startDate = new Date();
 
@@ -310,12 +325,23 @@ export class SnowballEngine {
     // 일일 성장 연산 (Projection 모드에서는 과거 낙폭을 재현하지 않고 고정 CAGR 기반 성장)
     const dailyRate = new Decimal(annualRate).dividedBy(365);
     
+    // 통계적 범위 설정을 위한 파라미터 (Z-score 1.645 = 90% 신뢰구간)
+    const zScore = 1.645;
+    const annualVolatility = getVolatility(_assetType);
+
     for (let d = 0; d <= totalDays; d++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + d);
+      
+      // 변동성 봉투(Volatility Envelope) 계산: Square-root of Time Rule
+      // d가 커질수록 d/365의 제곱근에 비례하여 범위가 넓어짐
       const yearsPassed = d / 365;
-      const varianceMultiplier = _assetType === 'QLD' ? 4 : _assetType === 'TQQQ' ? 8 : 1;
-      const variance = 0.0075 * yearsPassed * varianceMultiplier; // ±0.75% * n_years * leverage_weight
+      
+      // 개별 일자의 변동성 기여도 (미분값): sigma * Z / (2 * sqrt(t))
+      // 이를 매일 누적하면 최종적으로 sigma * Z * sqrt(T)의 범위가 형성됨
+      const dailyVolatilityOffset = d === 0 
+        ? 0 
+        : (annualVolatility * zScore) / (2 * Math.sqrt(yearsPassed) * 365);
 
       // 데이터 포인트 기록
       if (d % intervalDays === 0 || d === totalDays) {
@@ -346,11 +372,11 @@ export class SnowballEngine {
       if (d === totalDays) break;
 
       // 분산 적용 (Pessimistic / Average / Optimistic)
-      const dailyVariance = new Decimal(variance).dividedBy(365);
+      const dOffset = new Decimal(dailyVolatilityOffset);
       
       states.average.currentNominal = states.average.currentNominal.times(dailyRate.plus(1));
-      states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(dailyRate.minus(dailyVariance).plus(1));
-      states.optimistic.currentNominal = states.optimistic.currentNominal.times(dailyRate.plus(dailyVariance).plus(1));
+      states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(dailyRate.minus(dOffset).plus(1));
+      states.optimistic.currentNominal = states.optimistic.currentNominal.times(dailyRate.plus(dOffset).plus(1));
       
       // 환율 변동
       currentExchangeRate = currentExchangeRate.times(dailyExchangeChange.plus(1));
