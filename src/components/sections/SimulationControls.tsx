@@ -191,18 +191,18 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
           <div className="flex-[2] flex flex-col items-start w-full">
              <label className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">백테스트 기간</label>
              <div className="flex flex-col gap-4 w-full">
-               <div className="flex gap-4 w-full h-12">
+               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full">
                  <input 
                   type="date"
                   value={props.params.startDate}
                   onChange={(e) => updateParam('startDate', e.target.value)}
-                  className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 text-body outline-none focus:border-apple-primary transition-all font-text"
+                  className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 h-12 text-body outline-none focus:border-apple-primary transition-all font-text"
                  />
                  <input 
                   type="date"
                   value={props.params.endDate}
                   onChange={(e) => updateParam('endDate', e.target.value)}
-                  className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 text-body outline-none focus:border-apple-primary transition-all font-text"
+                  className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 h-12 text-body outline-none focus:border-apple-primary transition-all font-text"
                  />
                </div>
                <ScenarioPresetPicker 

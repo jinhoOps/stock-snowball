@@ -9,13 +9,13 @@ colors:
   primary-on-dark: "#2997ff"
   ink: "#1d1d1f"
   body: "#1d1d1f"
-  body-on-dark: "#ffffff"
+  body-on-dark: "#f0f2f5"
   body-muted: "#cccccc"
   ink-muted-80: "#333333"
   ink-muted-48: "#7a7a7a"
   divider-soft: "#f0f0f0"
   hairline: "#e0e0e0"
-  canvas: "#ffffff" # Fresh Snow White
+  canvas: "#f0f2f5" # Fresh Snow White
   canvas-parchment: "#f5f5f7" # Frosted Ice
   surface-pearl: "#fafafc"
   surface-tile-1: "#272729"
@@ -23,8 +23,8 @@ colors:
   surface-tile-3: "#252527"
   surface-black: "#000000"
   surface-chip-translucent: "#d2d2d7"
-  on-primary: "#ffffff"
-  on-dark: "#ffffff"
+  on-primary: "#f0f2f5"
+  on-dark: "#f0f2f5"
 
 # ... (typography, rounded, spacing remain mostly consistent with Apple standards)
 ---
@@ -38,7 +38,7 @@ colors:
 **Key Characteristics:**
 - **Symbolism**: 눈송이 패턴이 각인된 구 형태의 눈덩이 로고. 정교함과 성장의 에너지를 동시에 상징합니다.
 - **Photography-first**: 금융 데이터를 추상적 그래픽이 아닌, 실물 자산이나 투명한 결정체 같은 고품질 렌더링으로 표현합니다.
-- **Frosty Rhythm**: Fresh Snow White(`#ffffff`)와 Frosted Ice(`#f5f5f7`)의 교차 배치를 통해 겨울의 맑고 정갈한 분위기를 조성합니다.
+- **Frosty Rhythm**: Fresh Snow White(`#f0f2f5`)와 Frosted Ice(`#f5f5f7`)의 교차 배치를 통해 겨울의 맑고 정갈한 분위기를 조성합니다.
 - **Single Accent**: 'Frost Blue'(`#0066cc`)만을 사용하여 상호작용 지점을 명확히 합니다. 얼음 속에서 빛나는 푸른빛처럼 차갑지만 명료한 신호입니다.
 - **Micro-animations**: 눈덩이가 굴러가며 커지는 듯한 부드러운 스케일 변화와 Frosted Glass(Backdrop blur) 효과를 적극 활용합니다.
 - **Apple Tightness**: SF Pro Display 서체에 음수 자간(Negative letter-spacing)을 적용하여 신뢰감 있고 단단한 인상을 줍니다.
@@ -55,7 +55,7 @@ colors:
 - **Sky Frost** (`{colors.primary-on-dark}` — #2997ff): 어두운 타일 위에서 가독성을 확보하기 위해 사용되는 밝은 파란색입니다.
 
 ### Surface
-- **Fresh Snow** (`{colors.canvas}` — #ffffff): 가장 기본이 되는 깨끗한 눈밭 같은 캔버스입니다.
+- **Fresh Snow** (`{colors.canvas}` — #f0f2f5): 가장 기본이 되는 깨끗한 눈밭 같은 캔버스입니다.
 - **Frosted Ice** (`{colors.canvas-parchment}` — #f5f5f7): Apple의 시그니처 오프화이트를 계승한, 살짝 얼어붙은 얼음판 같은 배경입니다. 섹션 구분을 위한 리듬감을 부여합니다.
 - **Pearl Crystal** (`{colors.surface-pearl}` — #fafafc): 보조 버튼이나 칩의 배경으로 사용되는 매우 밝은 그레이입니다.
 - **Deep Winter Tile 1** (`{colors.surface-tile-1}` — #272729): 메인 어두운 타일 표면입니다.
@@ -66,7 +66,7 @@ colors:
 ### Text
 - **Near-Black Ink** (`{colors.ink}` — #1d1d1f): The voice of every headline, every body paragraph, and the dark utility button's fill. Chosen instead of pure black to keep the page feeling photographic rather than printed.
 - **Body** (`{colors.body}` — #1d1d1f): Same hex as ink — Apple uses one near-black tone for all text on light surfaces.
-- **Body On Dark** (`{colors.body-on-dark}` — #ffffff): All text on dark tiles and on the global nav bar.
+- **Body On Dark** (`{colors.body-on-dark}` — #f0f2f5): All text on dark tiles and on the global nav bar.
 - **Body Muted** (`{colors.body-muted}` — #cccccc): Secondary copy on dark tiles where pure white would be too loud.
 - **Ink Muted 80** (`{colors.ink-muted-80}` — #333333): Body text on the white Pearl Button surface — slightly softer than pure black.
 - **Ink Muted 48** (`{colors.ink-muted-48}` — #7a7a7a): Disabled button text and legal fine-print.
