@@ -59,7 +59,7 @@ const KPICard = ({
       onTapStart={() => setIsHovered(true)}
       onTap={() => setIsHovered(false)}
       onTapCancel={() => setIsHovered(false)}
-      className={`bg-apple-canvas/70 backdrop-blur-md border rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 shadow-sm hover:shadow-md relative overflow-hidden group ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-canvas/90' : 'border-apple-hairline'}`}
+      className={`bg-apple-canvas/70 backdrop-blur-md border rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 shadow-sm hover:shadow-md relative overflow-hidden group select-none ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-canvas/90' : 'border-apple-hairline'}`}
     >
       {/* Easter Egg C: Hidden Snowflake for Highlighted Card */}
       {isHighlighted && (
@@ -71,8 +71,8 @@ const KPICard = ({
             rotate: isHovered ? 180 : 0 
           }}
           transition={{ 
-            opacity: { delay: 1.2, duration: 1.5 },
-            scale: { delay: 1.2, duration: 2 },
+            opacity: { delay: 0.3, duration: 1.5 },
+            scale: { delay: 0.3, duration: 2 },
             rotate: { duration: 5, ease: 'linear', repeat: Infinity }
           }}
         >
@@ -91,7 +91,7 @@ const KPICard = ({
             opacity: [0, 1, 1, 0] 
           } : { x: "-20%", rotate: 0, opacity: 0 }}
           transition={{ 
-            delay: 1.0, // 관찰자에게만 허용되는 지연 시간
+            delay: 0.3, 
             duration: 2.5, 
             ease: "linear" 
           }}
@@ -103,36 +103,36 @@ const KPICard = ({
       {/* Easter Egg B: Snow Accumulation (Aurora Edition) */}
       {showSnowAccumulation && (
         <motion.div
-          className="absolute bottom-0 left-0 right-0 pointer-events-none z-0 overflow-hidden"
+          className="absolute bottom-0 left-0 right-0 pointer-events-none z-10 overflow-hidden"
           initial={{ height: 0, opacity: 0 }}
           animate={{ 
-            height: isHovered ? 36 : 0, 
+            height: isHovered ? 40 : 0, 
             opacity: isHovered ? 1 : 0 
           }}
           transition={{ 
             height: { 
-              delay: isHovered ? 1.2 : 0, 
-              duration: isHovered ? 1.5 : 2.0, 
+              delay: isHovered ? 0.3 : 0, 
+              duration: isHovered ? 1.2 : 2.0, 
               ease: isHovered ? "circOut" : "easeInOut" 
             },
             opacity: { 
-              delay: isHovered ? 1.2 : 0, 
+              delay: isHovered ? 0.3 : 0, 
               duration: isHovered ? 1.0 : 1.5 
             }
           }}
         >
           {/* Colorful Aurora Snow Block */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-300/60 via-cyan-200/60 to-indigo-300/60 blur-[2px]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400 opacity-70 blur-[1px]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-white/20 to-transparent" />
           
           {/* Glowing Top Edge */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400 opacity-60" />
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-300 via-cyan-200 to-indigo-300 opacity-90 shadow-[0_0_8px_rgba(0,255,255,0.5)]" />
           
           {/* Shimmering Aurora Effect */}
           <motion.div 
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent"
             animate={{ x: ['-100%', '100%'] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
           />
         </motion.div>
       )}
@@ -141,11 +141,11 @@ const KPICard = ({
         <div className="absolute top-0 left-0 w-full h-1 bg-apple-primary" />
       )}
       
-      <span className="text-caption-strong text-apple-ink-muted-48 mb-3 tracking-tight uppercase font-display relative z-10">{label}</span>
+      <span className="text-caption-strong text-apple-ink-muted-48 mb-3 tracking-tight uppercase font-display relative z-20">{label}</span>
       <AnimatedCounter 
         value={value} 
         formatter={formatter} 
-        className={`text-xl sm:text-2xl font-semibold mb-1 tracking-tight font-display relative z-10 ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
+        className={`text-xl sm:text-2xl font-semibold mb-1 tracking-tight font-display relative z-20 ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
       />
       
       <div className="relative z-10 w-full flex justify-center">
