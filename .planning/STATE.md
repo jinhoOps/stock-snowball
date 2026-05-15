@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3.10
+milestone: v1.3.11
 milestone_name: stability-polish-v1
 status: in-progress
-last_updated: "2026-05-15T13:00:00.000Z"
+last_updated: "2026-05-15T16:30:00.000Z"
 progress:
-  total_phases: 11
-  completed_phases: 11
-  total_plans: 33
-  completed_plans: 33
+  total_phases: 12
+  completed_phases: 12
+  total_plans: 34
+  completed_plans: 34
   percent: 100
 ---
 
@@ -21,8 +21,8 @@ progress:
 
 ## Current Position
 
-**Phase**: 11 - Advanced Metrics, Comparison & Sharing
-**Status**: Completed. Metrics, Multi-Asset Comparison, and Sharing are finalized. Refinement phase active.
+**Phase**: 12 - UX & Animation Polish
+**Status**: Completed. Spring counters, unified pill transitions, and glassmorphism easter eggs added.
 **Progress**: 100% [████████████████████]
 
 ## Performance Metrics
@@ -39,16 +39,19 @@ progress:
 
 - Phase 9/11: Advanced Metrics, Comparison & Sharing.
 - Phase 10: UX Fix & Refinement.
+- Phase 12: UX & Animation Polish.
 - **Stability Patch**:
     - **CORS Fix**: Resolved `SecurityError` in `html-to-image` by adding `crossorigin` and `skipFonts`.
     - **UI Polish**: Reduced ShareCard font sizes and refined currency helper text logic.
-    - **Version Patch**: 1.3.10.
+    - **UX Polish**: Added Spring counters, layoutId transitions, glassmorphism, and Snowball easter eggs.
+    - **Version Patch**: 1.3.11.
 
 ### Key Decisions
 
 - **Input UX**: Prioritize cursor placement over auto-selection for better editing experience.
 - **Large Number Readability**: Automatic truncation of small units for amounts over 100M KRW.
 - **Sharing**: Use `html-to-image` for high-fidelity sharing cards.
+- **Animations**: Use Framer Motion for Spring scale bounces, layoutId pill transitions, and Glassmorphism.
 
 ### Todos
 
@@ -62,4 +65,4 @@ progress:
 - [x] Phase 8: 'What-If' Backtest Evolution & Future Projection Range
 - [x] Phase 9: Advanced Metrics, Comparison & Sharing
 - [x] Phase 10: UX Fix & Refinement
-
+- [x] Phase 12: UX & Animation Polish

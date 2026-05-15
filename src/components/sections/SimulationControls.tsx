@@ -67,22 +67,38 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         </div>
 
         {/* Currency Switcher */}
-        <div className="bg-apple-surface-chip-translucent p-1 rounded-pill flex gap-1 shadow-sm border border-apple-hairline">
+        <div className="bg-apple-surface-chip-translucent p-1 rounded-pill flex gap-1 shadow-sm border border-apple-hairline" role="tablist">
           <button
             onClick={() => handleCurrencyToggle('KRW')}
-            className={`px-4 py-1.5 rounded-pill text-[12px] font-bold transition-all duration-300 ${
-              props.currency === 'KRW' ? 'bg-white text-apple-ink shadow-sm' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
+            aria-pressed={props.currency === 'KRW'}
+            className={`relative px-4 py-1.5 rounded-pill text-[12px] font-bold transition-all duration-300 ${
+              props.currency === 'KRW' ? 'text-apple-ink' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
             }`}
           >
-            KRW
+            {props.currency === 'KRW' && (
+              <motion.div
+                layoutId="active-currency-tab"
+                className="absolute inset-0 bg-white rounded-pill shadow-sm"
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+            <span className="relative z-10">KRW</span>
           </button>
           <button
             onClick={() => handleCurrencyToggle('USD')}
-            className={`px-4 py-1.5 rounded-pill text-[12px] font-bold transition-all duration-300 ${
-              props.currency === 'USD' ? 'bg-white text-apple-ink shadow-sm' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
+            aria-pressed={props.currency === 'USD'}
+            className={`relative px-4 py-1.5 rounded-pill text-[12px] font-bold transition-all duration-300 ${
+              props.currency === 'USD' ? 'text-apple-ink' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
             }`}
           >
-            USD
+            {props.currency === 'USD' && (
+              <motion.div
+                layoutId="active-currency-tab"
+                className="absolute inset-0 bg-white rounded-pill shadow-sm"
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+            <span className="relative z-10">USD</span>
           </button>
         </div>
       </div>
@@ -105,16 +121,24 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         <div className="flex-1 flex flex-col items-start w-full">
           <div className="flex justify-between w-full items-center mb-3 px-2">
             <label htmlFor="monthly-investment-input" className="text-caption-strong text-apple-ink tracking-tight">납입액 ({props.currency})</label>
-            <div className="flex gap-1 bg-apple-surface-chip-translucent p-0.5 rounded-pill border border-apple-hairline scale-90 origin-right">
+            <div className="flex gap-1 bg-apple-surface-chip-translucent p-0.5 rounded-pill border border-apple-hairline scale-90 origin-right" role="tablist">
               {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map((c) => (
                 <button
                   key={c}
                   onClick={() => updateParam('cycle', c)}
-                  className={`px-3 py-1 rounded-pill text-[10px] font-bold transition-all ${
-                    props.params.cycle === c ? 'bg-white text-apple-ink shadow-sm' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
+                  aria-pressed={props.params.cycle === c}
+                  className={`relative px-3 py-1 rounded-pill text-[10px] font-bold transition-all duration-300 ${
+                    props.params.cycle === c ? 'text-apple-ink' : 'text-apple-ink-muted-48 hover:text-apple-ink-muted-64'
                   }`}
                 >
-                  {c === 'DAILY' ? '일' : c === 'WEEKLY' ? '주' : '월'}
+                  {props.params.cycle === c && (
+                    <motion.div
+                      layoutId="active-cycle-tab"
+                      className="absolute inset-0 bg-white rounded-pill shadow-sm"
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                  <span className="relative z-10">{c === 'DAILY' ? '일' : c === 'WEEKLY' ? '주' : '월'}</span>
                 </button>
               ))}
             </div>

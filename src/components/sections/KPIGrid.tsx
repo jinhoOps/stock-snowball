@@ -1,9 +1,9 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import AnimatedCounter from '../common/AnimatedCounter';
 import { BigNumberHelper } from '../common/BigNumberHelper';
-import { Share2 } from 'lucide-react';
+import { Share2, Snowflake } from 'lucide-react';
 
 interface KPIGridProps {
   totalAsset: number;
@@ -27,7 +27,8 @@ const KPICard = ({
   index,
   isHighlighted,
   currency,
-  exchangeRate
+  exchangeRate,
+  isMilestoneReached
 }: { 
   label: string; 
   value: number; 
@@ -38,57 +39,107 @@ const KPICard = ({
   isHighlighted?: boolean;
   currency: 'USD' | 'KRW';
   exchangeRate: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ 
-      opacity: 1, 
-      y: 0,
-    }}
-    transition={{ duration: 0.5, delay: index * 0.1 }}
-    whileTap={{ scale: 0.98 }}
-    className={`bg-apple-canvas border rounded-lg p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:border-apple-primary/30 shadow-sm relative overflow-hidden ${isHighlighted ? 'ring-2 ring-apple-primary/20' : 'border-apple-hairline'}`}
-  >
-    {isHighlighted && (
-      <div className="absolute top-0 left-0 w-full h-1 bg-apple-primary" />
-    )}
-    <span className="text-caption-strong text-apple-ink-muted-48 mb-3 tracking-tight uppercase font-display">{label}</span>
-    <AnimatedCounter 
-      value={value} 
-      formatter={formatter} 
-      className={`text-xl sm:text-2xl font-semibold mb-1 tracking-tight font-display ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
-    />
-    
-    <BigNumberHelper 
-      value={value} 
-      currency={currency} 
-      exchangeRate={exchangeRate} 
-      showDual={true} 
-      onlyEstimate={true}
-      className="mb-3"
-    />
+  isMilestoneReached?: boolean;
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
 
-    {subValue !== undefined && subFormatter && (
-      <div className="flex items-center gap-1 text-caption-strong text-apple-primary tracking-tight bg-apple-primary/5 px-3 py-1 rounded-pill">
-        <span>+</span>
-        <AnimatedCounter 
-          value={subValue} 
-          formatter={subFormatter} 
+  // Easter Egg A: Rolling Snowball
+  const showRollingSnowball = !isHighlighted && index % 2 !== 0;
+  // Easter Egg B: Snow Accumulation
+  const showSnowAccumulation = !isHighlighted && index % 2 === 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: index * 0.1, type: 'spring', stiffness: 100 }}
+      whileTap={{ scale: 0.98 }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      className={`bg-apple-canvas/70 backdrop-blur-md border rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 shadow-sm hover:shadow-md relative overflow-hidden group ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-canvas/90' : 'border-apple-hairline'}`}
+    >
+      {/* Easter Egg C: Hidden Snowflake for Highlighted Card */}
+      {isHighlighted && (
+        <motion.div 
+          className="absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none text-apple-primary/5"
+          animate={{ opacity: isHovered ? 1 : 0, scale: isHovered ? 1.5 : 1, rotate: isHovered ? 180 : 0 }}
+          transition={{ duration: 3, ease: 'linear', repeat: Infinity }}
+        >
+          <Snowflake size={150} strokeWidth={1} />
+        </motion.div>
+      )}
+
+      {/* Easter Egg A: Rolling Snowball */}
+      {showRollingSnowball && (
+        <motion.div
+          className="absolute bottom-1 left-0 text-apple-primary/40"
+          initial={{ x: -20, rotate: 0, opacity: 0 }}
+          animate={isHovered ? { x: 200, rotate: 360, opacity: [0, 1, 1, 0] } : { x: -20, rotate: 0, opacity: 0 }}
+          transition={{ duration: 2, ease: "easeInOut" }}
+        >
+          <Snowflake size={16} />
+        </motion.div>
+      )}
+
+      {/* Easter Egg B: Snow Accumulation */}
+      {showSnowAccumulation && (
+        <motion.div
+          className="absolute bottom-0 left-0 right-0 bg-white/60 blur-sm pointer-events-none"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: isHovered ? 20 : 0, opacity: isHovered ? 1 : 0 }}
+          transition={{ duration: 1.5 }}
         />
-        <span>%</span>
+      )}
+
+      {isHighlighted && (
+        <div className="absolute top-0 left-0 w-full h-1 bg-apple-primary" />
+      )}
+      
+      <span className="text-caption-strong text-apple-ink-muted-48 mb-3 tracking-tight uppercase font-display relative z-10">{label}</span>
+      <AnimatedCounter 
+        value={value} 
+        formatter={formatter} 
+        className={`text-xl sm:text-2xl font-semibold mb-1 tracking-tight font-display relative z-10 ${isHighlighted ? 'text-apple-primary' : 'text-apple-ink'}`}
+      />
+      
+      <div className="relative z-10 w-full flex justify-center">
+        <BigNumberHelper 
+          value={value} 
+          currency={currency} 
+          exchangeRate={exchangeRate} 
+          showDual={true} 
+          onlyEstimate={true}
+          className="mb-3"
+        />
       </div>
-    )}
-    {isHighlighted && (
-      <motion.div 
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        className="mt-3 bg-apple-primary text-apple-on-dark text-[10px] font-bold px-3 py-1 rounded-pill uppercase tracking-widest font-display"
-      >
-        Milestone
-      </motion.div>
-    )}
-  </motion.div>
-);
+
+      {subValue !== undefined && subFormatter && (
+        <div className="flex items-center gap-1 text-caption-strong text-apple-primary tracking-tight bg-apple-primary/5 px-3 py-1 rounded-pill relative z-10">
+          <span>+</span>
+          <AnimatedCounter 
+            value={subValue} 
+            formatter={subFormatter} 
+          />
+          <span>%</span>
+        </div>
+      )}
+      
+      <AnimatePresence>
+        {isHighlighted && isMilestoneReached && (
+          <motion.div 
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="mt-3 bg-apple-primary text-apple-on-dark text-[10px] font-bold px-3 py-1 rounded-pill uppercase tracking-widest font-display relative z-10 shadow-sm"
+          >
+            Milestone
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
 
 const KPIGrid: React.FC<KPIGridProps> = ({
   totalAsset,
@@ -104,7 +155,6 @@ const KPIGrid: React.FC<KPIGridProps> = ({
 }) => {
   const formatCurrency = (val: number) => {
     if (currency === 'KRW') {
-      // 만원 미만 단위 절삭 (미니멀을 위함)
       const truncated = Math.floor(val / 10000) * 10000;
       return SnowballEngine.formatKoreanWon(truncated);
     }
@@ -118,7 +168,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
       label: '최종 예상 자산',
       value: totalAsset,
       formatter: formatCurrency,
-      isHighlighted: isMilestoneReached
+      isHighlighted: true // 항상 하이라이트 되도록 변경 (기존 로직과 유사)
     },
     {
       label: '총 투자 원금',
@@ -146,20 +196,36 @@ const KPIGrid: React.FC<KPIGridProps> = ({
 
   return (
     <div className="flex flex-col items-center w-full max-w-[1000px] mt-12 px-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={{
+          visible: { transition: { staggerChildren: 0.1 } },
+          hidden: {}
+        }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full"
+      >
         {kpis.map((kpi, i) => (
-          <KPICard key={`${kpi.label}-${i}`} {...kpi} index={i} currency={currency} exchangeRate={exchangeRate} />
+          <KPICard 
+            key={`${kpi.label}-${i}`} 
+            {...kpi} 
+            index={i} 
+            currency={currency} 
+            exchangeRate={exchangeRate} 
+            isMilestoneReached={isMilestoneReached}
+          />
         ))}
-      </div>
+      </motion.div>
       
       {onShare && (
         <motion.button
           onClick={onShare}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="mt-10 flex items-center gap-2 bg-apple-ink text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink/90 transition-all group"
+          className="mt-10 flex items-center gap-2 bg-apple-ink/90 backdrop-blur-md text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink transition-all group"
         >
           <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
           공유(이미지)

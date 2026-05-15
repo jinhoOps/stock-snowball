@@ -102,7 +102,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
             className={`absolute z-50 w-max max-w-[250px] sm:max-w-[300px] ${positionClasses}`}
             onClick={(e) => e.stopPropagation()} // 툴팁 내부 클릭 시 닫히지 않음
           >
-            <div className="bg-apple-canvas-parchment/80 backdrop-blur-md border border-apple-hairline shadow-md rounded-lg p-3">
+            <div className="bg-apple-canvas-parchment/80 backdrop-blur-md border border-apple-hairline rounded-lg p-3">
               <p className="text-caption text-apple-ink text-left font-text whitespace-pre-wrap break-keep">
                 {content}
               </p>

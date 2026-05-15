@@ -16,7 +16,6 @@ import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, Sim
 import { getHistoricalData, calculateMedianCAGR } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
-import { Tooltip } from './components/common/Tooltip';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -569,10 +568,17 @@ function App() {
               <p className="text-apple-ink-muted-48 font-text">저장된 시나리오가 없습니다.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {scenarios.map((s) => (
+              <AnimatePresence>
+                {scenarios.map((s, index) => (
                   <motion.div 
-                    key={s.id} whileTap={{ scale: 0.98 }}
-                    className={`bg-apple-canvas border rounded-lg p-6 transition-all cursor-pointer shadow-sm relative overflow-hidden ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-2 ring-apple-primary/20' : 'border-apple-hairline hover:border-apple-primary/30'}`}
+                    key={s.id} 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.5, delay: index * 0.05, type: 'spring', stiffness: 100 }}
+                    whileHover={{ y: -5 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`bg-apple-canvas/70 backdrop-blur-md border rounded-xl p-6 transition-all cursor-pointer shadow-sm hover:shadow-md relative overflow-hidden group ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-2 ring-apple-primary/20 bg-apple-canvas/90' : 'border-apple-hairline hover:border-apple-primary/40'}`}
                     onClick={() => {
                       setMode(s.simulationMode || 'PROJECTION');
                       const newParams: SimulationParams = {
@@ -623,6 +629,7 @@ function App() {
                     </div>
                   </motion.div>
                 ))}
+              </AnimatePresence>
               </div>
             )}
           </div>
