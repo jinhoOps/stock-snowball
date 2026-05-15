@@ -112,9 +112,10 @@ export class SnowballEngine {
   /**
    * 숫자를 한국인에게 친숙한 '만 원' 단위로 포맷팅합니다.
    * @param value 금액 (원 단위)
+   * @param simplified 만 원 이하 단위를 절삭할지 여부
    * @returns 포맷팅된 문자열 (예: 1억 2,345만 6,789원)
    */
-  static formatKoreanWon(value: Decimal | number | string): string {
+  static formatKoreanWon(value: Decimal | number | string, simplified: boolean = false): string {
     const amount = new Decimal(value).floor();
     if (amount.isZero()) return '0원';
 
@@ -135,10 +136,13 @@ export class SnowballEngine {
       }
     }
 
-    if (remaining.gt(0)) {
+    if (!simplified && remaining.gt(0)) {
       parts.push(`${remaining.toNumber().toLocaleString()}원`);
     } else if (parts.length > 0) {
       parts[parts.length - 1] += ' 원';
+    } else if (simplified && amount.lt(10000)) {
+      // 만 원 미만인데 심플 모드인 경우 0만 원 대신 실제 원 표시
+      return `${amount.toNumber().toLocaleString()}원`;
     }
 
     return parts.join(' ').trim();
@@ -180,11 +184,19 @@ export class SnowballEngine {
    * 숫자를 달러(USD) 형식으로 포맷팅합니다.
    * million 미만은 정수부분만 표시합니다.
    * @param value 금액
+   * @param simplified 소수점 이하를 절삭할지 여부
    */
-  static formatUSD(value: Decimal | number | string): string {
+  static formatUSD(value: Decimal | number | string, simplified: boolean = false): string {
     const amount = new Decimal(value);
     if (amount.isZero()) return '$0';
     
+    // simplified가 true이면 무조건 정수로 표시 (Billion/Million 단위 유지하되 소수점 제거)
+    if (simplified) {
+      if (amount.abs().gte(1e9)) return `${amount.dividedBy(1e9).toFixed(0)} Billion $`;
+      if (amount.abs().gte(1e6)) return `${amount.dividedBy(1e6).toFixed(0)} Million $`;
+      return `$${amount.toNumber().toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    }
+
     // Billion, Million 단위 대응
     if (amount.abs().gte(1e9)) return `${amount.dividedBy(1e9).toFixed(2)} Billion $`;
     if (amount.abs().gte(1e6)) return `${amount.dividedBy(1e6).toFixed(2)} Million $`;
@@ -217,9 +229,10 @@ export class SnowballEngine {
    * 통화에 따라 대형 숫자를 읽기 쉬운 단위로 포맷팅합니다.
    * @param value 금액
    * @param currency 통화
+   * @param simplified 간결하게 표시할지 여부
    */
-  static formatBigNumber(value: Decimal | number | string, currency: 'KRW' | 'USD'): string {
-    return currency === 'KRW' ? this.formatKoreanWon(value) : this.formatUSD(value);
+  static formatBigNumber(value: Decimal | number | string, currency: 'KRW' | 'USD', simplified: boolean = false): string {
+    return currency === 'KRW' ? this.formatKoreanWon(value, simplified) : this.formatUSD(value, simplified);
   }
 
   /**
@@ -227,20 +240,22 @@ export class SnowballEngine {
    * @param value 금액 (현재 통화 기준)
    * @param currentCurrency 현재 표시 통화
    * @param exchangeRate 환율
+   * @param simplified 간결하게 표시할지 여부
    */
-  static formatDualCurrency(value: number, currentCurrency: 'KRW' | 'USD', exchangeRate: number): string {
+  static formatDualCurrency(value: number, currentCurrency: 'KRW' | 'USD', exchangeRate: number, simplified: boolean = false): string {
     const amount = new Decimal(value);
-    const main = this.formatBigNumber(amount, currentCurrency);
+    const main = this.formatBigNumber(amount, currentCurrency, simplified);
     
     if (currentCurrency === 'KRW') {
       const usd = amount.dividedBy(exchangeRate).floor();
-      return `${main} (약 $${usd.toNumber().toLocaleString()})`;
+      return `${main} (약 ${this.formatUSD(usd, simplified)})`;
     } else {
       const krw = amount.times(exchangeRate).floor();
-      const krwFormatted = this.formatKoreanWon(krw);
+      const krwFormatted = this.formatKoreanWon(krw, simplified);
       return `${main} (약 ${krwFormatted})`;
     }
   }
+
 
   /**
    * 주말(토, 일)을 제외한 영업일 여부를 확인합니다.
@@ -293,7 +308,8 @@ export class SnowballEngine {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + d);
       const yearsPassed = d / 365;
-      const variance = 0.0025 * yearsPassed; // ±0.25% * n_years
+      const varianceMultiplier = _assetType === 'QLD' ? 4 : _assetType === 'TQQQ' ? 8 : 1;
+      const variance = 0.0025 * yearsPassed * varianceMultiplier; // ±0.25% * n_years * leverage_weight
 
       // 데이터 포인트 기록
       if (d % intervalDays === 0 || d === totalDays) {

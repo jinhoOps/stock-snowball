@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StrategyType, AssetType, SimulationParams, ContributionCycle } from '../../types/finance';
+import { calculateMedianCAGR } from '../../data/historicalAssets';
 
 interface AdvancedSettingsSheetProps {
   isOpen: boolean;
@@ -23,15 +24,43 @@ const sheetVariants = {
 const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
   isOpen,
   onClose,
-  params,
+  params: parentParams,
   onUpdate,
-  exchangeRate,
+  exchangeRate: parentExchangeRate,
   setExchangeRate,
 }) => {
+  const [localParams, setLocalParams] = React.useState<SimulationParams>(parentParams);
+  const [localExchangeRate, setLocalExchangeRate] = React.useState<number>(parentExchangeRate);
+  const [snapshot, setSnapshot] = React.useState<{ params: SimulationParams, rate: number } | null>(null);
+
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
+  // Sync with parent when opening
+  useEffect(() => {
+    if (isOpen) {
+      setLocalParams(parentParams);
+      setLocalExchangeRate(parentExchangeRate);
+      setSnapshot({ params: parentParams, rate: parentExchangeRate });
+    }
+  }, [isOpen]);
+
+  const hasChanges = snapshot && (
+    JSON.stringify(localParams) !== JSON.stringify(snapshot.params) || 
+    localExchangeRate !== snapshot.rate
+  );
+
   const updateParam = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
-    onUpdate({ [key]: value });
+    setLocalParams(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleApply = () => {
+    onUpdate(localParams);
+    setExchangeRate(localExchangeRate);
+    onClose();
+  };
+
+  const handleCancel = () => {
+    onClose();
   };
 
   // Prevent scrolling on body when sheet is open
@@ -86,12 +115,12 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                 {/* 1. 자산 선택 및 기대 수익률 */}
                 <div className="w-full">
                   <label htmlFor="asset-type-select" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">
-                    {params.startDate ? '투자 자산 (Backtest)' : '참조 자산 (Projection CAGR)'}
+                    {localParams.startDate ? '투자 자산 (Backtest)' : '참조 자산 (Projection CAGR)'}
                   </label>
                   <div className="relative">
                     <select 
                       id="asset-type-select"
-                      value={params.assetType}
+                      value={localParams.assetType}
                       onChange={(e) => updateParam('assetType', e.target.value as AssetType)}
                       className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all appearance-none mb-6 font-text"
                     >
@@ -110,23 +139,24 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     </div>
                   </div>
 
-                  {params.assetType === 'CUSTOM' ? (
+                  {localParams.assetType === 'CUSTOM' ? (
                     <div className="flex flex-col items-start">
                       <label htmlFor="annual-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (%)</label>
                       <input 
                         id="annual-rate-input"
                         type="number" 
                         step="0.1"
-                        value={params.rate * 100}
+                        value={localParams.rate * 100}
                         onChange={(e) => updateParam('rate', Number(e.target.value) / 100)}
                         className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                       />
                     </div>
                   ) : (
-                    <div className="flex flex-col items-start opacity-50">
+                    <div className="flex flex-col items-start">
                       <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (%)</label>
-                      <div className="w-full h-12 flex items-center bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-6 text-body font-text">
-                        과거 데이터 자동 적용
+                      <div className="w-full h-12 flex items-center justify-between bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-6 text-body font-text opacity-70">
+                        <span>과거 데이터 자동 적용</span>
+                        <span className="text-apple-primary font-semibold">약 {(calculateMedianCAGR(localParams.assetType) * 100).toFixed(1)}%/년</span>
                       </div>
                     </div>
                   )}
@@ -138,7 +168,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   <div className="relative mb-6">
                     <select 
                       id="strategy-type-select"
-                      value={params.strategyType}
+                      value={localParams.strategyType}
                       onChange={(e) => updateParam('strategyType', e.target.value as StrategyType)}
                       className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary transition-all appearance-none font-text"
                     >
@@ -158,7 +188,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                         key={cycle}
                         onClick={() => updateParam('cycle', cycle)}
                         className={`flex-1 h-10 rounded-pill text-[13px] font-medium transition-all ${
-                          params.cycle === cycle 
+                          localParams.cycle === cycle 
                             ? 'bg-apple-surface-black text-apple-on-dark shadow-sm' 
                             : 'text-apple-ink-muted-48 hover:text-apple-ink'
                         }`}
@@ -175,8 +205,8 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   <input 
                     id="exchange-rate-input"
                     type="number" 
-                    value={exchangeRate}
-                    onChange={(e) => setExchangeRate(Math.max(1, Number(e.target.value)))}
+                    value={localExchangeRate}
+                    onChange={(e) => setLocalExchangeRate(Math.max(1, Number(e.target.value)))}
                     className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                   />
                   <p className="mt-3 text-fine-print text-apple-ink-muted-48 ml-1">통화 전환 및 자산 합산 시 사용됩니다.</p>
@@ -188,17 +218,17 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   <div className="flex gap-3 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline" role="radiogroup" aria-label="계좌 유형 선택">
                     <button 
                       onClick={() => updateParam('accountType', 'GENERAL')}
-                      aria-pressed={params.accountType === 'GENERAL'}
+                      aria-pressed={localParams.accountType === 'GENERAL'}
                       aria-label="일반 계좌 선택"
-                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${params.accountType === 'GENERAL' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
+                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${localParams.accountType === 'GENERAL' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
                     >
                       일반 계좌
                     </button>
                     <button 
                       onClick={() => updateParam('accountType', 'ISA')}
-                      aria-pressed={params.accountType === 'ISA'}
+                      aria-pressed={localParams.accountType === 'ISA'}
                       aria-label="ISA 절세 계좌 선택"
-                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${params.accountType === 'ISA' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
+                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${localParams.accountType === 'ISA' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
                     >
                       ISA (절세)
                     </button>
@@ -212,13 +242,38 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     id="inflation-rate-input"
                     type="number" 
                     step="0.1"
-                    value={params.inflationRate * 100}
+                    value={localParams.inflationRate * 100}
                     onChange={(e) => updateParam('inflationRate', Number(e.target.value) / 100)}
                     className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                   />
                   <p className="mt-3 text-fine-print text-apple-ink-muted-48 ml-1">실질 가치 계산을 위해 사용됩니다.</p>
                 </div>
               </div>
+
+              {/* Confirmation Footer */}
+              <AnimatePresence>
+                {hasChanges && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    className="sticky bottom-0 left-0 right-0 p-6 bg-apple-canvas-parchment/95 backdrop-blur-md border-t border-apple-hairline mt-10 -mx-8 flex gap-3"
+                  >
+                    <button 
+                      onClick={handleCancel}
+                      className="flex-1 h-12 rounded-pill bg-apple-canvas border border-apple-hairline text-apple-ink font-semibold hover:bg-apple-canvas-parchment transition-all"
+                    >
+                      취소
+                    </button>
+                    <button 
+                      onClick={handleApply}
+                      className="flex-[2] h-12 rounded-pill bg-apple-primary text-apple-on-dark font-semibold hover:bg-apple-primary-focus transition-all shadow-md"
+                    >
+                      설정 적용
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         </>

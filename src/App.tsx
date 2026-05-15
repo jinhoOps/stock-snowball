@@ -13,6 +13,8 @@ import { BacktestEngine } from './core/BacktestEngine';
 import { useScenarios } from './hooks/useScenarios';
 import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult } from './types/finance';
 import { getHistoricalData, calculateMedianCAGR } from './data/historicalAssets';
+import { toPng } from 'html-to-image';
+import ShareCard from './components/common/ShareCard';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -37,35 +39,53 @@ function App() {
   const [exchangeRate, setExchangeRate] = useState(1450); // 기본 환율
   const [scenarioName, setScenarioName] = useState('기본 시나리오');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [showRealValue, setShowRealValue] = useState(false);
 
   // Decoupled Parameters
-  const [projectionParams, setProjectionParams] = useState<SimulationParams>({
-    principal: 10000000,
-    contribution: 1000000,
-    cycle: 'MONTHLY',
-    assetType: 'CUSTOM',
-    years: 10,
-    rate: 0.08,
-    accountType: 'GENERAL',
-    inflationRate: 0.02,
-    strategyType: 'FIXED',
-    strategyIncreaseRate: 0.05,
+  const [projectionParams, setProjectionParams] = useState<SimulationParams>(() => {
+    const cached = localStorage.getItem('projection_params');
+    if (cached) return JSON.parse(cached);
+    return {
+      principal: 10000000,
+      contribution: 30000,
+      cycle: 'DAILY',
+      assetType: 'CUSTOM',
+      years: 10,
+      rate: 0.08,
+      accountType: 'GENERAL',
+      inflationRate: 0.02,
+      strategyType: 'FIXED',
+      strategyIncreaseRate: 0.05,
+    };
   });
-
-  const [backtestParams, setBacktestParams] = useState<SimulationParams>({
-    principal: 10000000,
-    contribution: 1000000,
-    cycle: 'MONTHLY',
-    assetType: 'SPY',
-    years: 10,
-    rate: 0.08,
-    accountType: 'GENERAL',
-    inflationRate: 0.02,
-    strategyType: 'FIXED',
-    strategyIncreaseRate: 0.05,
-    startDate: '2010-01-01',
-    endDate: '2024-01-01',
+ 
+  const [backtestParams, setBacktestParams] = useState<SimulationParams>(() => {
+    const cached = localStorage.getItem('backtest_params');
+    if (cached) return JSON.parse(cached);
+    return {
+      principal: 10000000,
+      contribution: 30000,
+      cycle: 'DAILY',
+      assetType: 'SPY',
+      years: 10,
+      rate: 0.08,
+      accountType: 'GENERAL',
+      inflationRate: 0.02,
+      strategyType: 'FIXED',
+      strategyIncreaseRate: 0.05,
+      startDate: '2010-01-01',
+      endDate: '2024-01-01',
+    };
   });
+ 
+  // Cache to localStorage
+  useEffect(() => {
+    localStorage.setItem('projection_params', JSON.stringify(projectionParams));
+  }, [projectionParams]);
+ 
+  useEffect(() => {
+    localStorage.setItem('backtest_params', JSON.stringify(backtestParams));
+  }, [backtestParams]);
 
   const activeParams = mode === 'PROJECTION' ? projectionParams : backtestParams;
   
@@ -210,6 +230,7 @@ function App() {
         ? activeSimulation.average.map((r, i) => ({ 
             date: r.date, 
             value: r.postTaxValue,
+            realValue: r.realValue,
             pessimistic: activeSimulation.pessimistic[i].postTaxValue,
             optimistic: activeSimulation.optimistic[i].postTaxValue,
             contribution: r.totalContribution
@@ -264,15 +285,15 @@ function App() {
           name: s.name,
           color: SCENARIO_COLORS[(index + 1) % SCENARIO_COLORS.length],
           points: sim.average.map((r, i) => ({ 
-            date: r.date, 
-            value: r.postTaxValue,
-            pessimistic: sim.pessimistic[i].postTaxValue,
-            optimistic: sim.optimistic[i].postTaxValue,
-            contribution: r.totalContribution
+          date: r.date, 
+          value: r.postTaxValue,
+          realValue: r.realValue,
+          pessimistic: sim.pessimistic[i].postTaxValue,
+          optimistic: sim.optimistic[i].postTaxValue,
+          contribution: r.totalContribution
           }))
-        };
-      });
-
+          };
+          });
     return [main, ...comparing];
   }, [activeSimulation, activeBacktest, scenarioName, scenarios, comparingScenarioIds, mode]);
 
@@ -327,10 +348,44 @@ function App() {
     setComparingScenarioIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
+  const shareCardRef = useRef<HTMLDivElement>(null);
+  const handleShare = async () => {
+    if (!shareCardRef.current) return;
+    try {
+      const dataUrl = await toPng(shareCardRef.current, { 
+        cacheBust: true,
+        backgroundColor: '#F5F5F7',
+        pixelRatio: 2
+      });
+      const link = document.createElement('a');
+      link.download = `stock-snowball-${scenarioName}-${new Date().getTime()}.png`;
+      link.href = dataUrl;
+      link.click();
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.9 }, colors: ['#0066cc', '#FFFFFF'] });
+    } catch (err) {
+      console.error('Sharing failed:', err);
+      alert('이미지 생성에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-apple-canvas font-text">
       <GlobalNav onOpenAdvanced={() => setIsAdvancedOpen(true)} />
       
+      {/* Hidden ShareCard for Capture */}
+      <ShareCard 
+        cardRef={shareCardRef}
+        scenarioName={scenarioName}
+        totalAsset={activeResult.postTaxValue}
+        totalContribution={activeResult.totalContribution}
+        totalReturn={totalReturn}
+        returnPercentage={returnPercentage}
+        cagr={cagr}
+        years={mode === 'PROJECTION' ? projectionParams.years : backtestParams.years}
+        currency={currency}
+        sparklineData={chartScenarios[0].points}
+      />
+
       <main>
         <LayoutGroup>
           <ProductHero 
@@ -378,12 +433,21 @@ function App() {
                   transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1.0] }}
                   className="w-full flex flex-col items-center"
                 >
-                  <div className="mb-10 text-center">
-                    <span className="text-caption-strong text-apple-ink-muted-48 block mb-2 tracking-tight uppercase font-display">
-                      {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후 실질 가치)` : '백테스트 최종 자산'}
-                    </span>
+                  <div className="mb-10 text-center flex flex-col items-center">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-caption-strong text-apple-ink-muted-48 tracking-tight uppercase font-display">
+                        {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후)` : '백테스트 최종 자산'}
+                      </span>
+                      <label className="flex items-center gap-2 cursor-pointer bg-apple-canvas-parchment/80 backdrop-blur-sm border border-apple-hairline rounded-pill px-3 py-1 shadow-sm hover:border-apple-primary/30 transition-all">
+                        <input 
+                          type="checkbox" checked={showRealValue} onChange={(e) => setShowRealValue(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded-sm border-apple-hairline text-apple-primary focus:ring-apple-primary/20"
+                        />
+                        <span className="text-[11px] font-semibold text-apple-ink tracking-tight">실질 가치로 보기</span>
+                      </label>
+                    </div>
                     <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
-                      {SnowballEngine.formatDualCurrency(activeResult.postTaxValue, currency, exchangeRate)}
+                      {SnowballEngine.formatDualCurrency(showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true)}
                     </span>
                   </div>
 
@@ -392,6 +456,7 @@ function App() {
                       scenarios={chartScenarios} 
                       mode={mode}
                       comparisonMode={comparingScenarioIds.length > 0}
+                      showRealValue={showRealValue}
                       onPointHover={(d) => d && setSelectedPoint(d as any)}
                       onPointSelect={(d) => setSelectedPoint(d as any)}
                     />
@@ -439,6 +504,7 @@ function App() {
                       currency={currency}
                       exchangeRate={exchangeRate}
                       isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
+                      onShare={handleShare}
                     />
                   </div>
 

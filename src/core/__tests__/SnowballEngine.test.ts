@@ -60,6 +60,21 @@ describe('SnowballEngine', () => {
       // 실질 가치는 원금과 정확히 일치해야 함
       expect(result.toDecimalPlaces(0).toNumber()).toBe(1000000);
     });
+
+    it('인플레이션율에 따라 미래 가치가 현재 가치로 올바르게 할인되어야 합니다 (다중 연도)', () => {
+      const nominalAmount = 1000000;
+      const inflationRate = 0.03; // 3%
+      const years = 10;
+      const days = years * 365;
+
+      const realValue = SnowballEngine.calculateRealValue(nominalAmount, inflationRate, days);
+      
+      // PV = 1,000,000 / (1 + 0.03/365)^(3650)
+      // 약 740,842
+      expect(realValue.toNumber()).toBeLessThan(1000000);
+      expect(realValue.toNumber()).toBeGreaterThan(700000);
+      expect(Math.round(realValue.toNumber())).toBe(740827);
+    });
   });
 
   describe('Financial Accuracy (Floating Point Error Check)', () => {
@@ -128,6 +143,23 @@ describe('SnowballEngine', () => {
       
       expect(lastOpt).toBeGreaterThan(lastAvg);
       expect(lastAvg).toBeGreaterThan(lastPes);
+    });
+
+    it('시뮬레이션 결과에 인플레이션이 반영된 실질 가치가 포함되어야 합니다', () => {
+      const principal = 1000000;
+      const rate = 0.1;
+      const years = 10;
+      const inflation = 0.03;
+      
+      const result = SnowballEngine.simulateRange(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, inflation);
+      
+      const lastPoint = result.average[result.average.length - 1];
+      expect(lastPoint.realValue).toBeDefined();
+      expect(lastPoint.realValue).toBeLessThan(lastPoint.postTaxValue);
+      
+      // 수치 검증: nominalValue / (1 + 0.03/365)^(10*365)
+      const expectedReal = new Decimal(lastPoint.postTaxValue).dividedBy(new Decimal(inflation).dividedBy(365).plus(1).pow(years * 365));
+      expect(Math.abs(lastPoint.realValue - expectedReal.toNumber())).toBeLessThan(100);
     });
 
     it('시간이 경과할수록 범위(Variance)가 넓어져야 합니다', () => {

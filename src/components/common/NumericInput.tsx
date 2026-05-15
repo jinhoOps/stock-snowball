@@ -50,8 +50,9 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     }
   };
 
-  const handleFocus = () => {
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     setIsFocused(true);
+    e.target.select();
     if (value === 0) {
       setInputValue('');
     }

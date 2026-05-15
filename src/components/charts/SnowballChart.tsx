@@ -15,6 +15,7 @@ import { SimulationMode } from '../../types/finance';
 interface DataPoint {
   date: Date;
   value: number;
+  realValue?: number;
   pessimistic?: number;
   optimistic?: number;
   contribution?: number;
@@ -31,8 +32,9 @@ interface SnowballChartProps {
   scenarios: ScenarioData[];
   mode: SimulationMode;
   comparisonMode?: boolean;
-  onPointSelect?: (data: { date: Date; points: { name: string; value: number; color: string; pessimistic?: number; optimistic?: number }[] }) => void;
-  onPointHover?: (data: { date: Date; points: { name: string; value: number; color: string; pessimistic?: number; optimistic?: number }[] } | null) => void;
+  showRealValue?: boolean;
+  onPointSelect?: (data: { date: Date; points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number }[] }) => void;
+  onPointHover?: (data: { date: Date; points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number }[] } | null) => void;
 }
 
 // Simple bisector implementation
@@ -73,9 +75,10 @@ const SnowballChartInner: React.FC<{
   height: number;
   mode: SimulationMode;
   comparisonMode?: boolean;
+  showRealValue?: boolean;
   onPointSelect?: SnowballChartProps['onPointSelect'];
   onPointHover?: SnowballChartProps['onPointHover'];
-}> = React.memo(({ scenarios, width, height, comparisonMode, onPointHover }) => {
+}> = React.memo(({ scenarios, width, height, comparisonMode, showRealValue, onPointHover }) => {
   const margin = useMemo(() => ({
     top: 24, 
     right: width > 520 ? 32 : 16, 
@@ -93,7 +96,7 @@ const SnowballChartInner: React.FC<{
   } = useTooltip<{
     date: Date;
     xValue: number | Date;
-    points: { name: string; value: number; color: string; pessimistic?: number; optimistic?: number; contribution?: number }[];
+    points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number; contribution?: number }[];
   }>();
 
   // 1. Data Transformation for Comparison Mode
@@ -168,6 +171,7 @@ const SnowballChartInner: React.FC<{
         return {
           name: s.name,
           value: p.value,
+          realValue: p.realValue,
           color: s.color,
           pessimistic: p.pessimistic,
           optimistic: p.optimistic,
@@ -250,7 +254,7 @@ const SnowballChartInner: React.FC<{
                   curve={curveMonotoneX}
                 />
               )}
-              {/* Asset Growth Line */}
+              {/* Asset Growth Line (Nominal) */}
               <LinePath<any>
                 data={s.transformedPoints}
                 x={d => xScale(comparisonMode ? d.monthsElapsed : d.date.getTime()) ?? 0}
@@ -258,8 +262,20 @@ const SnowballChartInner: React.FC<{
                 stroke={s.color}
                 strokeWidth={3}
                 curve={curveMonotoneX}
-                style={{ filter: `drop-shadow(0 0 6px ${s.color}33)` }}
+                style={{ filter: `drop-shadow(0 0 6px ${s.color}33)`, opacity: showRealValue ? 0.3 : 1 }}
               />
+              {/* Real Value Line (Inflation Adjusted) */}
+              {showRealValue && s.transformedPoints.some(p => p.realValue !== undefined) && (
+                <LinePath<any>
+                  data={s.transformedPoints}
+                  x={d => xScale(comparisonMode ? d.monthsElapsed : d.date.getTime()) ?? 0}
+                  y={d => valueScale(d.realValue || 0) ?? 0}
+                  stroke={s.color}
+                  strokeWidth={3}
+                  strokeDasharray="2,2"
+                  curve={curveMonotoneX}
+                />
+              )}
             </React.Fragment>
           ))}
 
@@ -276,7 +292,8 @@ const SnowballChartInner: React.FC<{
               <line x1={tooltipLeft} x2={tooltipLeft} y1={0} y2={innerHeight} stroke="var(--apple-hairline)" pointerEvents="none" />
               {tooltipData.points.map((p, i) => (
                 <g key={`marker-${i}`}>
-                  <circle cx={tooltipLeft} cy={valueScale(p.value)} r={5} fill="white" stroke={p.color} strokeWidth={2} pointerEvents="none" />
+                  <circle cx={tooltipLeft} cy={valueScale(p.value)} r={5} fill="white" stroke={p.color} strokeWidth={2} fillOpacity={showRealValue ? 0.3 : 1} strokeOpacity={showRealValue ? 0.3 : 1} pointerEvents="none" />
+                  {showRealValue && p.realValue && <circle cx={tooltipLeft} cy={valueScale(p.realValue)} r={5} fill="white" stroke={p.color} strokeWidth={2} pointerEvents="none" />}
                   {p.optimistic && <circle cx={tooltipLeft} cy={valueScale(p.optimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
                   {p.pessimistic && <circle cx={tooltipLeft} cy={valueScale(p.pessimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
                   {p.contribution && <circle cx={tooltipLeft} cy={valueScale(p.contribution)} r={3} fill="var(--apple-gray-400)" pointerEvents="none" />}
@@ -316,10 +333,19 @@ const SnowballChartInner: React.FC<{
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }} />
-                      <span className="text-apple-ink-muted-48 text-fine-print">{p.name}</span>
+                      <span className="text-apple-ink-muted-48 text-fine-print">{p.name} {showRealValue ? '(명목)' : ''}</span>
                     </div>
-                    <span className="font-bold text-apple-ink text-caption">{formatCurrency(p.value)}</span>
+                    <span className="font-bold text-apple-ink text-caption" style={{ opacity: showRealValue ? 0.5 : 1 }}>{formatCurrency(p.value)}</span>
                   </div>
+                  {showRealValue && p.realValue && (
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full border border-current" style={{ color: p.color }} />
+                        <span className="text-apple-ink-muted-48 text-fine-print">{p.name} (실질)</span>
+                      </div>
+                      <span className="font-bold text-apple-ink text-caption">{formatCurrency(p.realValue)}</span>
+                    </div>
+                  )}
                   {p.contribution !== undefined && (
                     <div className="flex justify-between pl-3 text-[10px] text-apple-ink-muted-48">
                       <span>누적 투입금</span>
@@ -343,7 +369,7 @@ const SnowballChartInner: React.FC<{
   );
 });
 
-const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparisonMode, onPointSelect, onPointHover }) => {
+const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparisonMode, showRealValue, onPointSelect, onPointHover }) => {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 min-h-[300px] relative">
@@ -353,6 +379,7 @@ const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparis
               scenarios={scenarios} 
               width={width} height={height} 
               mode={mode} comparisonMode={comparisonMode}
+              showRealValue={showRealValue}
               onPointSelect={onPointSelect} onPointHover={onPointHover}
             />
           )}
@@ -369,6 +396,12 @@ const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparis
           <div className="flex items-center gap-2">
             <div className="w-3 h-1 bg-apple-gray-400" />
             <span className="text-caption text-apple-ink-muted-48 tracking-tight italic">누적 투입금</span>
+          </div>
+        )}
+        {showRealValue && (
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-1 border-t-2 border-dashed border-apple-ink-muted-48" />
+            <span className="text-caption text-apple-ink-muted-48 tracking-tight italic">실질 가치 (물가 반영)</span>
           </div>
         )}
       </div>

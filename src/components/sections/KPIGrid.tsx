@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import AnimatedCounter from '../common/AnimatedCounter';
 import { BigNumberHelper } from '../common/BigNumberHelper';
+import { Share2 } from 'lucide-react';
 
 interface KPIGridProps {
   totalAsset: number;
@@ -13,6 +14,7 @@ interface KPIGridProps {
   currency: 'USD' | 'KRW';
   exchangeRate?: number;
   isMilestoneReached?: boolean;
+  onShare?: () => void;
 }
 
 const KPICard = ({ 
@@ -94,7 +96,8 @@ const KPIGrid: React.FC<KPIGridProps> = ({
   cagr,
   currency,
   exchangeRate = 1450,
-  isMilestoneReached
+  isMilestoneReached,
+  onShare
 }) => {
   const formatCurrency = (val: number) => {
     if (currency === 'KRW') {
@@ -134,10 +137,26 @@ const KPIGrid: React.FC<KPIGridProps> = ({
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-[1000px] mt-12 px-4">
-      {kpis.map((kpi, i) => (
-        <KPICard key={kpi.label} {...kpi} index={i} currency={currency} exchangeRate={exchangeRate} />
-      ))}
+    <div className="flex flex-col items-center w-full max-w-[1000px] mt-12 px-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        {kpis.map((kpi, i) => (
+          <KPICard key={kpi.label} {...kpi} index={i} currency={currency} exchangeRate={exchangeRate} />
+        ))}
+      </div>
+      
+      {onShare && (
+        <motion.button
+          onClick={onShare}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="mt-10 flex items-center gap-2 bg-apple-ink text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink/90 transition-all group"
+        >
+          <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+          성과 공유하기 (이미지 저장)
+        </motion.button>
+      )}
     </div>
   );
 };
