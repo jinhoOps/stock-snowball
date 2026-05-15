@@ -404,13 +404,15 @@ function App() {
         cardRef={shareCardRef}
         scenarioName={scenarioName}
         totalAsset={activeResult.postTaxValue}
-        totalContribution={activeResult.totalContribution}
+        pessimisticAsset={mode === 'PROJECTION' ? activeSimulation.pessimistic[activeSimulation.pessimistic.length - 1].postTaxValue : activeResult.postTaxValue}
+        optimisticAsset={mode === 'PROJECTION' ? activeSimulation.optimistic[activeSimulation.optimistic.length - 1].postTaxValue : activeResult.postTaxValue}
+        contribution={activeParams.contribution}
+        cycle={activeParams.cycle}
         totalReturn={totalReturn}
         returnPercentage={returnPercentage}
         cagr={cagr}
         years={mode === 'PROJECTION' ? projectionParams.years : backtestParams.years}
         currency={currency}
-        sparklineData={chartScenarios[0].points}
       />
 
       <main>

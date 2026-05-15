@@ -71,8 +71,8 @@ const KPICard = ({
             rotate: isHovered ? 180 : 0 
           }}
           transition={{ 
-            opacity: { delay: 0.3, duration: 1.5 },
-            scale: { delay: 0.3, duration: 2 },
+            opacity: { delay: isHovered ? 3.3 : 0, duration: 1.5 },
+            scale: { delay: isHovered ? 3.3 : 0, duration: 2 },
             rotate: { duration: 5, ease: 'linear', repeat: Infinity }
           }}
         >
@@ -91,7 +91,7 @@ const KPICard = ({
             opacity: [0, 1, 1, 0] 
           } : { x: "-20%", rotate: 0, opacity: 0 }}
           transition={{ 
-            delay: 0.3, 
+            delay: isHovered ? 3.3 : 0, 
             duration: 2.5, 
             ease: "linear" 
           }}
@@ -103,37 +103,44 @@ const KPICard = ({
       {/* Easter Egg B: Snow Accumulation (Aurora Edition) */}
       {showSnowAccumulation && (
         <motion.div
-          className="absolute bottom-0 left-0 right-0 pointer-events-none z-10 overflow-hidden"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ 
-            height: isHovered ? 40 : 0, 
-            opacity: isHovered ? 1 : 0 
-          }}
+          className="absolute inset-0 pointer-events-none z-10 overflow-hidden rounded-xl"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isHovered ? 1 : 0 }}
           transition={{ 
-            height: { 
-              delay: isHovered ? 0.3 : 0, 
-              duration: isHovered ? 1.2 : 2.0, 
-              ease: isHovered ? "circOut" : "easeInOut" 
-            },
-            opacity: { 
-              delay: isHovered ? 0.3 : 0, 
-              duration: isHovered ? 1.0 : 1.5 
-            }
+            delay: isHovered ? 3.3 : 0, 
+            duration: isHovered ? 2.0 : 1.5 
           }}
         >
-          {/* Colorful Aurora Snow Block */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400 opacity-70 blur-[1px]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/60 via-white/20 to-transparent" />
-          
-          {/* Glowing Top Edge */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-300 via-cyan-200 to-indigo-300 opacity-90 shadow-[0_0_8px_rgba(0,255,255,0.5)]" />
-          
-          {/* Shimmering Aurora Effect */}
-          <motion.div 
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent"
-            animate={{ x: ['-100%', '100%'] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-          />
+          {/* Falling Snow Particles */}
+          {Array.from({ length: 6 }).map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-apple-primary/20 rounded-full blur-[0.5px]"
+              initial={{ top: "-10%", left: `${10 + i * 15}%` }}
+              animate={isHovered ? { top: "100%", x: [0, 10, -10, 0] } : { top: "-10%" }}
+              transition={{
+                top: { delay: isHovered ? 3.3 + (i * 0.5) : 0, duration: 2.5 + (i * 0.2), repeat: Infinity, ease: "linear" },
+                x: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+              }}
+            />
+          ))}
+
+          {/* Accumulated Snow at the bottom */}
+          <motion.div
+            className="absolute bottom-0 left-0 right-0"
+            initial={{ height: 0 }}
+            animate={{ height: isHovered ? 32 : 0 }}
+            transition={{ 
+              height: { delay: isHovered ? 3.3 : 0, duration: 3.0, ease: "circOut" }
+            }}
+          >
+            {/* Highly Transparent Aurora Base */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-200/20 via-cyan-100/20 to-indigo-200/20 blur-[2px]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-white/40 to-transparent" />
+            
+            {/* Very Subtle Top Edge */}
+            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-apple-primary/10 to-transparent" />
+          </motion.div>
         </motion.div>
       )}
 
