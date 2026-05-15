@@ -464,7 +464,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-canvas border border-apple-hairline rounded-lg p-2 sm:p-6 shadow-sm">
+                  <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-surface-pearl border border-white/60 rounded-lg p-2 sm:p-6 shadow-sm">
                     <SnowballChart 
                       scenarios={chartScenarios} 
                       mode={mode}
@@ -482,7 +482,7 @@ function App() {
                         initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                         className="w-full max-w-[1000px] mb-12 overflow-hidden"
                       >
-                        <div className="bg-apple-canvas-parchment/50 backdrop-blur-sm border border-apple-hairline rounded-lg p-6 shadow-inner">
+                        <div className="bg-apple-surface-pearl/80 backdrop-blur-sm border border-white/60 rounded-lg p-6 shadow-inner">
                           <div className="flex items-center justify-between mb-4 border-b border-apple-hairline pb-2">
                             <span className="text-body-strong text-apple-ink font-display">
                               {comparingScenarioIds.length > 0 ? '경과 개월수 기준 상세' : selectedPoint.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) + ' 기준 상세'}
@@ -491,7 +491,7 @@ function App() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {selectedPoint.points.map((p, i) => (
-                              <div key={i} className="flex flex-col p-4 bg-apple-canvas rounded-xl border border-apple-hairline shadow-sm">
+                              <div key={i} className="flex flex-col p-4 bg-white rounded-xl border border-white/60 shadow-sm">
                                 <div className="flex items-center gap-2 mb-2">
                                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
                                   <span className="text-caption text-apple-gray truncate">{p.name}</span>
@@ -536,7 +536,7 @@ function App() {
 
         <section className="bg-apple-canvas-parchment py-section px-4 flex flex-col items-center border-t border-apple-hairline">
           <div className="w-full max-w-[1000px]">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 bg-apple-canvas p-8 rounded-2xl border border-apple-hairline shadow-sm">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 bg-apple-surface-pearl p-8 rounded-2xl border border-white/60 shadow-sm">
               <div className="flex-1 w-full">
                 <h2 className="text-display-sm text-apple-ink mb-2 tracking-tight font-display">시나리오 저장 및 비교군 추가</h2>
                 <p className="text-caption text-apple-ink-muted-48 font-text">현재 설정을 저장하고 비교 차트에 즉시 추가하여 분석하세요.</p>
@@ -580,7 +580,7 @@ function App() {
                     transition={{ duration: 0.5, delay: index * 0.05, type: 'spring', stiffness: 100 }}
                     whileHover={{ y: -5 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`bg-apple-canvas/70 backdrop-blur-md border rounded-xl p-6 transition-all cursor-pointer shadow-sm hover:shadow-md relative overflow-hidden group ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-2 ring-apple-primary/20 bg-apple-canvas/90' : 'border-apple-hairline hover:border-apple-primary/40'}`}
+                    className={`bg-apple-surface-pearl/80 backdrop-blur-md border rounded-xl p-6 transition-all cursor-pointer shadow-sm hover:shadow-md relative overflow-hidden group ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-2 ring-apple-primary/20 bg-white' : 'border-white/60 hover:border-apple-primary/40'}`}
                     onClick={() => {
                       setMode(s.simulationMode || 'PROJECTION');
                       const newParams: SimulationParams = {

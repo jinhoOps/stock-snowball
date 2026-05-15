@@ -103,7 +103,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency
                 className={`px-4 py-2 rounded-pill text-caption-strong border transition-all flex items-center gap-2 ${
                   isSelected 
                     ? 'bg-apple-surface-black text-apple-on-dark border-apple-surface-black shadow-md' 
-                    : 'bg-apple-canvas text-apple-ink border-apple-hairline hover:border-apple-primary/30'
+                    : 'bg-apple-surface-pearl text-apple-ink border-white/60 hover:border-apple-primary/30'
                 } ${isPrimary ? 'opacity-100 cursor-default' : 'cursor-pointer active:scale-95'}`}
               >
                 {isSelected && color && (
@@ -122,7 +122,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency
 
       {/* Comparison Table / Grid */}
       <div className="w-full max-w-[1200px] px-4 overflow-x-auto">
-        <div className="min-w-[800px] bg-apple-canvas border border-apple-hairline rounded-2xl shadow-sm overflow-hidden">
+        <div className="min-w-[800px] bg-apple-surface-pearl border border-white/60 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-apple-canvas-parchment/50 border-b border-apple-hairline">
@@ -170,7 +170,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency
       </div>
 
       {/* Chart Section */}
-      <div className="w-full h-[500px] bg-apple-canvas border border-apple-hairline rounded-2xl p-6 shadow-sm relative overflow-hidden">
+      <div className="w-full h-[500px] bg-apple-surface-pearl border border-white/60 rounded-2xl p-6 shadow-sm relative overflow-hidden">
         <div className="absolute top-6 left-8 z-10 pointer-events-none">
           <h3 className="text-body-strong font-semibold text-apple-ink flex items-center gap-2">
             <span className="w-1 h-5 bg-apple-primary rounded-full" />

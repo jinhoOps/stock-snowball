@@ -103,7 +103,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6 w-full bg-apple-canvas-parchment border border-apple-hairline p-5 sm:p-8 rounded-lg items-start shadow-sm">
+      <div className="flex flex-col md:flex-row gap-6 w-full bg-apple-surface-pearl border border-white/60 p-5 sm:p-8 rounded-lg items-start shadow-sm">
         {/* 1순위: 투자 금액 */}
         <div className="flex-1 flex flex-col items-start w-full">
           <label htmlFor="principal-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">

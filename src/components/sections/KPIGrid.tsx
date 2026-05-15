@@ -59,7 +59,7 @@ const KPICard = ({
       onTapStart={() => setIsHovered(true)}
       onTap={() => setIsHovered(false)}
       onTapCancel={() => setIsHovered(false)}
-      className={`bg-apple-canvas/70 backdrop-blur-md border rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 shadow-sm hover:shadow-md relative overflow-hidden group select-none ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-canvas/90' : 'border-apple-hairline'}`}
+      className={`bg-apple-surface-pearl/80 backdrop-blur-md border border-white/60 rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 shadow-sm hover:shadow-md relative overflow-hidden group select-none ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-surface-pearl' : ''}`}
     >
       {/* Easter Egg C: Hidden Snowflake for Highlighted Card */}
       {isHighlighted && (

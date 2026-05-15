@@ -98,7 +98,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
             animate={isMobile ? "mobileVisible" : "visible"}
             exit={isMobile ? "mobileExit" : "exit"}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed inset-y-0 right-0 z-50 w-full md:w-[420px] bg-apple-canvas-parchment/95 backdrop-blur-xl border-l border-apple-hairline shadow-2xl overflow-y-auto max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:h-[85vh] max-md:border-l-0 max-md:border-t max-md:rounded-t-[32px]"
+            className="fixed inset-y-0 right-0 z-50 w-full md:w-[420px] bg-apple-surface-pearl/95 backdrop-blur-xl border-l border-white/60 shadow-2xl overflow-y-auto max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:h-[85vh] max-md:border-l-0 max-md:border-t max-md:rounded-t-[32px]"
           >
             <div className="p-8">
               <div className="flex justify-between items-center mb-10">
@@ -125,7 +125,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                       id="asset-type-select"
                       value={localParams.assetType}
                       onChange={(e) => updateParam('assetType', e.target.value as AssetType)}
-                      className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all appearance-none mb-6 font-text"
+                      className="w-full h-12 bg-white border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all appearance-none mb-6 font-text"
                     >
                       <option value="CUSTOM">사용자 정의 (고정 수익률)</option>
                       <option value="QQQM">Nasdaq 100 (QQQM)</option>
@@ -151,13 +151,13 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                         step="0.1"
                         value={localParams.rate * 100}
                         onChange={(e) => updateParam('rate', Number(e.target.value) / 100)}
-                        className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
+                        className="w-full h-12 bg-white border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                       />
                     </div>
                   ) : (
                     <div className="flex flex-col items-start">
                       <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기대 수익률 (CAGR)</label>
-                      <div className="w-full h-12 flex items-center justify-between bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-6 text-body font-text opacity-70">
+                      <div className="w-full h-12 flex items-center justify-between bg-apple-surface-pearl border border-apple-hairline rounded-pill px-6 text-body font-text opacity-70">
                         <span className="text-[12px] text-apple-ink-muted-48">과거 데이터 자동 적용</span>
                         <span className="text-apple-ink font-medium">약 {(calculateMedianCAGR(localParams.assetType) * 100).toFixed(1)}%</span>
                       </div>
@@ -173,7 +173,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                       id="strategy-type-select"
                       value={localParams.strategyType}
                       onChange={(e) => updateParam('strategyType', e.target.value as StrategyType)}
-                      className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary transition-all appearance-none font-text"
+                      className="w-full h-12 bg-white border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary transition-all appearance-none font-text"
                     >
                       <option value="FIXED">정액 적립식 (Fixed)</option>
                       <option value="STEP_UP">증액 적립식 (Step-up)</option>
@@ -185,7 +185,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                   </div>
 
                   <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">납입 주기</label>
-                  <div className="flex gap-2 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline">
+                  <div className="flex gap-2 w-full bg-apple-surface-pearl p-1 rounded-pill border border-apple-hairline">
                     {(['DAILY', 'WEEKLY', 'MONTHLY'] as ContributionCycle[]).map((cycle) => (
                       <button
                         key={cycle}
@@ -213,7 +213,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     type="number" 
                     value={localExchangeRate}
                     onChange={(e) => setLocalExchangeRate(Math.max(1, Number(e.target.value)))}
-                    className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
+                    className="w-full h-12 bg-white border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                   />
                 </div>
 
@@ -223,12 +223,12 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     <label className="text-caption-strong text-apple-ink tracking-tight block">계좌 유형</label>
                     <Tooltip content="일반 계좌: 배당소득세 15.4% 부과&#10;ISA 절세: 200만원 한도 비과세, 초과분 9.9% 분리과세 적용" />
                   </div>
-                  <div className="flex gap-3 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline" role="radiogroup" aria-label="계좌 유형 선택">
+                  <div className="flex gap-3 w-full bg-apple-surface-pearl p-1 rounded-pill border border-apple-hairline" role="radiogroup" aria-label="계좌 유형 선택">
                     <button 
                       onClick={() => updateParam('accountType', 'GENERAL')}
                       aria-pressed={localParams.accountType === 'GENERAL'}
                       aria-label="일반 계좌 선택"
-                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${localParams.accountType === 'GENERAL' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
+                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${localParams.accountType === 'GENERAL' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-white/50'}`}
                     >
                       일반 계좌
                     </button>
@@ -236,7 +236,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                       onClick={() => updateParam('accountType', 'ISA')}
                       aria-pressed={localParams.accountType === 'ISA'}
                       aria-label="ISA 절세 계좌 선택"
-                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${localParams.accountType === 'ISA' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-apple-canvas/50'}`}
+                      className={`flex-1 h-11 rounded-pill transition-all font-medium text-button-utility ${localParams.accountType === 'ISA' ? 'bg-apple-surface-black text-apple-on-dark shadow-md' : 'text-apple-ink hover:bg-white/50'}`}
                     >
                       ISA (절세)
                     </button>
@@ -255,7 +255,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     step="0.1"
                     value={localParams.inflationRate * 100}
                     onChange={(e) => updateParam('inflationRate', Number(e.target.value) / 100)}
-                    className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
+                    className="w-full h-12 bg-white border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                   />
                 </div>
               </div>
@@ -281,11 +281,11 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 20 }}
-                    className="sticky bottom-0 left-0 right-0 p-6 bg-apple-canvas-parchment/95 backdrop-blur-md border-t border-apple-hairline mt-10 -mx-8 flex gap-3"
+                    className="sticky bottom-0 left-0 right-0 p-6 bg-apple-surface-pearl/95 backdrop-blur-md border-t border-white/60 mt-10 -mx-8 flex gap-3"
                   >
                     <button 
                       onClick={handleCancel}
-                      className="flex-1 h-12 rounded-pill bg-apple-canvas border border-apple-hairline text-apple-ink font-semibold hover:bg-apple-canvas-parchment transition-all"
+                      className="flex-1 h-12 rounded-pill bg-white border border-apple-hairline text-apple-ink font-semibold hover:bg-apple-surface-pearl transition-all"
                     >
                       취소
                     </button>
