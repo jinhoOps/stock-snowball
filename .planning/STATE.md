@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3.16
+milestone: v1.3.19
 milestone_name: stability-polish-v1
 status: in-progress
-last_updated: "2026-05-15T16:45:00.000Z"
+last_updated: "2026-05-15T17:15:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 12
@@ -43,8 +43,8 @@ progress:
 - **Stability Patch**:
     - **CORS Fix**: Resolved `SecurityError` in `html-to-image` by adding `crossorigin` and `skipFonts`.
     - **UI Polish**: Reduced ShareCard font sizes and refined currency helper text logic.
-    - **UX Polish**: Added Spring counters, layoutId transitions, glassmorphism, and Snowball easter eggs. Fixed visibility of snow accumulation effect.
-    - **Version Patch**: 1.3.16.
+    - **UX Polish**: Added Spring counters, layoutId transitions, glassmorphism, and Snowball easter eggs. Fixed visibility of snow accumulation effect with Aurora gradient and added mobile tap support.
+    - **Version Patch**: 1.3.17.
 
 ### Key Decisions
 

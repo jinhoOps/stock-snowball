@@ -56,14 +56,25 @@ const KPICard = ({
       whileTap={{ scale: 0.98 }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
+      onTapStart={() => setIsHovered(true)}
+      onTap={() => setIsHovered(false)}
+      onTapCancel={() => setIsHovered(false)}
       className={`bg-apple-canvas/70 backdrop-blur-md border rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 shadow-sm hover:shadow-md relative overflow-hidden group ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-canvas/90' : 'border-apple-hairline'}`}
     >
       {/* Easter Egg C: Hidden Snowflake for Highlighted Card */}
       {isHighlighted && (
         <motion.div 
-          className="absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none text-apple-primary/5"
-          animate={{ opacity: isHovered ? 1 : 0, scale: isHovered ? 1.5 : 1, rotate: isHovered ? 180 : 0 }}
-          transition={{ duration: 3, ease: 'linear', repeat: Infinity }}
+          className="absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none text-apple-primary/10"
+          animate={{ 
+            opacity: isHovered ? 1 : 0, 
+            scale: isHovered ? 1.5 : 1, 
+            rotate: isHovered ? 180 : 0 
+          }}
+          transition={{ 
+            opacity: { delay: 1.2, duration: 1.5 },
+            scale: { delay: 1.2, duration: 2 },
+            rotate: { duration: 5, ease: 'linear', repeat: Infinity }
+          }}
         >
           <Snowflake size={150} strokeWidth={1} />
         </motion.div>
@@ -72,29 +83,57 @@ const KPICard = ({
       {/* Easter Egg A: Rolling Snowball */}
       {showRollingSnowball && (
         <motion.div
-          className="absolute bottom-1.5 left-0 text-apple-primary/60 z-0 pointer-events-none"
-          initial={{ x: -20, rotate: 0, opacity: 0 }}
+          className="absolute bottom-1.5 left-0 text-apple-primary/60 z-10 pointer-events-none"
+          initial={{ x: "-20%", rotate: 0, opacity: 0 }}
           animate={isHovered ? { 
-            x: ["0%", "400%"], // Travel further to ensure it crosses the card
+            x: ["0%", "450%"], 
             rotate: [0, 720], 
             opacity: [0, 1, 1, 0] 
-          } : { x: -20, rotate: 0, opacity: 0 }}
-          transition={{ duration: 2.5, ease: "linear" }}
+          } : { x: "-20%", rotate: 0, opacity: 0 }}
+          transition={{ 
+            delay: 1.0, // 관찰자에게만 허용되는 지연 시간
+            duration: 2.5, 
+            ease: "linear" 
+          }}
         >
           <Snowflake size={20} strokeWidth={2.5} />
         </motion.div>
       )}
 
-      {/* Easter Egg B: Snow Accumulation */}
+      {/* Easter Egg B: Snow Accumulation (Aurora Edition) */}
       {showSnowAccumulation && (
         <motion.div
-          className="absolute bottom-0 left-0 right-0 pointer-events-none z-0"
+          className="absolute bottom-0 left-0 right-0 pointer-events-none z-0 overflow-hidden"
           initial={{ height: 0, opacity: 0 }}
-          animate={{ height: isHovered ? 28 : 0, opacity: isHovered ? 1 : 0 }}
-          transition={{ duration: 1.2, ease: "circOut" }}
+          animate={{ 
+            height: isHovered ? 36 : 0, 
+            opacity: isHovered ? 1 : 0 
+          }}
+          transition={{ 
+            height: { 
+              delay: isHovered ? 1.2 : 0, 
+              duration: isHovered ? 1.5 : 2.0, 
+              ease: isHovered ? "circOut" : "easeInOut" 
+            },
+            opacity: { 
+              delay: isHovered ? 1.2 : 0, 
+              duration: isHovered ? 1.0 : 1.5 
+            }
+          }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-white to-apple-primary/5 border-t border-apple-primary/20 shadow-[0_-4px_12px_rgba(0,102,204,0.08)]" />
-          <div className="absolute top-0 left-0 right-0 h-1 bg-white/40 blur-[1px]" />
+          {/* Colorful Aurora Snow Block */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-300/60 via-cyan-200/60 to-indigo-300/60 blur-[2px]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
+          
+          {/* Glowing Top Edge */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400 opacity-60" />
+          
+          {/* Shimmering Aurora Effect */}
+          <motion.div 
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+            animate={{ x: ['-100%', '100%'] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+          />
         </motion.div>
       )}
 
