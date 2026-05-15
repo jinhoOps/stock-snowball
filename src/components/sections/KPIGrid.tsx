@@ -72,23 +72,30 @@ const KPICard = ({
       {/* Easter Egg A: Rolling Snowball */}
       {showRollingSnowball && (
         <motion.div
-          className="absolute bottom-1 left-0 text-apple-primary/40"
+          className="absolute bottom-1.5 left-0 text-apple-primary/60 z-0 pointer-events-none"
           initial={{ x: -20, rotate: 0, opacity: 0 }}
-          animate={isHovered ? { x: 200, rotate: 360, opacity: [0, 1, 1, 0] } : { x: -20, rotate: 0, opacity: 0 }}
-          transition={{ duration: 2, ease: "easeInOut" }}
+          animate={isHovered ? { 
+            x: ["0%", "400%"], // Travel further to ensure it crosses the card
+            rotate: [0, 720], 
+            opacity: [0, 1, 1, 0] 
+          } : { x: -20, rotate: 0, opacity: 0 }}
+          transition={{ duration: 2.5, ease: "linear" }}
         >
-          <Snowflake size={16} />
+          <Snowflake size={20} strokeWidth={2.5} />
         </motion.div>
       )}
 
       {/* Easter Egg B: Snow Accumulation */}
       {showSnowAccumulation && (
         <motion.div
-          className="absolute bottom-0 left-0 right-0 bg-white/60 blur-sm pointer-events-none"
+          className="absolute bottom-0 left-0 right-0 pointer-events-none z-0"
           initial={{ height: 0, opacity: 0 }}
-          animate={{ height: isHovered ? 20 : 0, opacity: isHovered ? 1 : 0 }}
-          transition={{ duration: 1.5 }}
-        />
+          animate={{ height: isHovered ? 28 : 0, opacity: isHovered ? 1 : 0 }}
+          transition={{ duration: 1.2, ease: "circOut" }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-white to-apple-primary/5 border-t border-apple-primary/20 shadow-[0_-4px_12px_rgba(0,102,204,0.08)]" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-white/40 blur-[1px]" />
+        </motion.div>
       )}
 
       {isHighlighted && (
