@@ -59,11 +59,11 @@ const ShareCard: React.FC<ShareCardProps> = ({
         {/* Header */}
         <div className="w-full flex justify-between items-start z-10">
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-apple-ink-muted-48 mb-1">Portfolio Projection</span>
-            <h1 className="text-xl font-display font-bold text-apple-ink leading-tight">{scenarioName}</h1>
+            <span className="text-[9px] font-bold uppercase tracking-widest text-apple-ink-muted-48 mb-1">Portfolio Projection</span>
+            <h1 className="text-lg font-display font-bold text-apple-ink leading-tight whitespace-nowrap">{scenarioName}</h1>
           </div>
-          <div className="w-10 h-10 bg-apple-primary rounded-xl flex items-center justify-center shadow-lg shadow-apple-primary/20">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <div className="w-8 h-8 bg-apple-primary rounded-xl flex items-center justify-center shadow-lg shadow-apple-primary/20">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -73,30 +73,30 @@ const ShareCard: React.FC<ShareCardProps> = ({
 
         {/* Main Value */}
         <div className="text-center z-10">
-          <span className="text-fine-print font-bold text-apple-ink-muted-48 mb-2 block uppercase tracking-tighter">{years}년 후 예상 자산</span>
-          <div className="text-4xl font-display font-bold text-apple-primary tracking-tight mb-2">
+          <span className="text-[10px] font-bold text-apple-ink-muted-48 mb-1.5 block uppercase tracking-tighter">{years}년 후 예상 자산</span>
+          <div className="text-3xl font-display font-bold text-apple-primary tracking-tight mb-1 whitespace-nowrap">
             {SnowballEngine.formatBigNumber(totalAsset, currency)}
           </div>
-          <div className={`text-lg font-semibold flex items-center justify-center gap-1 ${totalReturn >= 0 ? 'text-apple-success' : 'text-apple-error'}`}>
+          <div className={`text-base font-semibold flex items-center justify-center gap-1 ${totalReturn >= 0 ? 'text-apple-success' : 'text-apple-error'}`}>
             <span>{totalReturn >= 0 ? '▲' : '▼'}</span>
-            <span>{returnPercentage.toFixed(1)}%</span>
-            <span className="text-apple-ink-muted-48 text-caption font-normal ml-1">({years}년)</span>
+            <span className="whitespace-nowrap">{returnPercentage.toFixed(1)}%</span>
+            <span className="text-apple-ink-muted-48 text-[10px] font-normal ml-1">({years}년)</span>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-3 w-full z-10">
-          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 border border-white shadow-sm flex flex-col items-center text-center">
-            <span className="text-[8px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">총 납입액</span>
-            <span className="text-xs font-bold text-apple-ink">{SnowballEngine.formatBigNumber(totalContribution, currency, true)}</span>
+        <div className="grid grid-cols-3 gap-2 w-full z-10">
+          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-2.5 border border-white shadow-sm flex flex-col items-center text-center">
+            <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">총 납입액</span>
+            <span className="text-[10px] font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(totalContribution, currency, true)}</span>
           </div>
-          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 border border-white shadow-sm flex flex-col items-center text-center">
-            <span className="text-[8px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">수익금</span>
-            <span className="text-xs font-bold text-apple-ink">{SnowballEngine.formatBigNumber(totalReturn, currency, true)}</span>
+          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-2.5 border border-white shadow-sm flex flex-col items-center text-center">
+            <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">수익금</span>
+            <span className="text-[10px] font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(totalReturn, currency, true)}</span>
           </div>
-          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-3 border border-white shadow-sm flex flex-col items-center text-center">
-            <span className="text-[8px] font-bold text-apple-ink-muted-48 uppercase mb-1 block">수익률</span>
-            <span className="text-xs font-bold text-apple-ink">{cagr.toFixed(1)}%</span>
+          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-2.5 border border-white shadow-sm flex flex-col items-center text-center">
+            <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">수익률</span>
+            <span className="text-[10px] font-bold text-apple-ink whitespace-nowrap">{cagr.toFixed(1)}%</span>
           </div>
         </div>
 

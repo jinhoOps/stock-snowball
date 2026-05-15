@@ -244,18 +244,21 @@ export class SnowballEngine {
    * @param currentCurrency 현재 표시 통화
    * @param exchangeRate 환율
    * @param simplified 간결하게 표시할지 여부
+   * @param onlyEstimate 약식(약 $... / 약 ...원)만 반환할지 여부
    */
-  static formatDualCurrency(value: number, currentCurrency: 'KRW' | 'USD', exchangeRate: number, simplified: boolean = false): string {
+  static formatDualCurrency(value: number, currentCurrency: 'KRW' | 'USD', exchangeRate: number, simplified: boolean = false, onlyEstimate: boolean = false): string {
     const amount = new Decimal(value);
     const main = this.formatBigNumber(amount, currentCurrency, simplified);
     
     if (currentCurrency === 'KRW') {
       const usd = amount.dividedBy(exchangeRate).floor();
-      return `${main} (약 ${this.formatUSD(usd, simplified)})`;
+      const estimate = `약 ${this.formatUSD(usd, simplified)}`;
+      return onlyEstimate ? estimate : `${main} (${estimate})`;
     } else {
       const krw = amount.times(exchangeRate).floor();
       const krwFormatted = this.formatKoreanWon(krw, simplified);
-      return `${main} (약 ${krwFormatted})`;
+      const estimate = `약 ${krwFormatted}`;
+      return onlyEstimate ? estimate : `${main} (${estimate})`;
     }
   }
 

@@ -10,7 +10,7 @@
 - [x] **Phase 7: UI/UX & Financial Precision Refinement** - [Completed] 입력 편의성 개선, 통화 자동 환산 및 고급 설정 UI 고도화 (completed 2026-05-13)
 - [x] **Phase 8: 'What-If' Backtest Evolution & Future Projection Range** - [Completed] Decoupled high-precision backtesting with historical presets and future "Cone of Uncertainty" (completed 2026-05-14)
 - [x] **Phase 10: UX Fix & Input Refinement** - [Completed] 입력 편의성 개선, 납입액 시각화 및 이미지 공유 기능 고도화 (completed 2026-05-15)
-- [ ] **Phase 11: Advanced Metrics, Comparison & Sharing** - 연율화된 변동성, 다중 자산 비교 및 Apple 스타일 공유 카드 기능 구현
+- [x] **Phase 11: Advanced Metrics, Comparison & Sharing** - [Completed] 연율화된 변동성, 다중 자산 비교 및 Apple 스타일 공유 카드 기능 구현 (completed 2026-05-15)
 
 ## Phase Details
 
@@ -25,7 +25,7 @@
   4. USD 입력 필드 하단에 환율 정보 및 KRW 환산 헬퍼 텍스트가 표시됨.
   5. `html-to-image`를 활용한 성과 이미지 저장 기능이 정상 동작함.
 **Plans**: 1 plan
-- [ ] [10-01-PLAN.md](./phases/10-ux-fix-refinement/10-01-PLAN.md) — UX Inputs, Engine Logic & Image Sharing
+- [x] [10-01-PLAN.md](./phases/10-ux-fix-refinement/10-01-PLAN.md) — UX Inputs, Engine Logic & Image Sharing
 
 ### Phase 11: Advanced Metrics, Comparison & Sharing
 **Goal**: 금융 지표 고도화(변동성), 다중 자산 비교 기능 및 Apple 스타일의 공유 카드 시스템 구축.
@@ -38,9 +38,9 @@
   4. SnowballChart에서 실질 가치(인플레이션 반영) 리베이스 토글 지원.
   5. `html-to-image`를 활용한 고품질 성과 공유 카드 생성 기능 구현.
 **Plans**: 3 plans
-- [ ] [09-01-PLAN.md](./phases/09-ui-ux-refinement/09-01-PLAN.md) — Metrics & Constraints (Engine & Logic)
-- [ ] [09-02-PLAN.md](./phases/09-ui-ux-refinement/09-02-PLAN.md) — Multi-Asset Backtest Comparison (UI/UX)
-- [ ] [09-03-PLAN.md](./phases/09-ui-ux-refinement/09-03-PLAN.md) — Real-Value Rebase & Share Card (Polish)
+- [x] [09-01-PLAN.md](./phases/09-ui-ux-refinement/09-01-PLAN.md) — Metrics & Constraints (Engine & Logic)
+- [x] [09-02-PLAN.md](./phases/09-ui-ux-refinement/09-02-PLAN.md) — Multi-Asset Backtest Comparison (UI/UX)
+- [x] [09-03-PLAN.md](./phases/09-ui-ux-refinement/09-03-PLAN.md) — Real-Value Rebase & Share Card (Polish)
 
 ... (rest of phases)
 
@@ -57,4 +57,4 @@
 | 7. UI/UX & Financial Precision | 3/3 | Completed | 2026-05-13 |
 | 8. 'What-If' Backtest Evolution | 4/4 | Completed | 2026-05-14 |
 | 10. UX Fix & Input Refinement | 1/1 | Completed | 2026-05-15 |
-| 11. Advanced Metrics & Sharing | 0/3 | Planned | - |
+| 11. Advanced Metrics & Sharing | 3/3 | Completed | 2026-05-15 |

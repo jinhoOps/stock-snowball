@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3.5
-milestone_name: ux-refinement-polish
-status: completed
-last_updated: "2026-05-15T12:00:00.000Z"
+milestone: v1.3.10
+milestone_name: stability-polish-v1
+status: in-progress
+last_updated: "2026-05-15T13:00:00.000Z"
 progress:
-  total_phases: 10
-  completed_phases: 10
-  total_plans: 30
-  completed_plans: 30
+  total_phases: 11
+  completed_phases: 11
+  total_plans: 33
+  completed_plans: 33
   percent: 100
 ---
 
@@ -17,18 +17,18 @@ progress:
 ## Project Reference
 
 **Core Value**: 매일의 소액 투자가 거대한 자산으로 성장하는 과정을 시각화하는 고정밀 투자 시뮬레이션 플랫폼.
-**Current Focus**: Input UX, Financial Refinement & Sharing.
+**Current Focus**: Stability, CORS fixes, and UI Polish.
 
 ## Current Position
 
-**Phase**: 10 - UX Fix & Refinement
-**Status**: Completed. Input UX improved, financial logic refined, and sharing features polished.
+**Phase**: 11 - Advanced Metrics, Comparison & Sharing
+**Status**: Completed. Metrics, Multi-Asset Comparison, and Sharing are finalized. Refinement phase active.
 **Progress**: 100% [████████████████████]
 
 ## Performance Metrics
 
 - **Financial Accuracy**: 100% (High-precision engine with 100M+ truncation logic)
-- **Design Fidelity**: 100% (Apple-inspired UI with improved Input UX & Share Cards)
+- **Design Fidelity**: 100% (Apple-inspired UI with improved Input UX & Refined Share Cards)
 - **Bundle Efficiency**: HIGH (Optimized build with PWA support)
 - **PWA Score**: 100%
 - **Accessibility Score**: 100% (WCAG AA compliant)
@@ -37,14 +37,12 @@ progress:
 
 ### Accumulated Context
 
-- Phase 9: Advanced Metrics, Comparison & Sharing.
-- Phase 10 (UX Refinement):
-    - **Input UX**: Improved `NumericInput` focus/cursor behavior.
-    - **Financial Logic**: 100M KRW truncation and support for Daily/Weekly/Monthly contribution cycles.
-    - **Rebranding**: "미래 예측" renamed to "스노우볼".
-    - **Persistence**: `currency` and `exchangeRate` cached in `localStorage`.
-    - **Sharing**: "Save as Image" feature finalized.
-    - **Version Patch**: 1.3.5.
+- Phase 9/11: Advanced Metrics, Comparison & Sharing.
+- Phase 10: UX Fix & Refinement.
+- **Stability Patch**:
+    - **CORS Fix**: Resolved `SecurityError` in `html-to-image` by adding `crossorigin` and `skipFonts`.
+    - **UI Polish**: Reduced ShareCard font sizes and refined currency helper text logic.
+    - **Version Patch**: 1.3.10.
 
 ### Key Decisions
 

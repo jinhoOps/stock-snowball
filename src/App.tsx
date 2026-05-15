@@ -380,7 +380,8 @@ function App() {
       const dataUrl = await toPng(shareCardRef.current, { 
         cacheBust: true,
         backgroundColor: '#F5F5F7',
-        pixelRatio: 2
+        pixelRatio: 3,
+        skipFonts: true, // Prevents SecurityError from external CSS/fonts
       });
       const link = document.createElement('a');
       link.download = `stock-snowball-${scenarioName}-${new Date().getTime()}.png`;
@@ -389,7 +390,7 @@ function App() {
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.9 }, colors: ['#0066cc', '#FFFFFF'] });
     } catch (err) {
       console.error('Sharing failed:', err);
-      alert('이미지 생성에 실패했습니다.');
+      alert('이미지 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
     }
   };
 
@@ -538,19 +539,24 @@ function App() {
                 <h2 className="text-display-sm text-apple-ink mb-2 tracking-tight font-display">시나리오 저장 및 비교군 추가</h2>
                 <p className="text-caption text-apple-ink-muted-48 font-text">현재 설정을 저장하고 비교 차트에 즉시 추가하여 분석하세요.</p>
               </div>
-              <div className="flex w-full md:w-auto gap-3">
+              <div className="flex w-full md:w-auto gap-2 md:gap-3">
                 <input 
                   type="text"
                   placeholder="시나리오 이름 (예: 나스닥 100 적립)"
                   value={scenarioName}
                   onChange={(e) => setScenarioName(e.target.value)}
-                  className="flex-1 md:w-64 h-12 bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
+                  className="flex-1 min-w-0 md:w-64 h-10 md:h-12 bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-4 md:px-6 text-[13px] md:text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                 />
                 <button 
                   onClick={handleSaveScenario}
-                  className="h-12 px-8 rounded-pill bg-apple-primary text-apple-on-dark font-semibold text-button-utility hover:bg-apple-primary-focus transition-all shadow-md active:scale-95"
+                  className="h-10 w-10 md:h-12 md:w-auto md:px-8 flex-shrink-0 flex items-center justify-center rounded-full md:rounded-pill bg-apple-primary text-apple-on-dark font-semibold text-[13px] md:text-button-utility hover:bg-apple-primary-focus transition-all shadow-md active:scale-95"
+                  title="저장 및 비교"
                 >
-                  저장 및 비교
+                  <span className="hidden md:inline">저장 및 비교</span>
+                  <svg className="w-4 h-4 md:hidden ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 10 4 15 9 20" />
+                    <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+                  </svg>
                 </button>
               </div>
             </div>

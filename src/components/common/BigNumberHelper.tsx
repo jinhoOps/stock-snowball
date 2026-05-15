@@ -21,14 +21,13 @@ export const BigNumberHelper: React.FC<BigNumberHelperProps> = ({
   showExchangeRate = false,
   className = ''
 }) => {
-  const formatted = SnowballEngine.formatBigNumber(value, currency);
   const dualFormatted = showDual 
-    ? SnowballEngine.formatDualCurrency(value, currency, exchangeRate)
-    : formatted;
+    ? SnowballEngine.formatDualCurrency(value, currency, exchangeRate, true, true)
+    : '';
 
   return (
     <div className={`text-fine-print text-apple-ink-muted-48 mt-1 transition-all duration-300 ${className}`}>
-      <div>{dualFormatted}</div>
+      {dualFormatted && <div>{dualFormatted}</div>}
       {showExchangeRate && currency === 'USD' && (
         <div className="text-[10px] text-apple-primary/80 mt-0.5 font-medium">
           적용 환율: {exchangeRate.toLocaleString()}원
