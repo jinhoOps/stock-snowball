@@ -24,7 +24,25 @@ export const Tooltip: React.FC<TooltipProps> = ({
   className = '' 
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [xOffset, setXOffset] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isVisible && tooltipRef.current) {
+      const rect = tooltipRef.current.getBoundingClientRect();
+      const padding = 16; // 안전 여백
+      let offset = 0;
+      if (rect.left < padding) {
+        offset = padding - rect.left;
+      } else if (rect.right > window.innerWidth - padding) {
+        offset = window.innerWidth - padding - rect.right;
+      }
+      setXOffset(offset);
+    } else {
+      setXOffset(0);
+    }
+  }, [isVisible]);
 
   // 모바일/클릭 환경을 위해 바깥 영역 클릭 시 닫히도록 처리
   useEffect(() => {
@@ -51,8 +69,8 @@ export const Tooltip: React.FC<TooltipProps> = ({
   };
 
   const positionClasses = position === 'top' 
-    ? 'bottom-full left-1/2 -translate-x-1/2 mb-2 origin-bottom'
-    : 'top-full left-1/2 -translate-x-1/2 mt-2 origin-top';
+    ? 'bottom-full left-1/2 mb-2 origin-bottom'
+    : 'top-full left-1/2 mt-2 origin-top';
 
   return (
     <div 
@@ -76,9 +94,10 @@ export const Tooltip: React.FC<TooltipProps> = ({
       <AnimatePresence>
         {isVisible && (
           <motion.div
-            initial={{ opacity: 0, y: position === 'top' ? 4 : -4, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: position === 'top' ? 4 : -4, scale: 0.95 }}
+            ref={tooltipRef}
+            initial={{ opacity: 0, y: position === 'top' ? 4 : -4, x: '-50%', scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, x: `calc(-50% + ${xOffset}px)`, scale: 1 }}
+            exit={{ opacity: 0, y: position === 'top' ? 4 : -4, x: '-50%', scale: 0.95 }}
             transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1.0] }}
             className={`absolute z-50 w-max max-w-[250px] sm:max-w-[300px] ${positionClasses}`}
             onClick={(e) => e.stopPropagation()} // 툴팁 내부 클릭 시 닫히지 않음
