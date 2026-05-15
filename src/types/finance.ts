@@ -85,6 +85,7 @@ export interface BacktestMetrics {
   cagr: number; // 연평균 성장률
   irr: number; // 내부 수익률
   mdd: number; // 최대 낙폭 (0.0 ~ 1.0)
+  volatility: number; // 연율화된 변동성 (0.0 ~ )
   finalValue: number;
   totalPrincipal: number;
   finalAnnualDividend: number;

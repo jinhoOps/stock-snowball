@@ -224,4 +224,31 @@ describe('BacktestEngine', () => {
       expect(result.metrics.finalValue).toBe(1199000);
     });
   });
+
+  describe('Volatility Calculation', () => {
+    it('연율화된 변동성을 올바르게 계산해야 한다', () => {
+      // 일일 데이터 모사 (전부 1%씩 상승 시 변동성은 0)
+      const steadyData = [
+        { date: '2023-01-01', price: 100 },
+        { date: '2023-01-02', price: 101 },
+        { date: '2023-01-03', price: 102.01 },
+        { date: '2023-01-04', price: 103.0301 },
+      ];
+
+      const params: BacktestParams = {
+        ...defaultParams,
+        startDate: '2023-01-01',
+        endDate: '2023-01-04',
+      };
+
+      const result = BacktestEngine.run(params, steadyData);
+      // 모든 수익률이 1%로 동일하므로 표준편차는 0
+      expect(result.metrics.volatility).toBe(0);
+    });
+
+    it('변동이 있는 데이터에 대해 연율화된 변동성이 0보다 커야 한다', () => {
+      const result = BacktestEngine.run(defaultParams, sampleData);
+      expect(result.metrics.volatility).toBeGreaterThan(0);
+    });
+  });
 });

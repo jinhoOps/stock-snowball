@@ -53,9 +53,11 @@ export class BacktestEngine {
     let maxDrawdown = new Decimal(0);
     let isLiquidated = false;
 
-    // MDD 계산을 위한 '단위 가격(Unit Price)' 추적 (자금 투입 영향 배제)
+    // MDD 및 변동성 계산을 위한 '단위 가격(Unit Price)' 추적 (자금 투입 영향 배제)
     let unitPricePeak = new Decimal(-Infinity);
     let currentUnitPrice = new Decimal(100); // 기준가 100으로 시작
+    let lastUnitPrice = new Decimal(100);
+    const dailyReturns: Decimal[] = [];
 
     let lastInvestmentDate = '';
     let lastKnownDividendYield = new Decimal(0);
@@ -172,6 +174,13 @@ export class BacktestEngine {
         maxDrawdown = drawdown;
       }
 
+      // 변동성 계산을 위한 일일 수익률 수집
+      if (i > 0) {
+        const dailyRet = currentUnitPrice.minus(lastUnitPrice).dividedBy(lastUnitPrice);
+        dailyReturns.push(dailyRet);
+      }
+      lastUnitPrice = currentUnitPrice;
+
       history.push({
         date: point.date,
         value: SnowballEngine.bankersRounding(currentValue).toNumber(),
@@ -183,7 +192,17 @@ export class BacktestEngine {
     let finalValue = history[history.length - 1].value;
     const finalTotalPrincipal = SnowballEngine.bankersRounding(totalPrincipal).toNumber();
 
-    // 6. 세금 계산 (ISA 특례 적용)
+    // 6. 변동성 계산
+    let annualizedVol = new Decimal(0);
+    if (dailyReturns.length > 1) {
+      const mean = dailyReturns.reduce((sum, r) => sum.plus(r), new Decimal(0)).dividedBy(dailyReturns.length);
+      const variance = dailyReturns.reduce((sum, r) => sum.plus(r.minus(mean).pow(2)), new Decimal(0)).dividedBy(dailyReturns.length - 1);
+      const dailyStdDev = variance.sqrt();
+      // 연율화: 일일 표준편차 * sqrt(252)
+      annualizedVol = dailyStdDev.times(new Decimal(252).sqrt());
+    }
+
+    // 7. 세금 계산 (ISA 특례 적용)
     let estimatedTax = 0;
     if (accountType === 'ISA' && finalValue > finalTotalPrincipal) {
       const gains = finalValue - finalTotalPrincipal;
@@ -223,6 +242,7 @@ export class BacktestEngine {
         cagr: SnowballEngine.bankersRounding(cagr, 6).toNumber(),
         irr: SnowballEngine.bankersRounding(irr, 6).toNumber(),
         mdd: SnowballEngine.bankersRounding(maxDrawdown, 6).toNumber(),
+        volatility: SnowballEngine.bankersRounding(annualizedVol, 6).toNumber(),
         finalValue,
         totalPrincipal: finalTotalPrincipal,
         finalAnnualDividend,
