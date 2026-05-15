@@ -120,14 +120,16 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         {/* 2순위: 기간 */}
         {props.mode === 'PROJECTION' && (
           <div className="flex-1 flex flex-col items-start w-full">
-            <label htmlFor="years-range" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">투자 기간 (년)</label>
+            <label htmlFor="years-range" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">
+              투자 기간 (년) {props.params.cycle === 'DAILY' ? '(최대 30년)' : '(최대 50년)'}
+            </label>
             <div className="flex items-center gap-4 w-full h-12">
               <input 
                 id="years-range"
                 type="range" 
                 min="1" 
-                max="30"
-                value={Math.min(props.params.years, 30)}
+                max={props.params.cycle === 'DAILY' ? 30 : 50}
+                value={Math.min(props.params.years, props.params.cycle === 'DAILY' ? 30 : 50)}
                 onChange={(e) => updateParam('years', Number(e.target.value))}
                 className="flex-1 accent-apple-primary h-2 bg-apple-hairline rounded-pill appearance-none cursor-pointer"
                 aria-label="투자 기간 조절"

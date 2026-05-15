@@ -35,9 +35,23 @@ export class BacktestEngine {
       taxIsaReducedRate
     } = params;
 
+    // 기간 제한 체크 (전체 50년, DAILY 30년)
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffYears = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    
+    let effectiveEndDate = endDate;
+    const maxYears = cycle === 'DAILY' ? 30 : 50;
+    
+    if (diffYears > maxYears) {
+      const clippedEnd = new Date(start);
+      clippedEnd.setFullYear(start.getFullYear() + maxYears);
+      effectiveEndDate = clippedEnd.toISOString().split('T')[0];
+    }
+
     // 기간 내 데이터 필터링 및 정렬
     const filteredData = historicalData
-      .filter(p => p.date >= startDate && p.date <= endDate)
+      .filter(p => p.date >= startDate && p.date <= effectiveEndDate)
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (filteredData.length === 0) {

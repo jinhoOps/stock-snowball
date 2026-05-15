@@ -251,4 +251,58 @@ describe('BacktestEngine', () => {
       expect(result.metrics.volatility).toBeGreaterThan(0);
     });
   });
+
+  describe('Duration Limits', () => {
+    it('DAILY cycle에서 30년이 넘는 데이터는 30년으로 제한해야 한다', () => {
+      const manyYearsData = [];
+      const startDate = '2000-01-01';
+      // 35년 데이터 생성 (테스트 시간 단축을 위해 35년)
+      for (let i = 0; i < 35 * 365; i += 10) { // 10일 간격으로 생성
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + i);
+        manyYearsData.push({ date: d.toISOString().split('T')[0], price: 100 });
+      }
+
+      const params: BacktestParams = {
+        ...defaultParams,
+        cycle: 'DAILY',
+        startDate: '2000-01-01',
+        endDate: '2035-01-01',
+      };
+
+      const result = BacktestEngine.run(params, manyYearsData);
+      
+      const firstDate = new Date(result.history[0].date);
+      const lastDate = new Date(result.history[result.history.length - 1].date);
+      const diffYears = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+      
+      expect(diffYears).toBeLessThanOrEqual(30.5); 
+    });
+
+    it('일반 cycle에서 50년이 넘는 데이터는 50년으로 제한해야 한다', () => {
+      const manyYearsData = [];
+      const startDate = '1970-01-01';
+      // 60년 데이터 생성
+      for (let i = 0; i < 60 * 12; i++) {
+        const d = new Date(startDate);
+        d.setMonth(d.getMonth() + i);
+        manyYearsData.push({ date: d.toISOString().split('T')[0], price: 100 });
+      }
+
+      const params: BacktestParams = {
+        ...defaultParams,
+        cycle: 'MONTHLY',
+        startDate: '1970-01-01',
+        endDate: '2030-01-01',
+      };
+
+      const result = BacktestEngine.run(params, manyYearsData);
+      
+      const firstDate = new Date(result.history[0].date);
+      const lastDate = new Date(result.history[result.history.length - 1].date);
+      const diffYears = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+      
+      expect(diffYears).toBeLessThanOrEqual(50.5);
+    });
+  });
 });

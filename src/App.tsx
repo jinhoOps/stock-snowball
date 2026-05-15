@@ -70,10 +70,19 @@ function App() {
   const activeParams = mode === 'PROJECTION' ? projectionParams : backtestParams;
   
   const handleUpdateParams = (newParams: Partial<SimulationParams>) => {
+    const applyLimits = (params: SimulationParams, changes: Partial<SimulationParams>): SimulationParams => {
+      const merged = { ...params, ...changes };
+      const maxYears = merged.cycle === 'DAILY' ? 30 : 50;
+      if (merged.years > maxYears) {
+        merged.years = maxYears;
+      }
+      return merged;
+    };
+
     if (mode === 'PROJECTION') {
-      setProjectionParams(prev => ({ ...prev, ...newParams }));
+      setProjectionParams(prev => applyLimits(prev, newParams));
     } else {
-      setBacktestParams(prev => ({ ...prev, ...newParams }));
+      setBacktestParams(prev => applyLimits(prev, newParams));
     }
   };
 
