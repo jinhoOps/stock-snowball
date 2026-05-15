@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { StrategyType, AssetType, SimulationParams, ContributionCycle } from '../../types/finance';
 import { calculateMedianCAGR } from '../../data/historicalAssets';
+import { Tooltip } from '../common/Tooltip';
 
 interface AdvancedSettingsSheetProps {
   isOpen: boolean;
@@ -203,7 +204,10 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
 
                 {/* 3. 환율 설정 */}
                 <div className="w-full">
-                  <label htmlFor="exchange-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">기준 환율 (KRW/USD)</label>
+                  <div className="flex items-center gap-1.5 mb-3 ml-1">
+                    <label htmlFor="exchange-rate-input" className="text-caption-strong text-apple-ink tracking-tight block">기준 환율 (KRW/USD)</label>
+                    <Tooltip content="원화/달러 통화 전환 및 복수 시나리오 자산 비교 시 사용되는 기준 환율입니다." />
+                  </div>
                   <input 
                     id="exchange-rate-input"
                     type="number" 
@@ -211,12 +215,14 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     onChange={(e) => setLocalExchangeRate(Math.max(1, Number(e.target.value)))}
                     className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                   />
-                  <p className="mt-3 text-fine-print text-apple-ink-muted-48 ml-1">통화 전환 및 자산 합산 시 사용됩니다.</p>
                 </div>
 
                 {/* 4. 계좌 유형 */}
                 <div className="w-full">
-                  <label className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">계좌 유형</label>
+                  <div className="flex items-center gap-1.5 mb-3 ml-1">
+                    <label className="text-caption-strong text-apple-ink tracking-tight block">계좌 유형</label>
+                    <Tooltip content="일반 계좌: 배당소득세 15.4% 부과&#10;ISA 절세: 200만원 한도 비과세, 초과분 9.9% 분리과세 적용" />
+                  </div>
                   <div className="flex gap-3 w-full bg-apple-canvas-parchment p-1 rounded-pill border border-apple-hairline" role="radiogroup" aria-label="계좌 유형 선택">
                     <button 
                       onClick={() => updateParam('accountType', 'GENERAL')}
@@ -239,7 +245,10 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
 
                 {/* 5. 물가상승률 */}
                 <div className="w-full">
-                  <label htmlFor="inflation-rate-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight block ml-1">물가상승률 (%)</label>
+                  <div className="flex items-center gap-1.5 mb-3 ml-1">
+                    <label htmlFor="inflation-rate-input" className="text-caption-strong text-apple-ink tracking-tight block">물가상승률 (%)</label>
+                    <Tooltip content="미래 시점의 자산을 현재 가치(실질 구매력)로 환산하기 위해 적용하는 연간 물가상승률입니다. 설정된 비율만큼 매년 화폐 가치가 하락하는 것으로 계산됩니다." position="bottom" />
+                  </div>
                   <input 
                     id="inflation-rate-input"
                     type="number" 
@@ -248,7 +257,6 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                     onChange={(e) => updateParam('inflationRate', Number(e.target.value) / 100)}
                     className="w-full h-12 bg-apple-canvas border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
                   />
-                  <p className="mt-3 text-fine-print text-apple-ink-muted-48 ml-1">실질 가치 계산을 위해 사용됩니다.</p>
                 </div>
               </div>
 

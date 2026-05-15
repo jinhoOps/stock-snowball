@@ -16,6 +16,7 @@ import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, Sim
 import { getHistoricalData, calculateMedianCAGR } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
+import { Tooltip } from './components/common/Tooltip';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -458,10 +459,16 @@ function App() {
                         />
                         <span className="text-[11px] font-semibold text-apple-ink tracking-tight">실질 가치로 보기</span>
                       </label>
+                      <Tooltip content="설정된 물가상승률을 반영하여, 십수년 뒤 예상 자산이 현재 시점에서 어느 정도의 체감 가치(구매력)를 가지는지 환산하여 보여줍니다." />
                     </div>
-                    <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
-                      {SnowballEngine.formatDualCurrency(showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true)}
-                    </span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
+                        {SnowballEngine.formatBigNumber(showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, true)}
+                      </span>
+                      <span className="text-body-strong text-apple-ink-muted-48 mt-1 font-display tracking-tight">
+                        {SnowballEngine.formatDualCurrency(showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true, true)}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-canvas border border-apple-hairline rounded-lg p-2 sm:p-6 shadow-sm">

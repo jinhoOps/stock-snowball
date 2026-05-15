@@ -138,7 +138,7 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         {props.mode === 'PROJECTION' && (
           <div className="flex-1 flex flex-col items-start w-full">
             <label htmlFor="years-range" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">
-              투자 기간 (년) {props.params.cycle === 'DAILY' ? '(최대 30년)' : '(최대 50년)'}
+              투자 기간 (년)
             </label>
             <div className="flex items-center gap-4 w-full h-12">
               <input 

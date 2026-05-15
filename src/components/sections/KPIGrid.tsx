@@ -64,6 +64,7 @@ const KPICard = ({
       currency={currency} 
       exchangeRate={exchangeRate} 
       showDual={true} 
+      onlyEstimate={true}
       className="mb-3"
     />
 
