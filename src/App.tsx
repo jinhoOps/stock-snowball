@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
+import { Github } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import GlobalNav from './components/layout/GlobalNav';
 import ProductHero from './components/sections/ProductHero';
@@ -631,7 +632,18 @@ function App() {
       <footer className="bg-apple-canvas-parchment border-t border-apple-hairline py-16 px-4 text-center">
         <div className="max-w-[1000px] mx-auto">
           <p className="text-fine-print text-apple-ink-muted-48 tracking-tight font-text mb-2">본 시뮬레이션은 과거 데이터를 기반으로 하며, 미래의 수익을 보장하지 않습니다.</p>
-          <p className="text-fine-print text-apple-ink-muted-48 tracking-tight font-text">&copy; 2026 Stock Snowball. All rights reserved.</p>
+          <p className="text-fine-print text-apple-ink-muted-48 tracking-tight font-text mb-6">&copy; 2026 Stock Snowball. All rights reserved.</p>
+          <div className="flex justify-center">
+            <a 
+              href="https://github.com/jinhoOps/stock-snowball" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-apple-ink-muted-48 hover:text-apple-ink transition-colors"
+              aria-label="GitHub Repository"
+            >
+              <Github size={20} />
+            </a>
+          </div>
         </div>
       </footer>
     </div>
