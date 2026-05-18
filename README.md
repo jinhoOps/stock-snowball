@@ -24,6 +24,9 @@ npm install
 npm run dev
 ```
 
+⚡ *Built autonomously using [GSD](https://github.com/gsd-build/get-shit-done).*
+---
+
 ## 라이선스
 
 [MIT](./LICENSE) © KIM JINHO
