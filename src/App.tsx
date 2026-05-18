@@ -156,6 +156,7 @@ function App() {
       type: projectionParams.strategyType,
       baseAmount: projectionParams.contribution,
       increaseRate: projectionParams.strategyIncreaseRate,
+      cycle: projectionParams.cycle,
     };
 
     // 자산별 Median CAGR 자동 적용 (커스텀이 아닐 경우)
@@ -297,7 +298,12 @@ function App() {
           s.principal,
           s.annualRate,
           s.years,
-          { type: s.strategyType, baseAmount: s.strategyBaseAmount, increaseRate: s.strategyIncreaseRate },
+          { 
+            type: s.strategyType, 
+            baseAmount: s.strategyBaseAmount, 
+            increaseRate: s.strategyIncreaseRate,
+            cycle: s.contributionCycle || 'MONTHLY'
+          },
           s.inflationRate,
           s.accountType,
           undefined,
