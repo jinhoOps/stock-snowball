@@ -81,8 +81,8 @@ const ShareCard: React.FC<ShareCardProps> = ({
         {/* Stats Grid - 3 columns */}
         <div className="grid grid-cols-3 gap-2 w-full z-10 mt-6">
           <div className="bg-white/60 backdrop-blur-md rounded-2xl p-2.5 border border-white shadow-sm flex flex-col items-center text-center">
-            <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block break-keep">{CYCLE_LABEL[cycle]} 얼마씩?</span>
-            <span className="text-[10px] font-bold text-apple-ink break-keep">{SnowballEngine.formatBigNumber(contribution, currency, true)}</span>
+            <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block whitespace-nowrap">{CYCLE_LABEL[cycle]} 얼마씩?</span>
+            <span className="text-[10px] font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(contribution, currency, true)}</span>
           </div>
           <div className="bg-white/60 backdrop-blur-md rounded-2xl p-2.5 border border-white shadow-sm flex flex-col items-center text-center">
             <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">수익금</span>
