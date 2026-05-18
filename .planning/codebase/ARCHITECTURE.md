@@ -1,163 +1,105 @@
-<!-- refreshed: [YYYY-MM-DD] -->
+<!-- generated-by: gsd-doc-writer -->
 # Architecture
 
-**Analysis Date:** [YYYY-MM-DD]
+**Analysis Date:** 2026-05-15
 
 ## System Overview
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                      UI Layer (React)                       │
-├──────────────────┬──────────────────┬───────────────────────┤
-│    [Views]       │  [Components]    │      [Charts]         │
-│ `src/App.tsx`    │ `src/components` │ `src/components/charts`│
-└────────┬─────────┴────────┬─────────┴──────────┬────────────┘
-         │                  │                    │
-         ▼                  ▼                    ▼
-┌─────────────────────────────────────────────────────────────┐
-│              State & Logic Bridge (Hooks)                   │
-│        `src/hooks/useScenarios.ts`, `useState`              │
-└────────┬───────────────────────────────────────┬────────────┘
-         │                                       │
-         ▼                                       ▼
-┌───────────────────────────┐    ┌────────────────────────────┐
-│      Core Engines         │    │       Persistence          │
-│ `src/core/SnowballEngine` │    │     `src/db/database.ts`   │
-│ `src/core/BacktestEngine` │    │         (RxDB/Dexie)       │
-└────────┬──────────────────┘    └───────────────┬────────────┘
-         │                                       │
-         ▼                                       ▼
-┌───────────────────────────┐    ┌────────────────────────────┐
-│       Data Layer          │    │      Local Storage         │
-│ `src/data/indices/*.json` │    │       (IndexedDB)          │
-└───────────────────────────┘    └────────────────────────────┘
+Stock Snowball is a local-first, Apple-inspired investment simulation platform. It enables users to visualize the "snowball effect" of long-term investing through two primary modes: **Future Projection** and **Historical Backtesting**. 
+
+The system architectural style is a **Layered Local-First Web App**. It prioritizes client-side performance and privacy by performing all calculations and data storage directly in the user's browser. High-precision financial math is guaranteed through the use of `Decimal.js`, while a premium user experience is delivered via Framer Motion and glassmorphic UI design.
+
+## Component Diagram
+
+```mermaid
+graph TD
+    User[User Interface]
+    
+    subgraph UI_Layer [UI Layer - React]
+        App[App.tsx]
+        Views[Sections / Views]
+        Charts[visx Charts]
+        Motion[Framer Motion]
+    end
+    
+    subgraph State_Bridge [State & Logic Bridge]
+        Hooks[Custom Hooks - useScenarios]
+    end
+    
+    subgraph Core_Engines [Core Domain Engines]
+        Snowball[SnowballEngine]
+        Backtest[BacktestEngine]
+    end
+    
+    subgraph Persistence_Layer [Persistence Layer]
+        RxDB[RxDB / Dexie]
+        Schema[JSON Schema]
+        IDB[(IndexedDB)]
+    end
+
+    User <--> App
+    App --> Views
+    App --> Charts
+    Views --> Motion
+    App <--> Hooks
+    Hooks <--> RxDB
+    RxDB <--> Schema
+    RxDB <--> IDB
+    App --> Snowball
+    App --> Backtest
+    Backtest --> HistData[(Historical Data)]
 ```
-
-## Component Responsibilities
-
-| Component | Responsibility | File |
-|-----------|----------------|------|
-| App Container | Main state management for active simulation, mode switching (PROJECTION vs BACKTEST) | `src/App.tsx` |
-| SnowballEngine | High-precision projection calculations (compound interest, tax, inflation, exchange rate) | `src/core/SnowballEngine.ts` |
-| BacktestEngine | Historical data-based simulation and metrics calculation (CAGR, MDD, Win Rate) | `src/core/BacktestEngine.ts` |
-| useScenarios | React hook bridging RxDB queries to UI state, handling subscription and CRUD | `src/hooks/useScenarios.ts` |
-| RxDB Setup | Database initialization, schema definition, and migration strategies | `src/db/database.ts` |
-| Historical Assets | Providing historical market data (SPY, QQQ, etc.) for backtesting | `src/data/historicalAssets.ts` |
-
-## Pattern Overview
-
-**Overall:** Local-First PWA with Separated Pure-Logic Domain
-
-**Key Characteristics:**
-- **Local-First Persistence**: User scenarios are stored locally in the browser using IndexedDB via RxDB (`src/db/database.ts`). No backend dependency.
-- **Pure Core Logic**: Complex financial calculations are fully isolated in `src/core/*` without any React dependencies.
-- **Reactive State**: RxDB observables are mapped to React state via `useScenarios.ts`, ensuring UI is always in sync with local storage.
-- **High Precision**: Financial math utilizes `decimal.js` with precision set to 40 to avoid floating-point errors.
-
-## Layers
-
-**UI Layer:**
-- Purpose: Present data, capture user inputs, render visualizations.
-- Location: `src/components/`, `src/App.tsx`
-- Contains: React components, Framer Motion animations.
-- Depends on: Hooks layer, Core layer (for pure calculations).
-- Used by: User.
-
-**Hooks Layer (State Bridge):**
-- Purpose: Connect the asynchronous/reactive DB to React's component lifecycle.
-- Location: `src/hooks/`
-- Contains: Custom hooks (e.g., `useScenarios`).
-- Depends on: Persistence layer (`src/db/`).
-- Used by: UI Layer.
-
-**Core Domain Layer:**
-- Purpose: Execute stateless, mathematically rigorous financial simulations.
-- Location: `src/core/`
-- Contains: `SnowballEngine`, `BacktestEngine`.
-- Depends on: Types, Static Data (`src/data/`).
-- Used by: UI Layer, Tests.
-
-**Persistence Layer:**
-- Purpose: Provide schema-validated, encrypted, versioned local storage.
-- Location: `src/db/`
-- Contains: RxDB configuration, Dexie adapter.
-- Depends on: IndexedDB API.
-- Used by: Hooks Layer.
 
 ## Data Flow
 
-### Primary Request Path (Saving a Scenario)
+### 1. Real-time Simulation Flow
+1. **Input**: User adjusts a parameter (e.g., monthly contribution, expected return) in the UI.
+2. **State Update**: React state updates, triggering a recalculation via `useMemo`.
+3. **Calculation**: The relevant engine (`SnowballEngine` for projections or `BacktestEngine` for historical data) executes synchronously.
+4. **Visualization**: The resulting dataset is passed to `visx` chart components and `AnimatedCounter` KPI cards for immediate visual feedback.
 
-1. User clicks "Save" in UI (`src/App.tsx:handleSaveScenario`)
-2. Hook function invoked (`src/hooks/useScenarios.ts:addScenario`)
-3. DB insert operation (`src/db/database.ts`)
-4. RxDB observable triggers `next` in subscription (`src/hooks/useScenarios.ts:useEffect`)
-5. React state `scenarios` updates, UI re-renders.
+### 2. Reactive Persistence Flow
+1. **Action**: User saves or deletes a scenario.
+2. **Hook Execution**: `useScenarios` hook calls the RxDB collection methods.
+3. **Reactive Update**: RxDB's observable stream detects the change in the local IndexedDB.
+4. **UI Sync**: The hook receives the updated list of scenarios and updates React state, causing a smooth UI transition.
 
-### Simulation Path (Real-time Calculation)
-
-1. User adjusts a slider or input (`src/App.tsx:handleUpdateParams`)
-2. React state updates, triggering a re-eval of `useMemo` block (`src/App.tsx:activeSimulation` or `activeBacktest`)
-3. `SnowballEngine.simulateRange` or `BacktestEngine.run` is called synchronously with new params.
-4. Results are fed into chart components and KPI grids.
+### 3. Share Card Generation (CORS Strategy)
+1. **Trigger**: User clicks "Share Performance" in the KPI Grid.
+2. **Capture**: `html-to-image` is used to capture an off-screen `ShareCard` component.
+3. **Security Fix**: To prevent `SecurityError` (CORS) when rendering the canvas with external resources:
+    - `skipFonts: true` is applied to avoid cross-origin font fetching issues.
+    - `cacheBust: true` ensures the latest assets are used without stale cache interference.
+    - Backgrounds are rendered using CSS gradients rather than external images where possible.
 
 ## Key Abstractions
 
-**Simulation Engine (SnowballEngine):**
-- Purpose: Encapsulates all future projection math.
-- Examples: `src/core/SnowballEngine.ts`
-- Pattern: Static Utility Class/Pure Functions.
+| Abstraction | Purpose | Location |
+|-------------|---------|----------|
+| **SnowballEngine** | Stateless utility for future projections. Handles compound interest, inflation-adjusted values, and bankers rounding. | `src/core/SnowballEngine.ts` |
+| **BacktestEngine** | Logic for historical simulations using real market indices. Calculates CAGR, MDD, and dividend reinvestment logic. | `src/core/BacktestEngine.ts` |
+| **RxDB Collection** | Schema-validated, reactive local storage layer. Abstracts away the complexity of native IndexedDB. | `src/db/database.ts` |
+| **Motion UI** | Spring-based animation system using `framer-motion` for physical-feeling transitions (scale-down, layout transitions). | `src/App.tsx`, `src/components/common/AnimatedCounter.tsx` |
+| **Glassmorphism** | UI style using `backdrop-blur` and semi-translucent surfaces to create depth and hierarchy (frosted glass effect). | `src/components/layout/GlobalNav.tsx`, `src/components/sections/KPIGrid.tsx` |
 
-**RxDB Setup:**
-- Purpose: Abstract away IndexedDB complexity, add migrations and encryption.
-- Examples: `src/db/database.ts`, `src/db/schema.ts`
-- Pattern: Singleton (`getDatabase`), Reactive Collections.
+## Directory Structure Rationale
 
-## Entry Points
-
-**React Entry:**
-- Location: `src/main.tsx`, `src/App.tsx`
-- Triggers: Page load.
-- Responsibilities: Render React tree, initialize global styles.
-
-**DB Initialization:**
-- Location: `src/db/database.ts:createDatabase`
-- Triggers: First call to `getDatabase()` from hooks.
-- Responsibilities: Set up IndexedDB, run pending migrations.
+- **`src/core/`**: The "brain" of the application. Contains pure TypeScript logic for financial calculations. Completely independent of the UI framework.
+- **`src/db/`**: Database configuration and schema definitions. Centralizes the persistence logic.
+- **`src/hooks/`**: React-specific bridges between the database and the UI.
+- **`src/components/`**: Atomic and molecular UI components.
+    - `charts/`: Data visualizations using `visx`.
+    - `sections/`: High-level UI blocks (e.g., `BacktestView`, `KPIGrid`).
+    - `layout/`: Global structural components like navigation.
+- **`src/data/`**: Static historical market data (JSON) and asset metadata.
+- **`src/types/`**: Shared TypeScript interfaces for financial models and application state.
 
 ## Architectural Constraints
 
-- **No Backend**: The app must remain fully functional offline. All data is static or local.
-- **Math Precision**: Native JS `Number` must not be used for compound interest calculations. `Decimal.js` is mandatory in `src/core/*`.
-- **Pure Functions in Core**: `src/core/` files must not import React hooks or window-specific objects, to ensure they can be easily tested.
-
-## Anti-Patterns
-
-### Floating Point Math for Finance
-
-**What happens:** Using native `*` or `+` for compounding over 365 days * 10 years.
-**Why it's wrong:** Introduces micro-errors that compound into large discrepancies.
-**Do this instead:** Use `Decimal.js` and `SnowballEngine.bankersRounding` (`src/core/SnowballEngine.ts`).
-
-### Direct IndexedDB Access in Components
-
-**What happens:** Calling Dexie or native IndexedDB APIs inside component `useEffect`.
-**Why it's wrong:** Bypasses RxDB schema validation, migrations, and reactive updates.
-**Do this instead:** Use the `useScenarios` hook or add a new method to it (`src/hooks/useScenarios.ts`).
-
-## Error Handling
-
-**Strategy:** Localized fallbacks and graceful degradation.
-**Patterns:**
-- Try/catch blocks in hook initialization.
-- Fallback empty arrays/null objects if engine calculations fail.
-
-## Cross-Cutting Concerns
-
-**Persistence**: Handled globally via RxDB.
-**Responsiveness**: Handled via Tailwind CSS.
-**Animations**: Handled via Framer Motion at the UI layer boundary.
+- **Math Precision**: Native JavaScript `Number` is strictly prohibited for financial calculations. `Decimal.js` must be used to prevent floating-point compounding errors.
+- **Privacy First**: No user-identifiable data or financial scenario data should ever leave the client-side environment (except for explicit image sharing by the user).
+- **Offline Capability**: The application must be fully functional as a PWA, relying only on local data and indices.
 
 ---
 
-*Architecture analysis: [YYYY-MM-DD]*
+*Architecture analysis: 2026-05-15 (Post Phase 12)*

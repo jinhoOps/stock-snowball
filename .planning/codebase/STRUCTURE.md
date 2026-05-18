@@ -1,116 +1,94 @@
+<!-- generated-by: gsd-doc-writer -->
 # Codebase Structure
 
-**Analysis Date:** [YYYY-MM-DD]
+**Current Version:** v1.3.25 (Phase 12 Completed)
+**Last Updated:** 2024-05-20
 
 ## Directory Layout
 
 ```text
 [project-root]/
 ├── .github/            # CI/CD Workflows (deployment to GitHub Pages)
-├── .planning/          # Project roadmaps, phase plans, and codebase documentation
-├── public/             # Static assets (PWA icons, manifests)
+├── .planning/          # Project management and comprehensive documentation
+│   ├── codebase/       # Technical specifications (Architecture, Structure, etc.)
+│   ├── phases/         # Phase-by-phase execution plans and summaries
+│   ├── plans/          # High-level roadmap and phase definitions
+│   ├── reports/        # Milestone summaries and verification reports
+│   ├── research/       # Domain research and visualization strategies
+│   └── migrated-from-ISF/ # Legacy resources for reference
+├── public/             # Static assets (PWA icons, manifest)
 ├── src/
-│   ├── components/     # UI Components (Apple-inspired design)
-│   │   ├── charts/     # Recharts-based data visualizations
-│   │   ├── common/     # Reusable atomic components (inputs, buttons)
-│   │   ├── layout/     # Structural components (Nav, Footer)
-│   │   └── sections/   # Feature-specific composite components
-│   ├── core/           # Financial engines (Simulation logic)
-│   │   └── __tests__/  # Unit and integration tests for core logic
-│   ├── data/           # Static market data and indices
-│   │   └── indices/    # Historical price data (JSON)
-│   ├── db/             # RxDB configuration and schema definitions
-│   ├── hooks/          # Custom React hooks (Data fetching, DB interaction)
-│   ├── styles/         # Global styles and Tailwind overrides
-│   ├── types/          # TypeScript interface/type definitions
+│   ├── components/     # UI Components (Apple-inspired design system)
+│   │   ├── charts/     # Data visualizations (SnowballChart, BacktestChart)
+│   │   ├── common/     # Atomic components (NumericInput, AnimatedCounter, ShareCard)
+│   │   ├── layout/     # Structural components (GlobalNav)
+│   │   └── sections/   # Major UI sections (SimulationControls, BacktestView, KPIGrid)
+│   ├── core/           # Financial calculation engines
+│   │   └── __tests__/  # Unit and integration tests for engine logic
+│   ├── data/           # Market data (Indices JSON) and asset definitions
+│   ├── db/             # Local persistence (RxDB configuration and schema)
+│   ├── hooks/          # Custom React hooks (useScenarios for DB interaction)
+│   ├── types/          # Shared TypeScript definitions (finance.ts)
 │   ├── App.tsx         # Main application container
 │   ├── main.tsx        # Application entry point
-│   └── vite-env.d.ts   # Vite environment types
-├── package.json        # Dependencies and scripts
-├── tailwind.config.ts  # Design system configuration (Colors, Typography)
-└── tsconfig.json       # TypeScript configuration
+│   └── index.css       # Global styles and Tailwind directives
+├── tailwind.config.ts  # Design system tokens (Apple-style theme)
+└── package.json        # Dependencies and scripts (v1.3.25)
 ```
 
-## Directory Purposes
+## Core Directory Roles
 
-**src/core:**
-- Purpose: Mathematical heart of the application.
-- Contains: Logic for compound interest, backtesting, tax calculation, and inflation adjustment.
-- Key files: `src/core/SnowballEngine.ts`, `src/core/BacktestEngine.ts`.
+### **src/core**
+- **Role:** The mathematical "brain" of the application.
+- **Responsibility:** Handles all complex financial simulations, including compound interest, inflation adjustment, tax calculations, and historical backtesting logic.
+- **Key Files:** 
+  - `SnowballEngine.ts`: Projection engine for the "Snowball" effect.
+  - `BacktestEngine.ts`: Historical data simulation engine.
 
-**src/db:**
-- Purpose: Local persistence layer configuration.
-- Contains: Schema definitions, RxDB plugin registration, and migration logic.
-- Key files: `src/db/database.ts`, `src/db/schema.ts`.
+### **src/components**
+- **Role:** User interface implementation following Apple-inspired design principles.
+- **Sub-roles:**
+  - **sections/**: High-level feature blocks like the control panel (`SimulationControls.tsx`) or data display (`KPIGrid.tsx`).
+  - **charts/**: Visualization layer using Recharts to render simulation and backtest results.
+  - **common/**: Reusable, low-level components like `NumericInput` with big-number support and `AnimatedCounter`.
 
-**src/components/sections:**
-- Purpose: High-level UI blocks that compose the main view.
-- Contains: Product Hero, Simulation Controls, KPI Grids, Advanced Settings.
-- Key files: `src/sections/SimulationControls.tsx`, `src/sections/AdvancedSettingsSheet.tsx`.
+### **src/db**
+- **Role:** Offline-first data persistence.
+- **Responsibility:** Manages the IndexedDB connection via RxDB, defines the scenario schema, and handles data migrations.
+- **Key Files:** `database.ts`, `schema.ts`.
 
-**src/data:**
-- Purpose: Source of truth for historical market performance.
-- Contains: JSON files with historical index data and helpers to extract metrics like CAGR.
-- Key files: `src/data/historicalAssets.ts`, `src/data/indices/*.json`.
+### **src/hooks**
+- **Role:** Bridge between UI and logic/data.
+- **Responsibility:** Provides clean interfaces for components to interact with the database and state.
+- **Key Files:** `useScenarios.ts` (manages CRUD operations for simulation scenarios).
 
-## Key File Locations
+### **src/data**
+- **Role:** Static asset and metadata provider.
+- **Responsibility:** Stores historical market index data (JSON) and provides a registry of available assets for the simulation.
+- **Key Files:** `historicalAssets.ts`, `indices/*.json`.
 
-**Entry Points:**
-- `src/main.tsx`: Initializes React and mounts the App.
-- `src/App.tsx`: Orchestrates the main simulation flow and global state.
+## The .planning Directory
 
-**Configuration:**
-- `tailwind.config.ts`: Defines the "Apple-style" design system (custom colors like `apple-canvas`, `apple-primary`).
-- `src/db/database.ts`: Manages IndexedDB connection and migrations.
+The `.planning/` directory serves as the project's memory and roadmap, essential for agent-driven development.
 
-**Core Logic:**
-- `src/core/SnowballEngine.ts`: Core projection engine.
-- `src/core/BacktestEngine.ts`: Historical backtesting engine.
-
-**Testing:**
-- `src/core/__tests__/`: Contains critical financial integrity tests.
+- **codebase/**: Contains "Deep Context" for the technical stack, architecture, and coding conventions.
+- **phases/**: Granular logs of what was planned and achieved in each development sprint (e.g., `10-ux-fix-refinement`).
+- **plans/**: The blueprints for upcoming features and architectural shifts.
+- **reports/**: Official records of milestone completions and verification results.
+- **research/**: Exploratory documents on finance math, UI patterns, and technology choices.
 
 ## Naming Conventions
 
-**Files:**
-- Components: PascalCase (`SimulationControls.tsx`)
-- Logic/Hooks: camelCase (`useScenarios.ts`, `SnowballEngine.ts`)
-- Config: kebab-case or camelCase (`tailwind.config.ts`, `package.json`)
-
-**Directories:**
-- Feature folders: kebab-case or simple names (`components`, `core`, `db`).
+- **Components:** PascalCase (e.g., `BacktestChart.tsx`).
+- **Engines/Hooks:** PascalCase for Classes, camelCase for hooks (e.g., `SnowballEngine.ts`, `useScenarios.ts`).
+- **Tests:** `[Target].test.ts` located in `__tests__/` subdirectories.
 
 ## Where to Add New Code
 
-**New Calculation Logic:**
-- Implementation: `src/core/` (Create a new class or add to existing engines).
-- Tests: `src/core/__tests__/` (Mandatory for financial logic).
-
-**New UI Feature:**
-- Reusable UI component: `src/components/common/`.
-- Major section: `src/components/sections/`.
-- Integration into main view: `src/App.tsx`.
-
-**New Historical Asset:**
-- Data: Add JSON file to `src/data/indices/`.
-- Registration: Update `src/data/historicalAssets.ts` to include the new asset mapping.
-
-**New Database Field:**
-- Schema: Update `src/db/schema.ts`.
-- Migration: Add a new migration strategy in `src/db/database.ts`.
-
-## Special Directories
-
-**.planning:**
-- Purpose: Internal project management and documentation.
-- Generated: No (Maintained by agents).
-- Committed: Yes.
-
-**dist:**
-- Purpose: Production build output.
-- Generated: Yes.
-- Committed: No.
+1. **New Logic:** Add to `src/core/` and write corresponding tests in `src/core/__tests__/`.
+2. **New UI Component:** Place in `src/components/common/` if generic, or `src/components/sections/` if feature-specific.
+3. **New Data Source:** Add JSON to `src/data/indices/` and register in `src/data/historicalAssets.ts`.
+4. **New State/DB Field:** Update `src/db/schema.ts` and handle migration in `src/db/database.ts`.
 
 ---
-
-*Structure analysis: [YYYY-MM-DD]*
+*Structure Analysis verified for Phase 12 (v1.3.25)*

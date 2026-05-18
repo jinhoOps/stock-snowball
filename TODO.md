@@ -63,3 +63,8 @@
 - [x] '공유(이미지)' 기능 고도화 및 버튼 텍스트 최적화
 - [x] `localStorage`를 통한 통화 및 환율 설정 영속화
 
+## ✅ Phase 13: Stability & Issue Resolution (Completed)
+- [x] 공유 이미지 내 납입액 영역 레이아웃 줄바꿈 오류 수정 (ISSUE-1-1)
+- [x] 시뮬레이션 계산 시 납입 주기(cycle) 반영 누락 오류 수정 (ISSUE-1-2)
+- [x] 패키지 버전 업데이트 (v1.3.26)
+

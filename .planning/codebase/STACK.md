@@ -1,6 +1,8 @@
+<!-- generated-by: gsd-doc-writer -->
 # Technology Stack
 
-**Analysis Date:** 2025-05-15
+**Analysis Date:** 2025-05-20
+**Project Version:** v1.3.25
 
 ## Languages
 
@@ -11,7 +13,7 @@
 - CSS - Implemented via Tailwind CSS for styling.
 - JSON - Used for historical market data in `src/data/indices/`.
 
-## Runtime
+## Runtime & Tooling
 
 **Environment:**
 - Browser (Modern evergreen browsers)
@@ -21,39 +23,40 @@
 - npm
 - Lockfile: `package-lock.json` present.
 
-## Frameworks
+## Frameworks & UI
 
 **Core:**
 - React 19.0.0 - Component-based UI framework.
 
-**Testing:**
-- Vitest 4.1.6 - Unit and integration testing framework.
+**UI & Animation:**
+- `framer-motion` 12.38.0 - Animation library for Apple-style UI transitions.
+- `lucide-react` 0.474.0 - Icon library for consistent visual language.
+- `tailwind-merge` / `clsx` - Utilities for dynamic class management.
+- `canvas-confetti` 1.9.4 - Visual feedback for user achievements.
 
-**Build/Dev:**
-- Vite 6.0.11 - Fast build tool and dev server.
-- TypeScript 6.0.3 - Static type checking.
-- PostCSS 8.5.1 / Autoprefixer 10.4.20 - CSS transformation.
+**Visualization:**
+- `@visx/*` 3.12.0 - Low-level visualization primitives for asset growth and backtest charts.
 
 ## Key Dependencies
 
-**Critical:**
-- `rxdb` 17.2.0 - Local-first database for scenario storage.
-- `decimal.js` 10.6.0 - High-precision arithmetic for financial calculations.
-- `framer-motion` 12.38.0 - Animation library for Apple-style UI transitions.
-- `@visx/*` 3.12.0 - Data visualization components for asset growth and backtest charts.
+**Financial & Data:**
+- `decimal.js` 10.6.0 - High-precision arithmetic for financial calculations (avoids floating-point errors).
+- `rxdb` 17.2.0 - Local-first, reactive database for scenario storage.
+- `dexie` 4.4.2 - IndexedDB wrapper used as the primary storage engine for RxDB.
+- `rxjs` 7.8.2 - Reactive extensions for database observation and state streams.
 
-**Infrastructure:**
-- `dexie` 4.4.2 - IndexedDB wrapper used as storage engine for RxDB.
-- `rxjs` 7.8.2 - Reactive extensions for database observation.
+**Utilities:**
+- `html-to-image` 1.11.13 - Used for generating shareable images of simulation results.
 - `crypto-js` 4.2.0 - Encryption for local database storage.
 
-## Configuration
+## Configuration & Deployment
 
-**Environment:**
-- Configured via Vite environment variables (`.env` files not committed, using defaults).
-- `base: '/stock-snowball/'` for GitHub Pages deployment.
+**Deployment:**
+- **GitHub Pages**: Automated deployment via GitHub Actions.
+- **Base Path**: `/stock-snowball/` (configured in `vite.config.ts`).
+- **PWA**: Configured via `vite-plugin-pwa` for offline capabilities.
 
-**Build:**
+**Build Pipeline:**
 - `vite.config.ts` - Main build configuration including PWA and chunk splitting.
 - `tailwind.config.ts` - Tailwind CSS theme and content paths.
 - `tsconfig.json` / `tsconfig.node.json` - TypeScript compiler settings.
@@ -66,9 +69,9 @@
 - npm
 
 **Production:**
-- Static Hosting (e.g., GitHub Pages)
-- Browser with IndexedDB support (for RxDB)
+- Static Hosting (GitHub Pages)
+- Modern Browser with IndexedDB support (for RxDB and PWA features)
 
 ---
 
-*Stack analysis: 2025-05-15*
+*Stack analysis updated for v1.3.25*

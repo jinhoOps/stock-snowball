@@ -1,117 +1,74 @@
+<!-- generated-by: gsd-doc-writer -->
 # Testing Patterns
 
 **Analysis Date:** 2026-05-13
+**Project Version:** v1.3.25 (Phase 12 Completion)
 
-## Test Framework
+## Test Framework and Setup
 
-**Runner:**
-- Vitest
+The project uses **Vitest** (v4.1.6) as the primary testing framework. It is configured to handle TypeScript and ESM natively through Vite.
 
-**Assertion Library:**
-- Vitest `expect`
+- **Framework**: Vitest
+- **Assertion Library**: Vitest `expect`
+- **Precision Library**: `decimal.js` is used as the ground truth for all financial assertions.
+- **Setup**: Tests for core engines (`SnowballEngine`, `BacktestEngine`) are designed to run in a Node.js environment without DOM dependencies, ensuring high-speed execution.
 
-**Run Commands:**
+## Running Tests
+
+Tests are executed using standard npm scripts:
+
 ```bash
-npm test              # Run all tests (vitest run)
-npx vitest            # Watch mode
+# 전체 테스트 실행 (단발성)
+npm test
+
+# 감시 모드 (개발 중 실시간 테스트)
+npx vitest
+
+# 특정 파일만 테스트
+npx vitest src/core/__tests__/SnowballEngine.test.ts
 ```
 
-## Test File Organization
+## Writing New Tests
 
-**Location:**
-- Co-located in `__tests__` directories within each module (e.g., `src/core/__tests__/`).
+**Naming Convention:**
+- Location: `src/**/__tests__/*.test.ts`
+- Language: `describe` 및 `it` 블록의 설명은 **한국어(존댓말)**로 작성합니다.
 
-**Naming:**
-- `[FileName].test.ts` (e.g., `SnowballEngine.test.ts`)
+**Strategy for Precision Calculations:**
+Financial logic must be verified using the following pattern to prevent precision issues:
 
-**Structure:**
-```
-src/
-└── core/
-    ├── SnowballEngine.ts
-    └── __tests__/
-        ├── SnowballEngine.test.ts
-        ├── BacktestEngine.test.ts
-        └── Integrity.test.ts
-```
-
-## Test Structure
-
-**Suite Organization:**
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { SnowballEngine } from '../SnowballEngine';
-
-describe('SnowballEngine', () => {
-  describe('Specific Method Name', () => {
-    it('Should behave in a certain way (Korean description)', () => {
-      // 1. Arrange
-      // 2. Act
-      // 3. Assert
-    });
-  });
+it('고정밀 복리 연산은 외부 기준값(Excel 등)과 0자리까지 일치해야 합니다', () => {
+  const result = SnowballEngine.calculateDailyCompound(10000000, 0.05, 365);
+  const rounded = SnowballEngine.bankersRounding(result, 0);
+  expect(rounded.toNumber()).toBe(10512675); // 외부 검증 완료된 기준값
 });
 ```
 
-**Patterns:**
-- **Language**: Test descriptions (`describe`, `it`) must be in **Korean (한국어)**.
-- **Precision**: Assertions for financial results should account for precision (using `.toNumber()` for rough checks or `toDecimalPlaces()` for exact matches).
+**Key Abstractions in Testing:**
+- **Integrity Tests**: `src/core/__tests__/Integrity.test.ts`에서 장기 복리(10년, 20년) 시뮬레이션의 수학적 정밀도를 검증합니다.
+- **Banker's Rounding**: 모든 절삭/반올림 로직은 `bankersRounding` 유틸리티를 거쳐야 하며, 이에 대한 경계값 테스트가 필수입니다.
 
-## Mocking
+## UI and PWA Verification
 
-**Framework:** Vitest Built-in (`vi.mock`).
+UI 요소와 PWA 기능은 현재 다음과 같은 전략으로 검증합니다.
 
-**What to Mock:**
-- External data fetching (e.g., fetching historical asset data).
-- Database operations (RxDB/Dexie).
+- **UI Animations**: `framer-motion`을 사용한 레이아웃 전환 및 마이크로 인터랙션은 Chrome DevTools의 Performance 탭을 통해 프레임 드랍 여부를 수동으로 확인합니다.
+- **PWA Features**: 
+  - `vite-plugin-pwa`를 통해 생성된 Service Worker가 `registerType: 'autoUpdate'`로 정상 동작하는지 확인합니다.
+  - 오프라인 환경에서 `src/data/indices/` 하위의 과거 지수 데이터가 정상적으로 로드되는지 확인합니다.
+  - Lighthouse PWA Audit 점수를 기준으로 설치 가능성(Installability)을 검증합니다.
 
-**What NOT to Mock:**
-- `SnowballEngine` and `BacktestEngine` logic (always test the real implementation).
-- `decimal.js` operations.
+## Coverage Requirements
 
-## Fixtures and Factories
+- **Core Logic**: `src/core/` 폴더 내의 엔진 로직은 **100% 문장(Statement) 및 분기(Branch) 커버리지**를 지향합니다.
+- **High-Precision Validation**: 소수점 8자리 이상의 연산이 수반되는 복리 엔진은 누적 오차 방지를 위해 고정밀 검증 데이터를 통과해야 합니다.
 
-**Test Data:**
-- Use historical data samples in `src/data/indices/*.json` as reference for backtest simulations.
-- Define static parameters in `Integrity.test.ts` to match external validation sources (Excel/Financial calculators).
+## CI Integration
 
-## Coverage
-
-**Requirements:**
-- High coverage (100% preferred) for `src/core/` logic.
-- Integrity validation for long-term compound interest simulations (1, 5, 10, 20 years).
-
-## Test Types
-
-**Unit Tests:**
-- Focus on individual methods in `SnowballEngine` (Banker's rounding, compounding formulas, tax calculations).
-
-**Integrity Tests:**
-- Validate `SnowballEngine` against known financial reference values.
-- Verify floating point error prevention using `decimal.js`.
-
-**Backtest Validation:**
-- Verify `BacktestEngine` logic using historical data points.
-
-## Common Patterns
-
-**Financial Accuracy Testing:**
-```typescript
-it('Decimal.js를 사용하여 부동 소수점 오차를 방지해야 합니다', () => {
-  const a = new Decimal('0.1');
-  const b = new Decimal('0.2');
-  expect(a.plus(b).toNumber()).toBe(0.3);
-});
-```
-
-**Banker's Rounding Testing:**
-```typescript
-it('가장 가까운 짝수로 반올림해야 합니다', () => {
-  expect(SnowballEngine.bankersRounding(2.5, 0).toNumber()).toBe(2);
-  expect(SnowballEngine.bankersRounding(3.5, 0).toNumber()).toBe(4);
-});
-```
+- **Workflow**: `.github/workflows/deploy.yml` (GitHub Pages 배포 워크플로우)
+- **Status**: 현재 배포 파이프라인에는 빌드 전 `npm test` 단계가 포함되어 있지 않으며, 배포 전 개발 환경에서 수동으로 모든 테스트를 통과해야 합니다.
+- **Note**: 향후 Phase에서 PR 시 자동 테스트 및 커버리지 리포트 생성을 추가할 예정입니다.
 
 ---
-
-*Testing analysis: 2026-05-13*
+*Last Updated: 2026-05-13 (v1.3.25)*
