@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { findPointOnOrBefore } from '../../data/historicalAssets';
 import {
+  calculateSeriesCagr,
   getGoldBasisError,
+  reconcilePortfolioHistoryFinalValue,
   transformPortfolioHistory,
   transformProductSeries,
   ValueBasisError,
@@ -12,6 +14,34 @@ describe('value-basis transforms', () => {
     { date: '2024-01-02', price: 2000, dividendYield: 0 },
     { date: '2024-01-03', price: 4000, dividendYield: 0 },
   ];
+
+  it('reconciles the final history value to the after-tax metric before basis conversion', () => {
+    const history = [
+      { date: '2024-01-01', value: 100, principal: 100 },
+      { date: '2025-01-01', value: 121, principal: 100 },
+    ];
+
+    const reconciled = reconcilePortfolioHistoryFinalValue(history, 110);
+    const real = transformPortfolioHistory(reconciled, 'REAL', { inflationRate: 0.1, gold: [] });
+
+    expect(reconciled.at(-1)?.value).toBe(110);
+    expect(real.at(-1)?.value).toBeCloseTo(99.9804310362, 8);
+    expect(history.at(-1)?.value).toBe(121);
+  });
+
+  it('calculates CAGR from the transformed display series and handles invalid ranges', () => {
+    const realSeries = [
+      { date: '2024-01-01', value: 100 },
+      { date: '2025-01-01', value: 99.98043103616163 },
+    ];
+
+    expect(calculateSeriesCagr(realSeries)).toBeCloseTo(-0.000195288674, 10);
+    expect(calculateSeriesCagr(realSeries.slice(0, 1))).toBe(0);
+    expect(calculateSeriesCagr([
+      { date: '2024-01-01', value: 0 },
+      { date: '2025-01-01', value: 100 },
+    ])).toBe(0);
+  });
 
   it('converts each contribution at its own gold factor', () => {
     const history = [

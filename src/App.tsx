@@ -12,7 +12,7 @@ import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { calculateProductPerformance } from './core/ProductPerformance';
-import { getGoldBasisError, transformPortfolioHistory } from './core/ValueBasis';
+import { calculateSeriesCagr, getGoldBasisError, reconcilePortfolioHistoryFinalValue, transformPortfolioHistory } from './core/ValueBasis';
 import { useScenarios } from './hooks/useScenarios';
 import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
 import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
@@ -229,7 +229,7 @@ function App() {
       if (rangeError) return { status: 'error', assetId, targetMultiple: multiple, error: rangeError };
       try {
         const data = getHistoricalData(assetId);
-        const portfolio = BacktestEngine.run({
+        const rawPortfolio = BacktestEngine.run({
           initialPrincipal: backtestParams.principal,
           monthlyInstallment: backtestParams.contribution,
           cycle: backtestParams.cycle,
@@ -245,6 +245,10 @@ function App() {
           taxIsaLimit: 2000000,
           taxIsaReducedRate: 0.095,
         }, data);
+        const portfolio = {
+          ...rawPortfolio,
+          history: reconcilePortfolioHistoryFinalValue(rawPortfolio.history, rawPortfolio.metrics.finalValue),
+        };
         const product = calculateProductPerformance(data, startDate, endDate);
         return { status: 'success', assetId, targetMultiple: multiple, portfolio, product };
       } catch (error) {
@@ -300,7 +304,7 @@ function App() {
   const returnPercentage = activeResult.totalContribution > 0 ? (totalReturn / activeResult.totalContribution) * 100 : 0;
   const cagr = mode === 'PROJECTION' && projectionParams.years > 0 
     ? (Math.pow(activeResult.postTaxValue / activeResult.totalContribution, 1 / projectionParams.years) - 1) * 100 
-    : (activeBacktest?.metrics.cagr || 0) * 100;
+    : calculateSeriesCagr(activeDisplayHistory) * 100;
   
   // Milestone Celebration Effect
   useEffect(() => {

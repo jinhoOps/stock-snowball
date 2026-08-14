@@ -19,6 +19,25 @@ export class ValueBasisError extends Error {
   }
 }
 
+export const reconcilePortfolioHistoryFinalValue = (
+  history: readonly BacktestHistoryPoint[],
+  finalValue: number,
+): BacktestHistoryPoint[] => history.map((point, index) => index === history.length - 1
+  ? { ...point, value: finalValue }
+  : { ...point });
+
+export const calculateSeriesCagr = (
+  points: readonly Pick<BacktestHistoryPoint, 'date' | 'value'>[],
+): number => {
+  if (points.length < 2) return 0;
+  const first = points[0];
+  const last = points.at(-1)!;
+  const days = elapsedDays(first.date, last.date);
+  if (days <= 0 || first.value <= 0 || last.value <= 0) return 0;
+  const cagr = (last.value / first.value) ** (365.25 / days) - 1;
+  return Number.isFinite(cagr) ? cagr : 0;
+};
+
 export const getGoldBasisError = (
   startDate: string,
   endDate: string,

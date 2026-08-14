@@ -110,6 +110,36 @@ describe('BacktestView', () => {
     expect(screen.getByRole('button', { name: '금 기준' }).hasAttribute('disabled')).toBe(true);
   });
 
+  it('uses the after-tax final value in table, mobile card, and chart data', () => {
+    const result: ComparisonAssetResult = {
+      status: 'success',
+      assetId: 'SPY',
+      targetMultiple: 1,
+      portfolio: {
+        history: [
+          { date: '2024-01-02', value: 100, principal: 100 },
+          { date: '2024-01-03', value: 121, principal: 100 },
+        ],
+        metrics: {
+          totalReturn: 0.1, cagr: 0.1, irr: 0.1, mdd: 0, volatility: 0,
+          finalValue: 110, totalPrincipal: 100, finalAnnualDividend: 0,
+          estimatedTax: 11, totalFees: 0,
+        },
+      },
+      product: {
+        points: [{ date: '2024-01-02', value: 100 }, { date: '2024-01-03', value: 121 }],
+        metrics: { cumulativeReturn: 0.21, cagr: 0.21, mdd: 0, volatility: 0 },
+      },
+    };
+
+    render(<BacktestView {...baseProps} results={[result]} />);
+
+    expect(screen.getAllByText('$110')).toHaveLength(2);
+    expect(screen.queryByText('$121')).toBeNull();
+    expect(screen.getByLabelText('차트 최종값: SPY 110')).toBeTruthy();
+    expect(screen.getByText(/ISA 만기 세금 추정치가 포함됩니다/)).toBeTruthy();
+  });
+
   it('shows an asset calculation error inline', () => {
     const result: ComparisonAssetResult = {
       status: 'error',

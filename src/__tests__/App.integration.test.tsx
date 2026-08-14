@@ -1,7 +1,17 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
+
+const backtestRun = vi.hoisted(() => vi.fn());
+
+vi.mock('../core/BacktestEngine', () => ({ BacktestEngine: { run: backtestRun } }));
+vi.mock('../core/ProductPerformance', () => ({
+  calculateProductPerformance: vi.fn(() => ({
+    points: [{ date: '2024-01-01', value: 100 }, { date: '2025-01-01', value: 121 }],
+    metrics: { cumulativeReturn: 0.21, cagr: 0.21, mdd: 0, volatility: 0 },
+  })),
+}));
 
 vi.mock('../hooks/useScenarios', () => ({
   useScenarios: () => ({
@@ -18,7 +28,11 @@ vi.mock('../components/sections/ProductHero', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 vi.mock('../components/charts/SnowballChart', () => ({ default: () => null }));
-vi.mock('../components/sections/KPIGrid', () => ({ default: () => null }));
+vi.mock('../components/sections/KPIGrid', () => ({
+  default: ({ totalAsset, cagr }: { totalAsset: number; cagr: number }) => (
+    <output data-testid="kpi-values">{totalAsset.toFixed(6)}|{cagr.toFixed(6)}</output>
+  ),
+}));
 vi.mock('../components/common/ShareCard', () => ({ default: () => null }));
 vi.mock('../components/sections/SimulationControls', () => ({
   default: ({ setMode }: { setMode: (mode: 'BACKTEST') => void }) => (
@@ -35,16 +49,24 @@ vi.mock('../components/sections/BacktestView', () => ({
     primaryAsset,
     comparisonAssets,
     onFamilySelect,
+    results,
+    onValueBasisChange,
   }: {
     primaryAsset: string;
     comparisonAssets: string[];
     onFamilySelect: (familyId: 'NASDAQ') => void;
+    results: Array<{ status: string; portfolio?: { history: Array<{ value: number }> } }>;
+    onValueBasisChange: (basis: 'REAL') => void;
   }) => (
     <>
       <output data-testid="backtest-selection">
         {primaryAsset}|{comparisonAssets.join(',')}
       </output>
       <button onClick={() => onFamilySelect('NASDAQ')}>select NASDAQ family</button>
+      <output data-testid="prepared-final-value">
+        {results.find((result) => result.status === 'success')?.portfolio?.history.at(-1)?.value}
+      </output>
+      <button onClick={() => onValueBasisChange('REAL')}>show real basis</button>
     </>
   ),
 }));
@@ -71,9 +93,22 @@ beforeEach(() => {
     configurable: true,
     value: testStorage,
   });
+  backtestRun.mockReset();
+  backtestRun.mockReturnValue({
+    history: [
+      { date: '2024-01-01', value: 100, principal: 100 },
+      { date: '2025-01-01', value: 121, principal: 100 },
+    ],
+    metrics: {
+      totalReturn: 0.1, cagr: 0.1, irr: 0.1, mdd: 0, volatility: 0,
+      finalValue: 110, totalPrincipal: 100, finalAnnualDividend: 0,
+      estimatedTax: 11, totalFees: 0,
+    },
+  });
 });
 
 afterEach(() => {
+  cleanup();
   testStorage.clear();
   vi.restoreAllMocks();
 });
@@ -94,6 +129,33 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'reset settings' }));
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('SPY|');
+    });
+  });
+
+  it('propagates the after-tax final value and basis-consistent CAGR to headline metrics', async () => {
+    testStorage.setItem('backtest_params', JSON.stringify({
+      principal: 100,
+      contribution: 0,
+      cycle: 'MONTHLY',
+      assetType: 'SPY',
+      years: 1,
+      rate: 0.08,
+      accountType: 'ISA',
+      inflationRate: 0.1,
+      strategyType: 'FIXED',
+      strategyIncreaseRate: 0.05,
+      startDate: '2024-01-01',
+      endDate: '2025-01-01',
+    }));
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    await waitFor(() => expect(screen.getByTestId('prepared-final-value').textContent).toBe('110'));
+    expect(screen.getByText('110원')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'show real basis' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('kpi-values').textContent).toBe('99.980431|-0.019529');
     });
   });
 });

@@ -4,7 +4,7 @@ import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFami
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
 import { LEVERAGE_FAMILIES, type LeverageFamily } from '../../data/leverageFamilies';
-import { transformPortfolioHistory, transformProductSeries } from '../../core/ValueBasis';
+import { reconcilePortfolioHistoryFinalValue, transformPortfolioHistory, transformProductSeries } from '../../core/ValueBasis';
 import BacktestChart, { BacktestDisplaySeries } from '../charts/BacktestChart';
 import SegmentedControl from '../common/SegmentedControl';
 
@@ -106,10 +106,16 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   const displayBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
   const selectedAssets = useMemo(() => [primaryAsset, ...comparisonAssets], [primaryAsset, comparisonAssets]);
   const completeFamily = completeFamilyFor(selectedAssets);
-  const successfulResults = results.filter((result): result is Extract<ComparisonAssetResult, { status: 'success' }> => result.status === 'success');
+  const successfulResults = useMemo(() => results.filter(
+    (result): result is Extract<ComparisonAssetResult, { status: 'success' }> => result.status === 'success',
+  ), [results]);
   const preparedResults = useMemo(() => successfulResults.map((result) => {
     const options = { inflationRate, gold: goldData };
-    const portfolioHistory = transformPortfolioHistory(result.portfolio.history, displayBasis, options);
+    const afterTaxHistory = reconcilePortfolioHistoryFinalValue(
+      result.portfolio.history,
+      result.portfolio.metrics.finalValue,
+    );
+    const portfolioHistory = transformPortfolioHistory(afterTaxHistory, displayBasis, options);
     const productPoints = transformProductSeries(result.product.points, displayBasis, options);
     return {
       ...result,

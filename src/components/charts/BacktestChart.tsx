@@ -228,8 +228,9 @@ const BacktestChartInner: React.FC<BacktestChartProps & { width: number; height:
 
 const BacktestChart: React.FC<BacktestChartProps> = ({ series, currency, resultView }) => {
   if (series.length === 0) return null;
+  const finalValuesLabel = `차트 최종값: ${series.map((item) => `${item.assetId} ${item.points.at(-1)?.value ?? 0}`).join(', ')}`;
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full flex-col" aria-label={finalValuesLabel}>
       <div className="relative min-h-[280px] flex-1">
         <ParentSize>
           {({ width, height }) => (
