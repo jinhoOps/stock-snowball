@@ -40,8 +40,17 @@ vi.mock('../components/sections/SimulationControls', () => ({
   ),
 }));
 vi.mock('../components/sections/AdvancedSettingsSheet', () => ({
-  default: ({ onReset }: { onReset: () => void }) => (
-    <button onClick={onReset}>reset settings</button>
+  default: ({
+    onReset,
+    params,
+  }: {
+    onReset: () => void;
+    params: { assetType: string };
+  }) => (
+    <>
+      <output data-testid="settings-asset">{params.assetType}</output>
+      <button onClick={onReset}>reset settings</button>
+    </>
   ),
 }));
 vi.mock('../components/sections/BacktestView', () => ({
@@ -114,6 +123,51 @@ afterEach(() => {
 });
 
 describe('App backtest selection', () => {
+  it('mounts and rewrites a legacy QQQM projection cache as QQQ', async () => {
+    testStorage.setItem('projection_params', JSON.stringify({
+      principal: 100,
+      contribution: 0,
+      cycle: 'MONTHLY',
+      assetType: 'QQQM',
+      years: 1,
+      rate: 0.08,
+      accountType: 'GENERAL',
+      inflationRate: 0.02,
+      strategyType: 'FIXED',
+      strategyIncreaseRate: 0.05,
+    }));
+
+    render(<App />);
+
+    expect(screen.getByTestId('settings-asset').textContent).toBe('QQQ');
+    await waitFor(() => {
+      expect(JSON.parse(testStorage.getItem('projection_params')!).assetType).toBe('QQQ');
+    });
+  });
+
+  it('mounts and rewrites a legacy QQQM backtest cache as QQQ', async () => {
+    testStorage.setItem('backtest_params', JSON.stringify({
+      principal: 100,
+      contribution: 0,
+      cycle: 'MONTHLY',
+      assetType: 'QQQM',
+      years: 1,
+      rate: 0.08,
+      accountType: 'GENERAL',
+      inflationRate: 0.02,
+      strategyType: 'FIXED',
+      strategyIncreaseRate: 0.05,
+      startDate: '2011-01-01',
+      endDate: '2012-01-01',
+    }));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+
+    await waitFor(() => expect(screen.getByTestId('backtest-selection').textContent).toBe('QQQ|'));
+    expect(JSON.parse(testStorage.getItem('backtest_params')!).assetType).toBe('QQQ');
+  });
+
   it('propagates family selection and reset through parent-owned child props', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<App />);

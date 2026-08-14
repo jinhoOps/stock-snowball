@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDatabase } from '../db/database';
 import { ScenarioDocument } from '../db/schema';
-import { normalizeLegacyAssetType } from '../data/assetMigration';
+import { normalizePersistedScenario } from '../data/assetMigration';
 
 export const useScenarios = () => {
   const [scenarios, setScenarios] = useState<ScenarioDocument[]>([]);
@@ -19,7 +19,7 @@ export const useScenarios = () => {
           next: (docs) => {
             setScenarios(docs.map((doc) => {
               const scenario = doc.toJSON();
-              return { ...scenario, assetType: normalizeLegacyAssetType(scenario.assetType) };
+              return normalizePersistedScenario(scenario) as ScenarioDocument;
             }));
             setLoading(false);
           },
@@ -46,9 +46,11 @@ export const useScenarios = () => {
     const id = crypto.randomUUID();
     const now = Date.now();
     
+    const normalized = normalizePersistedScenario(scenario as unknown as Record<string, unknown>);
     await db.scenarios.insert({
       ...scenario,
-      assetType: normalizeLegacyAssetType(scenario.assetType),
+      simulationMode: normalized.simulationMode,
+      assetType: normalized.assetType,
       id,
       createdAt: now,
       updatedAt: now,
@@ -61,11 +63,12 @@ export const useScenarios = () => {
     const db = await getDatabase();
     const doc = await db.scenarios.findOne(id).exec();
     if (doc) {
+      const current = doc.toJSON();
+      const normalized = normalizePersistedScenario({ ...current, ...updates });
       await doc.patch({
         ...updates,
-        ...(updates.assetType === undefined
-          ? {}
-          : { assetType: normalizeLegacyAssetType(updates.assetType) }),
+        simulationMode: normalized.simulationMode,
+        assetType: normalized.assetType,
         updatedAt: Date.now(),
       });
     }

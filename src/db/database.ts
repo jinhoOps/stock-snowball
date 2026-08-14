@@ -4,7 +4,7 @@ import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedKeyEncryptionCryptoJsStorage } from 'rxdb/plugins/encryption-crypto-js';
 import { scenarioSchema, ScenarioDocument } from './schema';
-import { normalizeLegacyAssetType } from '../data/assetMigration';
+import { normalizePersistedScenario } from '../data/assetMigration';
 
 // 마이그레이션 플러그인 추가
 addRxPlugin(RxDBMigrationSchemaPlugin);
@@ -24,6 +24,37 @@ export type MyDatabase = RxDatabase<MyDatabaseCollections>;
 
 let dbPromise: Promise<MyDatabase> | null = null;
 
+export const scenarioMigrationStrategies = {
+  1: (oldDoc: any) => ({
+    ...oldDoc,
+    strategyType: 'FIXED',
+    strategyBaseAmount: oldDoc.dailyContribution * 30.42,
+    accountType: 'GENERAL',
+    buyFeeRate: 0.00015,
+    sellFeeRate: 0.00015,
+    taxDividendRate: 0.154,
+    taxCapitalGainRate: 0.22,
+    taxIsaLimit: 2000000,
+    taxIsaReducedRate: 0.095,
+    exchangeAnnualChangeRate: 0,
+    updatedAt: Date.now(),
+  }),
+  2: (oldDoc: any) => ({ ...oldDoc, assetType: 'CUSTOM', updatedAt: Date.now() }),
+  3: (oldDoc: any) => ({
+    ...oldDoc,
+    simulationMode: 'PROJECTION',
+    backtestStartDate: '2010-01-01',
+    backtestEndDate: '2024-01-01',
+    reinvestDividends: true,
+    updatedAt: Date.now(),
+  }),
+  4: (oldDoc: any) => ({ ...oldDoc, contributionCycle: 'DAILY', updatedAt: Date.now() }),
+  5: (oldDoc: ScenarioDocument) => ({
+    ...normalizePersistedScenario(oldDoc as unknown as Record<string, unknown>),
+    updatedAt: Date.now(),
+  }) as unknown as ScenarioDocument,
+};
+
 const createDatabase = async (): Promise<MyDatabase> => {
   const db: MyDatabase = await createRxDatabase<MyDatabaseCollections>({
     name: 'stock_snowball_db',
@@ -37,57 +68,7 @@ const createDatabase = async (): Promise<MyDatabase> => {
   await db.addCollections({
     scenarios: {
       schema: scenarioSchema,
-      migrationStrategies: {
-        // Version 0 -> 1 migration
-        1: (oldDoc: any) => {
-          return {
-            ...oldDoc,
-            strategyType: 'FIXED',
-            strategyBaseAmount: oldDoc.dailyContribution * 30.42,
-            accountType: 'GENERAL',
-            buyFeeRate: 0.00015,
-            sellFeeRate: 0.00015,
-            taxDividendRate: 0.154,
-            taxCapitalGainRate: 0.22,
-            taxIsaLimit: 2000000,
-            taxIsaReducedRate: 0.095,
-            exchangeAnnualChangeRate: 0,
-            updatedAt: Date.now(),
-          };
-        },
-        // Version 1 -> 2 migration
-        2: (oldDoc: any) => {
-          return {
-            ...oldDoc,
-            assetType: 'CUSTOM',
-            updatedAt: Date.now(),
-          };
-        },
-        // Version 2 -> 3 migration
-        3: (oldDoc: any) => {
-          return {
-            ...oldDoc,
-            simulationMode: 'PROJECTION',
-            backtestStartDate: '2010-01-01',
-            backtestEndDate: '2024-01-01',
-            reinvestDividends: true,
-            updatedAt: Date.now(),
-          };
-        },
-        // Version 3 -> 4 migration
-        4: (oldDoc: any) => {
-          return {
-            ...oldDoc,
-            contributionCycle: 'DAILY',
-            updatedAt: Date.now(),
-          };
-        },
-        5: (oldDoc: ScenarioDocument) => ({
-          ...oldDoc,
-          assetType: normalizeLegacyAssetType(oldDoc.assetType),
-          updatedAt: Date.now(),
-        }),
-      }
+      migrationStrategies: scenarioMigrationStrategies,
     },
   });
 

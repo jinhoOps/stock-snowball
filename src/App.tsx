@@ -18,7 +18,10 @@ import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult
 import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
-import { normalizeLegacyAssetType } from './data/assetMigration';
+import {
+  normalizePersistedSimulationParams,
+  readPersistedSimulationParams,
+} from './data/assetMigration';
 import { applyFamilySelection, calculateLeverageInsights, LEVERAGE_FAMILIES, type LeverageFamily } from './data/leverageFamilies';
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
 
@@ -60,42 +63,19 @@ function App() {
 
   // Decoupled Parameters
   const [projectionParams, setProjectionParams] = useState<SimulationParams>(() => {
-    const cached = localStorage.getItem('projection_params');
-    if (cached) return JSON.parse(cached);
-    return {
-      principal: 10000000,
-      contribution: 30000,
-      cycle: 'DAILY',
-      assetType: 'CUSTOM',
-      years: 10,
-      rate: 0.08,
-      accountType: 'GENERAL',
-      inflationRate: 0.02,
-      strategyType: 'FIXED',
-      strategyIncreaseRate: 0.05,
-    };
+    return readPersistedSimulationParams(
+      localStorage.getItem('projection_params'),
+      DEFAULT_PROJECTION_PARAMS,
+      'PROJECTION',
+    );
   });
  
   const [backtestParams, setBacktestParams] = useState<SimulationParams>(() => {
-    const cached = localStorage.getItem('backtest_params');
-    if (cached) {
-      const parsed = JSON.parse(cached) as SimulationParams;
-      return { ...parsed, assetType: normalizeLegacyAssetType(parsed.assetType) };
-    }
-    return {
-      principal: 10000000,
-      contribution: 30000,
-      cycle: 'DAILY',
-      assetType: 'SPY',
-      years: 10,
-      rate: 0.08,
-      accountType: 'GENERAL',
-      inflationRate: 0.02,
-      strategyType: 'FIXED',
-      strategyIncreaseRate: 0.05,
-      startDate: '2010-01-01',
-      endDate: '2024-01-01',
-    };
+    return readPersistedSimulationParams(
+      localStorage.getItem('backtest_params'),
+      DEFAULT_BACKTEST_PARAMS,
+      'BACKTEST',
+    );
   });
   const [comparisonAssets, setComparisonAssets] = useState<HistoricalAssetType[]>([]);
   const [valueBasis, setValueBasis] = useState<ValueBasis>('NOMINAL');
@@ -146,9 +126,17 @@ function App() {
     };
 
     if (mode === 'PROJECTION') {
-      setProjectionParams(prev => applyLimits(prev, newParams));
+      setProjectionParams(prev => normalizePersistedSimulationParams(
+        applyLimits(prev, newParams),
+        DEFAULT_PROJECTION_PARAMS,
+        'PROJECTION',
+      ));
     } else {
-      setBacktestParams(prev => applyLimits(prev, newParams));
+      setBacktestParams(prev => normalizePersistedSimulationParams(
+        applyLimits(prev, newParams),
+        DEFAULT_BACKTEST_PARAMS,
+        'BACKTEST',
+      ));
     }
   };
 
