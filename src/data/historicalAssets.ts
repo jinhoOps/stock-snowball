@@ -182,6 +182,22 @@ export const getHistoricalRangeError = (
   return null;
 };
 
+/** Returns the most recent market-data point on or before a calendar date. */
+export const findPointOnOrBefore = (
+  points: readonly IndexPoint[],
+  date: string,
+): IndexPoint | null => {
+  let closest: IndexPoint | null = null;
+
+  for (const point of points) {
+    if (point.date <= date && (!closest || point.date > closest.date)) {
+      closest = point;
+    }
+  }
+
+  return closest;
+};
+
 /**
  * 자산별 과거 데이터를 기반으로 약 1년(252 거래일) 구르는 수익률의 중앙값을 계산합니다.
  */

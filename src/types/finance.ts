@@ -147,6 +147,8 @@ export interface ProductPerformanceResult {
   metrics: ProductPerformanceMetrics;
 }
 
+export type ValueBasis = 'NOMINAL' | 'REAL' | 'GOLD';
+
 export const DEFAULT_EXCHANGE_RATE = 1450;
 
 export const DEFAULT_PROJECTION_PARAMS: SimulationParams = {
