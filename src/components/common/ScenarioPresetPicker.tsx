@@ -8,6 +8,8 @@ export interface PresetScenario {
   endDate: string;
   description: string;
   isDuration?: boolean;
+  disabled?: boolean;
+  reason?: string;
 }
 
 export const getDurationPresets = (coverage: HistoricalCoverage): PresetScenario[] => {
@@ -81,21 +83,32 @@ export const getPresetScenarios = (coverage: HistoricalCoverage): PresetScenario
   ...HISTORICAL_SCENARIOS,
 ];
 
-interface ScenarioPresetPickerProps {
+export interface ScenarioPresetPickerProps {
   onSelect: (preset: PresetScenario) => void;
   coverage: HistoricalCoverage;
   activePresetName?: string;
+  familyPresets?: readonly PresetScenario[];
 }
 
-const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, coverage, activePresetName }) => {
+const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
+  onSelect,
+  coverage,
+  activePresetName,
+  familyPresets,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  
-  const durationPresets = useMemo(() => getDurationPresets(coverage), [coverage]);
+  const isFamilySelection = familyPresets !== undefined;
+  const durationPresets = useMemo(
+    () => familyPresets ?? getDurationPresets(coverage),
+    [coverage, familyPresets],
+  );
   
   // Basic scenarios to show when not expanded (YTD, 1Y, 5Y)
-  const basicScenarios = useMemo(() => 
-    durationPresets.filter(p => ["YTD", "1Y", "5Y"].includes(p.name)), 
-    [durationPresets]
+  const basicScenarios = useMemo(() =>
+    isFamilySelection
+      ? durationPresets
+      : durationPresets.filter(p => ["YTD", "1Y", "5Y"].includes(p.name)),
+    [durationPresets, isFamilySelection],
   );
 
   return (
@@ -106,12 +119,12 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, c
             key={preset.name}
             preset={preset}
             isActive={activePresetName === preset.name}
-            disabled={!isPresetSupported(preset, coverage)}
+            disabled={preset.disabled ?? !isPresetSupported(preset, coverage)}
             onClick={() => onSelect(preset)}
           />
         ))}
         
-        <motion.button
+        {!isFamilySelection && <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsExpanded(!isExpanded)}
@@ -121,11 +134,11 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, c
           <motion.span animate={{ rotate: isExpanded ? 180 : 0 }}>
             ↓
           </motion.span>
-        </motion.button>
+        </motion.button>}
       </div>
 
       <AnimatePresence>
-        {isExpanded && (
+        {!isFamilySelection && isExpanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -141,7 +154,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, c
                     key={preset.name}
                     preset={preset}
                     isActive={activePresetName === preset.name}
-                    disabled={!isPresetSupported(preset, coverage)}
+                    disabled={preset.disabled ?? !isPresetSupported(preset, coverage)}
                     onClick={() => onSelect(preset)}
                   />
                 ))}
@@ -156,7 +169,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, c
                     key={preset.name}
                     preset={preset}
                     isActive={activePresetName === preset.name}
-                    disabled={!isPresetSupported(preset, coverage)}
+                    disabled={preset.disabled ?? !isPresetSupported(preset, coverage)}
                     onClick={() => onSelect(preset)}
                   />
                 ))}

@@ -10,6 +10,24 @@ export const HISTORICAL_ASSET_IDS = [
 export type HistoricalAssetType = typeof HISTORICAL_ASSET_IDS[number];
 export type AssetType = 'CUSTOM' | HistoricalAssetType;
 
+export type LeverageFamilyId = 'NASDAQ' | 'AMD' | 'TESLA' | 'SEMICONDUCTORS';
+
+export interface LeverageInsight {
+  assetId: HistoricalAssetType;
+  targetMultiple: 2 | 3;
+  underlyingReturn: number;
+  actualReturn: number;
+  simpleReference: number;
+  difference: number;
+}
+
+export interface CommonCoverage {
+  startDate: string;
+  endDate: string;
+  startAsset: HistoricalAssetType;
+  endAsset: HistoricalAssetType;
+}
+
 export type SimulationMode = 'PROJECTION' | 'BACKTEST';
 
 export type ContributionCycle = 'DAILY' | 'WEEKLY' | 'MONTHLY';

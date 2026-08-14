@@ -1,6 +1,10 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { getHistoricalCoverage } from '../../../data/historicalAssets';
+import { getFamilyDurationPresets, LEVERAGE_FAMILIES } from '../../../data/leverageFamilies';
 import {
+  default as ScenarioPresetPicker,
   getDurationPresets,
   HISTORICAL_SCENARIOS,
   isPresetSupported,
@@ -19,5 +23,21 @@ describe('asset-aware backtest presets', () => {
     const dotCom = HISTORICAL_SCENARIOS.find((preset) => preset.name === 'Dot-com Crash')!;
 
     expect(isPresetSupported(dotCom, amdlCoverage)).toBe(false);
+  });
+
+  it('renders family durations instead of general historical presets', () => {
+    const familyPresets = getFamilyDurationPresets(LEVERAGE_FAMILIES.AMD, getHistoricalCoverage);
+    const markup = renderToStaticMarkup(React.createElement(ScenarioPresetPicker, {
+      coverage: getHistoricalCoverage('AMD'),
+      onSelect: () => undefined,
+      familyPresets,
+    }));
+
+    expect(markup).toContain('1년');
+    expect(markup).toContain('3년');
+    expect(markup).toContain('5년');
+    expect(markup).toContain('10년');
+    expect(markup).toContain('전체');
+    expect(markup).not.toContain('YTD');
   });
 });
