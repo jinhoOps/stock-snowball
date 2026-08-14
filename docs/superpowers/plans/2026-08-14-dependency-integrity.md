@@ -342,6 +342,17 @@ Using the in-app browser, verify `http://127.0.0.1:5173/stock-snowball/` at 1440
 
 Expected: all four checks pass at both viewport sizes. Any chart layout or tooltip regression blocks the workstream.
 
+#### Approved acceptance revision (2026-08-14)
+
+The exact 1440×900 and 390×844 browser requirement is replaced for this Task 4 execution only. Orca CLI `viewport` reports both requested sizes successfully, but after reload the page consistently reports an actual 881×838 CSS viewport at DPR 2 (and `navigator.maxTouchPoints` remains 0 for the requested mobile setting). User approval replaces the unavailable exact-viewport proof with all of the following:
+
+1. Record the actual Orca viewport mismatch and do not represent CLI success output as rendered-page evidence.
+2. Prove both Visx charts at the actual Orca viewport: non-zero responsive containers, projection and backtest rendering/controls, pointer tooltip and scrub-line response, and no console error mentioning Visx, `ResizeObserver`, ESM resolution, or React peers.
+3. Perform static 390px responsive-code review: responsive chart sizing/margins/tick reduction, mobile control stacking or wrapping, and intentional containment of any required horizontal overflow.
+4. Re-run the focused test and production build gates.
+
+Under this approved alternative, a failure in any listed browser interaction, static responsive guard, test, or build remains a Workstream 1 blocker. The exact viewport requirement remains the preferred future visual baseline once Orca applies its documented viewport setting to the page.
+
 - [ ] **Step 4: Write the verification report with observed evidence**
 
 Create `docs/superpowers/reports/2026-08-14-workstream-1-dependency-integrity.md` with these exact sections and the observed command outputs summarized under each:

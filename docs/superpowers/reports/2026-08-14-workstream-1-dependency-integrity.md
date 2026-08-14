@@ -33,11 +33,22 @@ Activating `과거 백테스트 모드` set the backtest tab to `aria-pressed=tr
 
 ## Mobile visual smoke test
 
-Blocked. `orca viewport --width 390 --height 844 --mobile` returned `mobile: true`, but the reloaded page remained 881x838 at DPR 2 with `navigator.maxTouchPoints: 0`. Mobile layout, tooltip/scrub behavior, and console assertions at the required 390x844 remain unverified.
+`orca viewport --width 390 --height 844 --mobile` returned `mobile: true`, but the reloaded page remained 881x838 at DPR 2 with `navigator.maxTouchPoints: 0`. Exact mobile rendering remains unverified; under the approved revised acceptance, the static responsive-code review below substitutes for that unavailable runtime proof.
+
+## Revised acceptance and responsive-code verification
+
+The user approved the documented replacement of the exact 1440x900/390x844 requirement because the Orca runtime acknowledges both settings but does not apply them to the inspected page. The acceptance basis is actual-Orca rendering/interaction evidence plus static 390px responsive-code evidence and final test/build gates.
+
+- `src/App.tsx` gives the primary chart a `w-full` container with mobile height `h-[360px]` and larger `sm:h-[480px]`; the section itself has horizontal `px-4` padding. Its result cards collapse from three columns to one (`grid-cols-1 sm:grid-cols-2 md:grid-cols-3`), and the saved-scenario input uses `flex-1 min-w-0` to prevent flex overflow.
+- `SnowballChart.tsx` and `BacktestChart.tsx` both use `ParentSize` in a `w-full`/`h-full` parent with `min-h-[300px]`, return `null` only below 10px width, reduce horizontal margins at `width <= 520`, and reduce bottom-axis ticks from eight to four. The interaction `Bar` uses the resulting `innerWidth`/`innerHeight`, so it stays within each responsive chart plot.
+- `SimulationControls.tsx` stacks its top controls and form groups until `md`, while backtest date inputs remain `flex-col` until `sm`; the backtest legend is `flex-wrap`.
+- `BacktestView.tsx` intentionally isolates its six-column, `min-w-[800px]` comparison table inside a `w-full overflow-x-auto` wrapper. Its chart is `w-full`, fixed-height, and `overflow-hidden`, so the table—not the page/chart—is the only deliberate narrow-width overflow surface.
+
+The actual 881x838 Orca run already proved non-zero chart SVGs, projection and backtest rendering, and corresponding tooltip/scrub movement. `npm test` again passed 5 files / 48 tests (490 ms), and `npm run build` again passed, producing `manifest.webmanifest`, `sw.js`, and `workbox-9c191d2f.js`.
 
 ## Deferred findings
 
-Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and transitive audit findings are listed above. The visual smoke-test acceptance condition remains not passed solely because the actual browser viewport did not match either required target. The default and backtest Visx chart interactions now pass at the browser's actual 881x838 viewport. No alternative browser surface was used. The acceptable next gate is to use an Orca runtime where `window.innerWidth/innerHeight` prove 1440/900 and 390/844 after `orca viewport`, then repeat these same checks; CLI success output alone is insufficient.
+Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and transitive audit findings are listed above. Under the user-approved revised acceptance, Workstream 1 passes: actual-Orca Visx interaction evidence, static responsive-code safeguards for 390px, focused tests, and production build all pass. No alternative browser surface was used. Exact 1440x900/390x844 visual baselines remain a future runtime-quality follow-up because CLI success output alone is insufficient.
 
 ## Rollback
 
