@@ -249,7 +249,12 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                   transition={{ duration: reduceMotion ? 0 : 0.2, delay: reduceMotion ? 0 : index * 0.04 }}
                   className="border-b border-apple-hairline last:border-0"
                 >
-                  <td className="p-4"><span className="flex items-center gap-2 font-display font-semibold text-apple-ink">{result.assetId}<MetricBadge multiple={result.targetMultiple} /></span></td>
+                  <td className="p-4">
+                    <span className="flex items-center gap-2 font-display font-semibold text-apple-ink">
+                      <span>{result.assetId}</span>
+                      <MetricBadge multiple={result.targetMultiple} />
+                    </span>
+                  </td>
                   <td className="p-4 font-display font-bold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</td>
                   <td className="p-4 text-center font-display font-semibold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</td>
                   <td className="p-4 text-center font-display text-apple-ink">{percentage(result.productMetrics.cagr)}</td>

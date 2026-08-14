@@ -150,3 +150,8 @@ __pycache__/
 *.py[cod]
 /src/data/.indices.staging-*
 /src/data/.indices.backup-*
+
+# Playwright output
+/test-results/
+/playwright-report/
+/blob-report/
