@@ -28,6 +28,38 @@ describe('BacktestEngine', () => {
   };
 
   describe('LumpSum Simulation (거치식)', () => {
+    it('invests the initial principal and first installment together on the first day', () => {
+      const result = BacktestEngine.run({
+        ...defaultParams,
+        initialPrincipal: 100,
+        monthlyInstallment: 25,
+        startDate: '2024-01-02',
+        endDate: '2024-01-03',
+      }, [
+        { date: '2024-01-02', price: 100, dividendYield: 0 },
+        { date: '2024-01-03', price: 100, dividendYield: 0 },
+      ]);
+
+      expect(result.history[0]).toMatchObject({ value: 125, principal: 125 });
+    });
+
+    it('reinvests one explicit dividend once and never carries it forward', () => {
+      const data = [
+        { date: '2024-01-02', price: 100, dividendYield: 0.01 },
+        { date: '2024-01-03', price: 100, dividendYield: 0 },
+        { date: '2024-01-04', price: 100, dividendYield: 0 },
+      ];
+      const result = BacktestEngine.run({
+        ...defaultParams,
+        initialPrincipal: 100,
+        startDate: '2024-01-02',
+        endDate: '2024-01-04',
+        reinvestDividends: true,
+      }, data);
+
+      expect(result.metrics.finalValue).toBe(101);
+    });
+
     it('배당 재투자 없이 정확한 수익률을 계산해야 한다', () => {
       const params: BacktestParams = {
         ...defaultParams,

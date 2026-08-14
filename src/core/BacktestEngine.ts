@@ -74,7 +74,6 @@ export class BacktestEngine {
     const dailyReturns: Decimal[] = [];
 
     let lastInvestmentDate = '';
-    let lastKnownDividendYield = new Decimal(0);
 
     // 시뮬레이션 루프
     for (let i = 0; i < filteredData.length; i++) {
@@ -149,10 +148,7 @@ export class BacktestEngine {
       let currentValue = currentShares.times(currentPrice);
 
       // 3. 배당금 재투자 (TR)
-      let currentDividendYield = new Decimal(point.dividendYield || 0);
-      if (currentDividendYield.isZero() && lastKnownDividendYield.gt(0)) {
-        currentDividendYield = lastKnownDividendYield;
-      }
+      const currentDividendYield = new Decimal(point.dividendYield || 0);
 
       if (reinvestDividends && currentDividendYield.gt(0)) {
         const dy = currentDividendYield;
@@ -162,7 +158,6 @@ export class BacktestEngine {
           currentShares = currentShares.plus(dividendAmount.dividedBy(currentPrice));
           currentValue = currentShares.times(currentPrice);
           currentUnitPrice = currentUnitPrice.times(dy.plus(1));
-          lastKnownDividendYield = dy;
         }
       }
 

@@ -112,6 +112,23 @@ export interface BacktestResult {
   history: BacktestHistoryPoint[];
 }
 
+export interface ProductPerformancePoint {
+  date: string;
+  value: number;
+}
+
+export interface ProductPerformanceMetrics {
+  cumulativeReturn: number;
+  cagr: number;
+  mdd: number;
+  volatility: number;
+}
+
+export interface ProductPerformanceResult {
+  points: ProductPerformancePoint[];
+  metrics: ProductPerformanceMetrics;
+}
+
 export const DEFAULT_EXCHANGE_RATE = 1450;
 
 export const DEFAULT_PROJECTION_PARAMS: SimulationParams = {
