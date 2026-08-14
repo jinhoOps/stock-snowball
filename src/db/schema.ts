@@ -1,5 +1,5 @@
 import { RxJsonSchema } from 'rxdb';
-import { AssetType } from '../types/finance';
+import { AssetType, HISTORICAL_ASSET_IDS } from '../types/finance';
 
 export interface ScenarioDocument {
   id: string;
@@ -35,7 +35,7 @@ export interface ScenarioDocument {
 
 export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
   title: 'scenario schema',
-  version: 4, // Bumped for contributionCycle support
+  version: 5,
   description: 'describes a snowball investment scenario',
   primaryKey: 'id',
   type: 'object',
@@ -95,7 +95,7 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
     },
     assetType: {
       type: 'string',
-      enum: ['CUSTOM', 'QQQM', 'QLD', 'TQQQ', 'KOSPI', 'KOSDAQ', 'SPY', 'SCHD', 'GOLD'],
+      enum: ['CUSTOM', ...HISTORICAL_ASSET_IDS],
     },
     accountType: {
       type: 'string',
@@ -165,5 +165,4 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
   ],
   encrypted: ['principal', 'strategyBaseAmount'],
 };
-
 

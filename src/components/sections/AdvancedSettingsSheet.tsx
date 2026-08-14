@@ -128,9 +128,15 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                       className="w-full h-12 bg-white border border-apple-hairline rounded-pill px-6 text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all appearance-none mb-6 font-text"
                     >
                       <option value="CUSTOM">사용자 정의 (고정 수익률)</option>
-                      <option value="QQQM">Nasdaq 100 (QQQM)</option>
+                      <option value="QQQ">Nasdaq 100 (QQQ)</option>
                       <option value="QLD">Nasdaq 100 2x (QLD)</option>
                       <option value="TQQQ">Nasdaq 100 3x (TQQQ)</option>
+                      <option value="AMD">Advanced Micro Devices (AMD)</option>
+                      <option value="AMDL">AMD 2x (AMDL)</option>
+                      <option value="TSLA">Tesla (TSLA)</option>
+                      <option value="TSLL">Tesla 2x (TSLL)</option>
+                      <option value="SOXX">Semiconductors (SOXX)</option>
+                      <option value="SOXL">Semiconductors 3x (SOXL)</option>
                       <option value="KOSPI">KOSPI 200</option>
                       <option value="KOSDAQ">KOSDAQ</option>
                       <option value="SPY">S&P 500 (SPY)</option>

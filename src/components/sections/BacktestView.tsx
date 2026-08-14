@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BacktestResult, AssetType, SimulationParams } from '../../types/finance';
+import { BacktestResult, AssetType, HISTORICAL_ASSET_IDS, SimulationParams } from '../../types/finance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { BacktestEngine } from '../../core/BacktestEngine';
 import { getHistoricalData, getHistoricalRangeError } from '../../data/historicalAssets';
@@ -13,7 +13,7 @@ interface BacktestViewProps {
   params: SimulationParams;
 }
 
-const ASSET_OPTIONS: AssetType[] = ['SPY', 'QQQM', 'QLD', 'TQQQ', 'SCHD', 'KOSPI', 'KOSDAQ', 'GOLD'];
+const ASSET_OPTIONS: AssetType[] = [...HISTORICAL_ASSET_IDS];
 
 const ASSET_COLORS = ['#0066cc', '#34C759', '#FF9500'];
 

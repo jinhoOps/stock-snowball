@@ -4,7 +4,9 @@ import csv
 import json
 import math
 import os
+import shutil
 import tempfile
+import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -86,11 +88,17 @@ class AssetManifestEntry:
 
 
 ASSETS = (
-    AssetDefinition("QQQM", "QQQM", "QQQM", "USD", "qqqm.csv"),
-    AssetDefinition("QLD", "QLD", "QLD", "USD", "qld.csv"),
-    AssetDefinition("TQQQ", "TQQQ", "TQQQ", "USD", "tqqq.csv"),
-    AssetDefinition("SPY", "SPY", "SPY", "USD", "spy.csv"),
-    AssetDefinition("SCHD", "SCHD", "SCHD", "USD", "schd.csv"),
+    AssetDefinition("QQQ", "QQQ", "Invesco QQQ", "USD", "qqq.csv"),
+    AssetDefinition("QLD", "QLD", "ProShares Ultra QQQ", "USD", "qld.csv"),
+    AssetDefinition("TQQQ", "TQQQ", "ProShares UltraPro QQQ", "USD", "tqqq.csv"),
+    AssetDefinition("AMD", "AMD", "Advanced Micro Devices", "USD", "amd.csv"),
+    AssetDefinition("AMDL", "AMDL", "GraniteShares 2x Long AMD Daily ETF", "USD", "amdl.csv"),
+    AssetDefinition("TSLA", "TSLA", "Tesla", "USD", "tsla.csv"),
+    AssetDefinition("TSLL", "TSLL", "Direxion Daily TSLA Bull 2X Shares", "USD", "tsll.csv"),
+    AssetDefinition("SOXX", "SOXX", "iShares Semiconductor ETF", "USD", "soxx.csv"),
+    AssetDefinition("SOXL", "SOXL", "Direxion Daily Semiconductor Bull 3X Shares", "USD", "soxl.csv"),
+    AssetDefinition("SPY", "SPY", "SPDR S&P 500 ETF Trust", "USD", "spy.csv"),
+    AssetDefinition("SCHD", "SCHD", "Schwab U.S. Dividend Equity ETF", "USD", "schd.csv"),
     AssetDefinition("KOSPI", "^KS200", "KOSPI 200", "KRW", "kospi.csv"),
     AssetDefinition("KOSDAQ", "^KQ11", "KOSDAQ", "KRW", "kosdaq.csv"),
     AssetDefinition("GOLD", "GC=F", "Gold Futures", "USD", "gold.csv"),
@@ -250,19 +258,66 @@ def refresh_all(
     data_dir: Path,
     client_factory: Callable[[str], Any] | None = None,
 ) -> dict[str, AssetManifestEntry]:
-    """Fetch all assets before writing any refreshed static data."""
+    """Fetch, validate, and atomically install every refreshed static dataset."""
     factory = client_factory or _default_client_factory
     datasets: dict[str, list[MarketRecord]] = {}
     for asset in ASSETS:
         datasets[asset.asset_id] = normalize_history(asset.asset_id, fetch_history(asset, factory))
 
-    entries: dict[str, AssetManifestEntry] = {}
-    for asset in ASSETS:
-        records = datasets[asset.asset_id]
-        write_dataset(data_dir / asset.output_filename, records)
-        entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
-    write_manifest(data_dir / "manifest.json", entries)
-    return entries
+    data_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging_dir = Path(
+        tempfile.mkdtemp(prefix=f".{data_dir.name}.staging-", dir=data_dir.parent)
+    )
+    try:
+        entries: dict[str, AssetManifestEntry] = {}
+        for asset in ASSETS:
+            records = datasets[asset.asset_id]
+            write_dataset(staging_dir / asset.output_filename, records)
+            entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
+        write_manifest(staging_dir / "manifest.json", entries)
+        validate_generated_data(staging_dir)
+        swap_catalog(staging_dir, data_dir)
+        return entries
+    finally:
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir)
+
+
+def swap_catalog(
+    staging_dir: Path,
+    data_dir: Path,
+    replace: Callable[[Path, Path], None] = os.replace,
+    validator: Callable[[Path], object] = validate_generated_data,
+) -> None:
+    """Install a validated catalog, restoring the previous catalog on any failure."""
+    backup_dir = data_dir.parent / f".{data_dir.name}.backup-{uuid.uuid4().hex}"
+    previous_catalog_exists = data_dir.exists()
+    installed = False
+
+    try:
+        if previous_catalog_exists:
+            replace(data_dir, backup_dir)
+        replace(staging_dir, data_dir)
+        installed = True
+        validator(data_dir)
+    except Exception as error:
+        try:
+            if installed and data_dir.exists():
+                shutil.rmtree(data_dir)
+            if backup_dir.exists():
+                os.replace(backup_dir, data_dir)
+        except Exception as restore_error:
+            raise MarketDataError(
+                f"Catalog install failed: {error}; rollback failed: {restore_error}"
+            ) from error
+        finally:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+
+        raise MarketDataError(f"Catalog install failed: {error}") from error
+    else:
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
 
 
 def _default_client_factory(ticker: str) -> Any:

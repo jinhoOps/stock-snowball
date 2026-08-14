@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -12,14 +13,22 @@ import pandas as pd
 from tools.market_data import (
     ASSETS,
     AssetManifestEntry,
+    MarketDataError,
     MarketDataValidationError,
     MarketRecord,
     build_manifest,
     fetch_history,
     normalize_history,
+    swap_catalog,
     validate_generated_data,
     write_dataset,
 )
+
+
+EXPECTED_ASSET_IDS = {
+    "QQQ", "QLD", "TQQQ", "AMD", "AMDL", "TSLA", "TSLL",
+    "SOXX", "SOXL", "SPY", "SCHD", "KOSPI", "KOSDAQ", "GOLD",
+}
 
 
 class FakeTicker:
@@ -37,6 +46,51 @@ class FakeTicker:
 
 
 class MarketDataNormalizationTests(unittest.TestCase):
+    def test_asset_registry_is_the_complete_approved_catalog(self) -> None:
+        self.assertEqual({asset.asset_id for asset in ASSETS}, EXPECTED_ASSET_IDS)
+        self.assertNotIn("QQQM", {asset.asset_id for asset in ASSETS})
+
+    def test_swap_catalog_restores_backup_when_install_rename_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            target = root / "indices"
+            staging = root / ".indices.staging"
+            target.mkdir()
+            staging.mkdir()
+            (target / "old.txt").write_text("old", encoding="utf-8")
+            (staging / "new.txt").write_text("new", encoding="utf-8")
+            calls = 0
+
+            def fail_second_replace(source: Path, destination: Path) -> None:
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("injected install failure")
+                os.replace(source, destination)
+
+            with self.assertRaisesRegex(MarketDataError, "install failure"):
+                swap_catalog(staging, target, replace=fail_second_replace)
+
+            self.assertEqual((target / "old.txt").read_text(encoding="utf-8"), "old")
+            self.assertFalse((target / "new.txt").exists())
+
+    def test_swap_catalog_restores_backup_when_post_install_validation_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            target = root / "indices"
+            staging = root / ".indices.staging"
+            target.mkdir()
+            staging.mkdir()
+            (target / "old.txt").write_text("old", encoding="utf-8")
+            (staging / "new.txt").write_text("new", encoding="utf-8")
+
+            def reject_installed_catalog(_: Path) -> object:
+                raise MarketDataValidationError("post-swap validation failed")
+
+            with self.assertRaisesRegex(MarketDataError, "post-swap validation failed"):
+                swap_catalog(staging, target, validator=reject_installed_catalog)
+
+            self.assertEqual((target / "old.txt").read_text(encoding="utf-8"), "old")
     def setUp(self) -> None:
         self.history = pd.DataFrame(
             {

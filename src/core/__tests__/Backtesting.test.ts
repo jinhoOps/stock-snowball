@@ -12,19 +12,19 @@ describe('SnowballEngine Projection', () => {
     
     // In the new implementation, assetType in simulateRange doesn't affect growth movement
     const customResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, 'CUSTOM');
-    const qqqmResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, 'QQQM');
+    const qqqResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, 'QQQ');
 
     const lastCustom = customResult[customResult.length - 1].nominalValue;
-    const lastQQQM = qqqmResult[qqqmResult.length - 1].nominalValue;
+    const lastQQQ = qqqResult[qqqResult.length - 1].nominalValue;
 
     // Both should be identical as they use the same CAGR (0.08) and smooth growth
-    expect(lastCustom).toBe(lastQQQM);
+    expect(lastCustom).toBe(lastQQQ);
   });
 });
 
 describe('Multi-Asset Backtesting Logic', () => {
   it('should run backtests for multiple assets with same parameters', () => {
-    const assets: AssetType[] = ['SPY', 'QQQM', 'SCHD'];
+    const assets: AssetType[] = ['SPY', 'QQQ', 'SCHD'];
     const coverage = assets.map((asset) => getHistoricalCoverage(asset));
     const startDate = coverage.map((entry) => entry.startDate).sort().at(-1)!;
     const endDate = coverage.map((entry) => entry.endDate).sort()[0]!;

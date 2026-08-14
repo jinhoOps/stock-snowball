@@ -2,7 +2,13 @@ export type AccountType = 'GENERAL' | 'ISA';
 
 export type StrategyType = 'FIXED' | 'VALUE_AVERAGING' | 'STEP_UP';
 
-export type AssetType = 'CUSTOM' | 'QQQM' | 'QLD' | 'TQQQ' | 'KOSPI' | 'KOSDAQ' | 'SPY' | 'SCHD' | 'GOLD';
+export const HISTORICAL_ASSET_IDS = [
+  'QQQ', 'QLD', 'TQQQ', 'AMD', 'AMDL', 'TSLA', 'TSLL',
+  'SOXX', 'SOXL', 'SPY', 'SCHD', 'KOSPI', 'KOSDAQ', 'GOLD',
+] as const;
+
+export type HistoricalAssetType = typeof HISTORICAL_ASSET_IDS[number];
+export type AssetType = 'CUSTOM' | HistoricalAssetType;
 
 export type SimulationMode = 'PROJECTION' | 'BACKTEST';
 

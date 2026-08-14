@@ -16,6 +16,7 @@ import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, Sim
 import { calculateMedianCAGR, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
+import { normalizeLegacyAssetType } from './data/assetMigration';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -68,7 +69,10 @@ function App() {
  
   const [backtestParams, setBacktestParams] = useState<SimulationParams>(() => {
     const cached = localStorage.getItem('backtest_params');
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const parsed = JSON.parse(cached) as SimulationParams;
+      return { ...parsed, assetType: normalizeLegacyAssetType(parsed.assetType) };
+    }
     return {
       principal: 10000000,
       contribution: 30000,

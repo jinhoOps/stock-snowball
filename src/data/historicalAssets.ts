@@ -1,15 +1,20 @@
-import { AssetType } from '../types/finance';
+import { AssetType, HistoricalAssetType } from '../types/finance';
+export { HISTORICAL_ASSET_IDS } from '../types/finance';
+import amdCsv from './indices/amd.csv?raw';
+import amdlCsv from './indices/amdl.csv?raw';
 import goldCsv from './indices/gold.csv?raw';
 import kosdaqCsv from './indices/kosdaq.csv?raw';
 import kospiCsv from './indices/kospi.csv?raw';
 import manifest from './indices/manifest.json';
 import qldCsv from './indices/qld.csv?raw';
-import qqqmCsv from './indices/qqqm.csv?raw';
+import qqqCsv from './indices/qqq.csv?raw';
 import schdCsv from './indices/schd.csv?raw';
+import soxxCsv from './indices/soxx.csv?raw';
+import soxlCsv from './indices/soxl.csv?raw';
 import spyCsv from './indices/spy.csv?raw';
+import tslaCsv from './indices/tsla.csv?raw';
+import tsllCsv from './indices/tsll.csv?raw';
 import tqqqCsv from './indices/tqqq.csv?raw';
-
-type HistoricalAssetType = Exclude<AssetType, 'CUSTOM'>;
 
 export interface IndexPoint {
   date: string;
@@ -98,9 +103,15 @@ const createDataset = (
 };
 
 const datasets: Record<HistoricalAssetType, IndexDataset> = {
-  QQQM: createDataset('QQQM', qqqmCsv, 'qqqm.csv'),
+  QQQ: createDataset('QQQ', qqqCsv, 'qqq.csv'),
   QLD: createDataset('QLD', qldCsv, 'qld.csv'),
   TQQQ: createDataset('TQQQ', tqqqCsv, 'tqqq.csv'),
+  AMD: createDataset('AMD', amdCsv, 'amd.csv'),
+  AMDL: createDataset('AMDL', amdlCsv, 'amdl.csv'),
+  TSLA: createDataset('TSLA', tslaCsv, 'tsla.csv'),
+  TSLL: createDataset('TSLL', tsllCsv, 'tsll.csv'),
+  SOXX: createDataset('SOXX', soxxCsv, 'soxx.csv'),
+  SOXL: createDataset('SOXL', soxlCsv, 'soxl.csv'),
   KOSPI: createDataset('KOSPI', kospiCsv, 'kospi.csv'),
   KOSDAQ: createDataset('KOSDAQ', kosdaqCsv, 'kosdaq.csv'),
   SPY: createDataset('SPY', spyCsv, 'spy.csv'),
@@ -121,9 +132,15 @@ const processReturns = (dataset: IndexDataset): number[] => {
 
 /** 주요 자산별 실제 과거 일간 수익률 데이터셋 */
 export const HISTORICAL_DAILY_RETURNS: Record<HistoricalAssetType, number[]> = {
-  QQQM: processReturns(datasets.QQQM),
+  QQQ: processReturns(datasets.QQQ),
   QLD: processReturns(datasets.QLD),
   TQQQ: processReturns(datasets.TQQQ),
+  AMD: processReturns(datasets.AMD),
+  AMDL: processReturns(datasets.AMDL),
+  TSLA: processReturns(datasets.TSLA),
+  TSLL: processReturns(datasets.TSLL),
+  SOXX: processReturns(datasets.SOXX),
+  SOXL: processReturns(datasets.SOXL),
   KOSPI: processReturns(datasets.KOSPI),
   KOSDAQ: processReturns(datasets.KOSDAQ),
   SPY: processReturns(datasets.SPY),

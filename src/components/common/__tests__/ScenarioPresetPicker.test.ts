@@ -8,16 +8,16 @@ import {
 
 describe('asset-aware backtest presets', () => {
   it('ends rolling presets on the selected asset latest trading day', () => {
-    const coverage = getHistoricalCoverage('QQQM');
+    const coverage = getHistoricalCoverage('QQQ');
     const ytd = getDurationPresets(coverage).find((preset) => preset.name === 'YTD');
 
     expect(ytd?.endDate).toBe(coverage.endDate);
   });
 
   it('rejects historical presets that are not completely covered', () => {
-    const qqqmCoverage = getHistoricalCoverage('QQQM');
+    const amdlCoverage = getHistoricalCoverage('AMDL');
     const dotCom = HISTORICAL_SCENARIOS.find((preset) => preset.name === 'Dot-com Crash')!;
 
-    expect(isPresetSupported(dotCom, qqqmCoverage)).toBe(false);
+    expect(isPresetSupported(dotCom, amdlCoverage)).toBe(false);
   });
 });

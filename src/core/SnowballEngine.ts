@@ -292,7 +292,7 @@ export class SnowballEngine {
     const getVolatility = (type: AssetType): number => {
       switch (type) {
         case 'SPY': return 0.15;
-        case 'QQQM': return 0.18;
+        case 'QQQ': return 0.18;
         case 'QLD': return 0.35;
         case 'TQQQ': return 0.55;
         case 'SCHD': return 0.12;

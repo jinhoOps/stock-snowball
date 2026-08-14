@@ -148,3 +148,5 @@ vite.config.ts.timestamp-*
 .uv-cache/
 __pycache__/
 *.py[cod]
+/src/data/.indices.staging-*
+/src/data/.indices.backup-*

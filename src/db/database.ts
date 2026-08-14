@@ -4,6 +4,7 @@ import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedKeyEncryptionCryptoJsStorage } from 'rxdb/plugins/encryption-crypto-js';
 import { scenarioSchema, ScenarioDocument } from './schema';
+import { normalizeLegacyAssetType } from '../data/assetMigration';
 
 // 마이그레이션 플러그인 추가
 addRxPlugin(RxDBMigrationSchemaPlugin);
@@ -80,7 +81,12 @@ const createDatabase = async (): Promise<MyDatabase> => {
             contributionCycle: 'DAILY',
             updatedAt: Date.now(),
           };
-        }
+        },
+        5: (oldDoc: ScenarioDocument) => ({
+          ...oldDoc,
+          assetType: normalizeLegacyAssetType(oldDoc.assetType),
+          updatedAt: Date.now(),
+        }),
       }
     },
   });

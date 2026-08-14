@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDatabase } from '../db/database';
 import { ScenarioDocument } from '../db/schema';
+import { normalizeLegacyAssetType } from '../data/assetMigration';
 
 export const useScenarios = () => {
   const [scenarios, setScenarios] = useState<ScenarioDocument[]>([]);
@@ -16,7 +17,10 @@ export const useScenarios = () => {
         
         subscription = scenarios$.subscribe({
           next: (docs) => {
-            setScenarios(docs.map(doc => doc.toJSON()));
+            setScenarios(docs.map((doc) => {
+              const scenario = doc.toJSON();
+              return { ...scenario, assetType: normalizeLegacyAssetType(scenario.assetType) };
+            }));
             setLoading(false);
           },
           error: (err) => {
@@ -44,6 +48,7 @@ export const useScenarios = () => {
     
     await db.scenarios.insert({
       ...scenario,
+      assetType: normalizeLegacyAssetType(scenario.assetType),
       id,
       createdAt: now,
       updatedAt: now,
@@ -58,6 +63,9 @@ export const useScenarios = () => {
     if (doc) {
       await doc.patch({
         ...updates,
+        ...(updates.assetType === undefined
+          ? {}
+          : { assetType: normalizeLegacyAssetType(updates.assetType) }),
         updatedAt: Date.now(),
       });
     }

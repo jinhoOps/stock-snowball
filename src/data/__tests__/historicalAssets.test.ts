@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  HISTORICAL_ASSET_IDS,
   getHistoricalCoverage,
   getHistoricalData,
   getHistoricalRangeError,
@@ -20,20 +21,22 @@ describe('historical CSV data', () => {
     ]);
   });
 
-  it('uses manifest-backed coverage for every static asset', () => {
-    const spy = getHistoricalCoverage('SPY');
-    const spyData = getHistoricalData('SPY');
-
-    expect(spyData).toHaveLength(spy.rowCount);
-    expect(spyData[0].date).toBe(spy.startDate);
-    expect(spyData.at(-1)?.date).toBe(spy.endDate);
+  it('loads exactly the approved historical asset catalog', () => {
+    expect(HISTORICAL_ASSET_IDS).toHaveLength(14);
+    for (const assetId of HISTORICAL_ASSET_IDS) {
+      const coverage = getHistoricalCoverage(assetId);
+      const data = getHistoricalData(assetId);
+      expect(data).toHaveLength(coverage.rowCount);
+      expect(data[0].date).toBe(coverage.startDate);
+      expect(data.at(-1)?.date).toBe(coverage.endDate);
+    }
   });
 
   it('accepts an entire in-coverage interval and rejects partial overlap', () => {
-    const qqqm = getHistoricalCoverage('QQQM');
+    const qqq = getHistoricalCoverage('QQQ');
 
-    expect(isHistoricalRangeCovered('QQQM', qqqm.startDate, qqqm.endDate)).toBe(true);
-    expect(isHistoricalRangeCovered('QQQM', '2000-03-24', '2002-10-09')).toBe(false);
-    expect(getHistoricalRangeError('QQQM', '2000-03-24', '2002-10-09')).toContain('QQQM');
+    expect(isHistoricalRangeCovered('QQQ', qqq.startDate, qqq.endDate)).toBe(true);
+    expect(isHistoricalRangeCovered('QQQ', '1999-03-09', '2002-10-09')).toBe(false);
+    expect(getHistoricalRangeError('QQQ', '1999-03-09', '2002-10-09')).toContain('QQQ');
   });
 });
