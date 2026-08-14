@@ -6,8 +6,21 @@ import { findPointOnOrBefore, getHistoricalData } from '../data/historicalAssets
 
 const backtestRun = vi.hoisted(() => vi.fn());
 const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[] }));
+const preparePortfolioDisplayResultCalls = vi.hoisted(() => vi.fn());
 
 vi.mock('../core/BacktestEngine', () => ({ BacktestEngine: { run: backtestRun } }));
+vi.mock('../core/ValueBasis', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../core/ValueBasis')>();
+  return {
+    ...actual,
+    preparePortfolioDisplayResult: (
+      ...args: Parameters<typeof actual.preparePortfolioDisplayResult>
+    ) => {
+      preparePortfolioDisplayResultCalls(...args);
+      return actual.preparePortfolioDisplayResult(...args);
+    },
+  };
+});
 vi.mock('../core/ProductPerformance', async (importOriginal) => ({
   ...await importOriginal<typeof import('../core/ProductPerformance')>(),
   calculateProductPerformance: vi.fn(() => ({
@@ -109,10 +122,11 @@ vi.mock('../components/sections/BacktestView', () => ({
     valueBasis,
     resultView,
     onComparisonAssetsChange,
+    goldBasisError,
   }: {
     primaryAsset: string;
     comparisonAssets: string[];
-    onFamilySelect: (familyId: 'NASDAQ') => void;
+    onFamilySelect: (familyId: 'NASDAQ' | 'AMD') => void;
     results: Array<{
       status: string;
       display?: { portfolioHistory: Array<{ value: number }> };
@@ -122,18 +136,27 @@ vi.mock('../components/sections/BacktestView', () => ({
     valueBasis: string;
     resultView: string;
     onComparisonAssetsChange: (assets: string[]) => void;
+    goldBasisError: string | null;
   }) => (
     <>
       <output data-testid="backtest-selection">
         {primaryAsset}|{comparisonAssets.join(',')}
       </output>
       <button onClick={() => onFamilySelect('NASDAQ')}>select NASDAQ family</button>
+      <button onClick={() => onFamilySelect('AMD')}>select AMD family</button>
       <output data-testid="prepared-final-value">
         {results.find((result) => result.status === 'success')?.display?.portfolioHistory.at(-1)?.value}
       </output>
       <button onClick={() => onValueBasisChange('REAL')}>show real basis</button>
       <button onClick={() => onValueBasisChange('NOMINAL')}>show nominal basis</button>
-      <button onClick={() => onValueBasisChange('GOLD')}>show gold basis</button>
+      <button
+        disabled={Boolean(goldBasisError)}
+        title={goldBasisError ?? undefined}
+        onClick={() => onValueBasisChange('GOLD')}
+      >
+        show gold basis
+      </button>
+      {goldBasisError && <p role="status">{goldBasisError}</p>}
       <button onClick={() => onResultViewChange('NORMALIZED')}>show normalized</button>
       <button onClick={() => onComparisonAssetsChange(['QLD', 'QLD', primaryAsset, 'TQQQ'])}>
         send invalid comparisons
@@ -196,6 +219,7 @@ beforeEach(() => {
     value: testStorage,
   });
   backtestRun.mockReset();
+  preparePortfolioDisplayResultCalls.mockReset();
   scenarioState.scenarios = [];
   backtestRun.mockReturnValue({
     history: [
@@ -403,6 +427,65 @@ describe('App backtest selection', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('chart-scenarios').textContent).toContain('saved ISA:99.980431:100.000000');
+    });
+  });
+
+  it('falls back before rendering when a selected saved overlay lacks GOLD coverage', async () => {
+    scenarioState.scenarios = [savedScenario({
+      id: 'pre-gold-qqq',
+      name: 'pre-GOLD QQQ',
+      assetType: 'QQQ',
+      backtestStartDate: '1999-03-10',
+      backtestEndDate: '2026-08-13',
+    })];
+    backtestRun.mockImplementation((params: { startDate: string }) => {
+      const startsBeforeGold = params.startDate === '1999-03-10';
+      return {
+        history: startsBeforeGold
+          ? [
+            { date: '1999-03-10', value: 100, principal: 100 },
+            { date: '2026-08-13', value: 110, principal: 100 },
+          ]
+          : [
+            { date: '2024-03-18', value: 100, principal: 100 },
+            { date: '2026-08-13', value: 110, principal: 100 },
+          ],
+        metrics: {
+          totalReturn: 0.1, cagr: 0.1, irr: 0.1, mdd: 0, volatility: 0,
+          finalValue: 110, totalPrincipal: 100, finalAnnualDividend: 0,
+          estimatedTax: 0, totalFees: 0,
+        },
+      };
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'select AMD family' }));
+    await waitFor(() => expect(screen.getByTestId('backtest-selection').textContent).toBe('AMD|AMDL'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'show gold basis' }));
+    await waitFor(() => expect(screen.getByTestId('presentation-state').textContent).toBe('GOLD|PORTFOLIO'));
+
+    fireEvent.click(screen.getByRole('button', { name: '비교하기' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('presentation-state').textContent).toBe('NOMINAL|PORTFOLIO');
+      expect((screen.getByRole('button', { name: 'show gold basis' }) as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByText(/저장된 시나리오.*pre-GOLD QQQ/).textContent).toContain('pre-GOLD QQQ');
+      expect(screen.getByTestId('chart-scenarios').textContent).toContain('pre-GOLD QQQ:110.000000:100.000000');
+    });
+    expect(preparePortfolioDisplayResultCalls.mock.calls).not.toContainEqual([
+      expect.objectContaining({
+        history: expect.arrayContaining([expect.objectContaining({ date: '1999-03-10' })]),
+      }),
+      'GOLD',
+      expect.anything(),
+    ]);
+
+    fireEvent.click(screen.getByRole('button', { name: '비교 중' }));
+    await waitFor(() => {
+      expect(screen.queryByText(/저장된 시나리오.*pre-GOLD QQQ/)).toBeNull();
+      expect((screen.getByRole('button', { name: 'show gold basis' }) as HTMLButtonElement).disabled).toBe(false);
     });
   });
 

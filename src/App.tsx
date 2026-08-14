@@ -220,6 +220,9 @@ function App() {
   // Comparison State
   const [comparingScenarioIds, setComparingScenarioIds] = useState<string[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{ date: Date; points: { name: string; value: number; color: string; pessimistic?: number; optimistic?: number }[] } | null>(null);
+  const selectedComparisonScenarios = useMemo(() => scenarios.filter(
+    (scenario) => comparingScenarioIds.includes(scenario.id),
+  ), [scenarios, comparingScenarioIds]);
 
   const activeSimulation: SimulationRangeResult = useMemo(() => {
     const strategy: StrategyConfig = {
@@ -306,10 +309,33 @@ function App() {
     return calculateLeverageInsights(productResults, completeSelectedFamily);
   }, [comparisonResults, completeSelectedFamily]);
   const goldData = useMemo(() => getHistoricalData('GOLD'), []);
-  const goldBasisError = mode === 'BACKTEST'
-    ? getGoldBasisError(backtestParams.startDate || '2010-01-01', backtestParams.endDate || '2024-01-01', goldData)
-    : null;
+  const goldBasisError = useMemo(() => {
+    if (mode !== 'BACKTEST') return null;
+
+    const activeError = getGoldBasisError(
+      backtestParams.startDate || '2010-01-01',
+      backtestParams.endDate || '2024-01-01',
+      goldData,
+    );
+    if (activeError) return activeError;
+
+    for (const scenario of selectedComparisonScenarios) {
+      if (scenario.simulationMode !== 'BACKTEST') continue;
+      const assetType = scenario.assetType || 'SPY';
+      const startDate = scenario.backtestStartDate || '2010-01-01';
+      const endDate = scenario.backtestEndDate || '2024-01-01';
+      if (getHistoricalRangeError(assetType, startDate, endDate)) continue;
+
+      const savedError = getGoldBasisError(startDate, endDate, goldData);
+      if (savedError) return `저장된 시나리오 “${scenario.name}”: ${savedError}`;
+    }
+
+    return null;
+  }, [mode, backtestParams.startDate, backtestParams.endDate, goldData, selectedComparisonScenarios]);
   const effectiveValueBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
+  useEffect(() => {
+    if (valueBasis === 'GOLD' && goldBasisError) setValueBasis('NOMINAL');
+  }, [valueBasis, goldBasisError]);
   const preparedComparisonResults = useMemo<ComparisonAssetResult[]>(() => comparisonResults.map((result) =>
     result.status === 'success'
       ? {
@@ -388,8 +414,7 @@ function App() {
         : activeDisplayHistory.map(r => ({ date: new Date(`${r.date}T00:00:00Z`), value: r.value, contribution: r.principal }))
     };
 
-    const comparing = scenarios
-      .filter(s => comparingScenarioIds.includes(s.id))
+    const comparing = selectedComparisonScenarios
       .flatMap((s, index) => {
         if (s.simulationMode === 'BACKTEST') {
           const assetType = s.assetType || 'SPY';
@@ -463,7 +488,7 @@ function App() {
         }];
           });
     return [main, ...comparing];
-  }, [activeSimulation, activeDisplayHistory, scenarioName, scenarios, comparingScenarioIds, mode, effectiveValueBasis, goldData]);
+  }, [activeSimulation, activeDisplayHistory, scenarioName, selectedComparisonScenarios, mode, effectiveValueBasis, goldData]);
 
   const handleSaveScenario = async () => {
     if (!scenarioName.trim()) {
