@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 
 const backtestRun = vi.hoisted(() => vi.fn());
+const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[] }));
 
 vi.mock('../core/BacktestEngine', () => ({ BacktestEngine: { run: backtestRun } }));
 vi.mock('../core/ProductPerformance', () => ({
@@ -15,7 +16,7 @@ vi.mock('../core/ProductPerformance', () => ({
 
 vi.mock('../hooks/useScenarios', () => ({
   useScenarios: () => ({
-    scenarios: [],
+    scenarios: scenarioState.scenarios,
     addScenario: vi.fn(),
     removeScenario: vi.fn(),
     loading: false,
@@ -35,21 +36,33 @@ vi.mock('../components/sections/KPIGrid', () => ({
 }));
 vi.mock('../components/common/ShareCard', () => ({ default: () => null }));
 vi.mock('../components/sections/SimulationControls', () => ({
-  default: ({ setMode }: { setMode: (mode: 'BACKTEST') => void }) => (
-    <button onClick={() => setMode('BACKTEST')}>open backtest</button>
+  default: ({
+    setMode,
+    params,
+  }: {
+    setMode: (mode: 'BACKTEST') => void;
+    params: { startDate?: string; endDate?: string };
+  }) => (
+    <>
+      <button onClick={() => setMode('BACKTEST')}>open backtest</button>
+      <output data-testid="control-dates">{params.startDate}|{params.endDate}</output>
+    </>
   ),
 }));
 vi.mock('../components/sections/AdvancedSettingsSheet', () => ({
   default: ({
     onReset,
     params,
+    onUpdate,
   }: {
     onReset: () => void;
     params: { assetType: string };
+    onUpdate: (params: { assetType: string }) => void;
   }) => (
     <>
       <output data-testid="settings-asset">{params.assetType}</output>
       <button onClick={onReset}>reset settings</button>
+      <button onClick={() => onUpdate({ assetType: 'AMDL' })}>change primary to AMDL</button>
     </>
   ),
 }));
@@ -60,12 +73,20 @@ vi.mock('../components/sections/BacktestView', () => ({
     onFamilySelect,
     results,
     onValueBasisChange,
+    onResultViewChange,
+    valueBasis,
+    resultView,
+    onComparisonAssetsChange,
   }: {
     primaryAsset: string;
     comparisonAssets: string[];
     onFamilySelect: (familyId: 'NASDAQ') => void;
     results: Array<{ status: string; portfolio?: { history: Array<{ value: number }> } }>;
     onValueBasisChange: (basis: 'REAL') => void;
+    onResultViewChange: (view: 'NORMALIZED') => void;
+    valueBasis: string;
+    resultView: string;
+    onComparisonAssetsChange: (assets: string[]) => void;
   }) => (
     <>
       <output data-testid="backtest-selection">
@@ -76,6 +97,11 @@ vi.mock('../components/sections/BacktestView', () => ({
         {results.find((result) => result.status === 'success')?.portfolio?.history.at(-1)?.value}
       </output>
       <button onClick={() => onValueBasisChange('REAL')}>show real basis</button>
+      <button onClick={() => onResultViewChange('NORMALIZED')}>show normalized</button>
+      <button onClick={() => onComparisonAssetsChange(['QLD', 'QLD', primaryAsset, 'TQQQ'])}>
+        send invalid comparisons
+      </button>
+      <output data-testid="presentation-state">{valueBasis}|{resultView}</output>
     </>
   ),
 }));
@@ -103,6 +129,7 @@ beforeEach(() => {
     value: testStorage,
   });
   backtestRun.mockReset();
+  scenarioState.scenarios = [];
   backtestRun.mockReturnValue({
     history: [
       { date: '2024-01-01', value: 100, principal: 100 },
@@ -183,6 +210,75 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'reset settings' }));
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('SPY|');
+    });
+  });
+
+  it('clears stale family comparisons and clamps coverage after an advanced primary change', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'select NASDAQ family' }));
+    await waitFor(() => expect(screen.getByTestId('backtest-selection').textContent).toBe('QQQ|QLD,TQQQ'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'change primary to AMDL' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
+      expect(screen.getByTestId('control-dates').textContent).toBe('2024-03-18|2026-08-13');
+    });
+  });
+
+  it('normalizes comparison updates at the parent boundary', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'send invalid comparisons' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('backtest-selection').textContent).toBe('SPY|QLD,TQQQ');
+    });
+  });
+
+  it('loads a saved backtest with clamped dates and a reset comparison presentation contract', async () => {
+    scenarioState.scenarios = [{
+      id: 'saved-amdl',
+      name: 'saved AMDL',
+      simulationMode: 'BACKTEST',
+      backtestStartDate: '2000-01-01',
+      backtestEndDate: '2099-01-01',
+      principal: 100,
+      annualRate: 0.08,
+      years: 1,
+      dailyContribution: 1,
+      strategyType: 'FIXED',
+      strategyBaseAmount: 10,
+      contributionCycle: 'MONTHLY',
+      assetType: 'AMDL',
+      accountType: 'GENERAL',
+      inflationRate: 0.02,
+      buyFeeRate: 0.00015,
+      sellFeeRate: 0.00015,
+      taxDividendRate: 0.154,
+      taxCapitalGainRate: 0.22,
+      taxIsaLimit: 2_000_000,
+      taxIsaReducedRate: 0.095,
+      currency: 'USD',
+      exchangeRate: 1,
+      exchangeAnnualChangeRate: 0,
+      createdAt: 1,
+      updatedAt: 1,
+    }];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'select NASDAQ family' }));
+    fireEvent.click(screen.getByRole('button', { name: 'show real basis' }));
+    fireEvent.click(screen.getByRole('button', { name: 'show normalized' }));
+    await waitFor(() => expect(screen.getByTestId('presentation-state').textContent).toBe('REAL|NORMALIZED'));
+
+    fireEvent.click(screen.getByText('saved AMDL'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
+      expect(screen.getByTestId('control-dates').textContent).toBe('2024-03-18|2026-08-13');
+      expect(screen.getByTestId('presentation-state').textContent).toBe('NOMINAL|PORTFOLIO');
     });
   });
 

@@ -8,7 +8,9 @@ import {
   getCommonCoverage,
   getFamilyDurationPresets,
   LEVERAGE_FAMILIES,
+  normalizeBacktestSelection,
   selectLeverageFamily,
+  transitionBacktestPrimary,
 } from '../leverageFamilies';
 
 describe('leveraged asset families', () => {
@@ -32,6 +34,34 @@ describe('leveraged asset families', () => {
     expect(selectLeverageFamily('NASDAQ')).toEqual({
       primaryAsset: 'QQQ',
       comparisonAssets: ['QLD', 'TQQQ'],
+    });
+  });
+
+  it('deduplicates comparisons, removes the primary, caps three total assets, and clamps dates', () => {
+    expect(normalizeBacktestSelection({
+      primaryAsset: 'QQQ',
+      comparisonAssets: ['QQQ', 'QLD', 'QLD', 'TQQQ', 'SPY'],
+      startDate: '1900-01-01',
+      endDate: '2099-12-31',
+    }, getHistoricalCoverage)).toEqual({
+      primaryAsset: 'QQQ',
+      comparisonAssets: ['QLD', 'TQQQ'],
+      startDate: getHistoricalCoverage('TQQQ').startDate,
+      endDate: getHistoricalCoverage('QQQ').endDate,
+    });
+  });
+
+  it('clears stale family comparisons and clamps dates when the primary changes', () => {
+    expect(transitionBacktestPrimary({
+      primaryAsset: 'QQQ',
+      comparisonAssets: ['QLD', 'TQQQ'],
+      startDate: '2010-02-11',
+      endDate: '2026-08-13',
+    }, 'AMDL', getHistoricalCoverage)).toEqual({
+      primaryAsset: 'AMDL',
+      comparisonAssets: [],
+      startDate: getHistoricalCoverage('AMDL').startDate,
+      endDate: getHistoricalCoverage('AMDL').endDate,
     });
   });
 

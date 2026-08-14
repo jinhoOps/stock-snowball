@@ -7,6 +7,7 @@ import type {
   LeverageInsight,
   ProductPerformanceResult,
 } from '../types/finance';
+import { normalizePersistedAssetType } from './assetMigration';
 
 export type LeverageFamily = {
   id: LeverageFamilyId;
@@ -45,6 +46,52 @@ export interface BacktestAssetSelection {
   startDate: string;
   endDate: string;
 }
+
+export interface BacktestSelectionInput {
+  primaryAsset: unknown;
+  comparisonAssets: readonly unknown[];
+  startDate?: unknown;
+  endDate?: unknown;
+}
+
+const asHistoricalAsset = (value: unknown): HistoricalAssetType =>
+  normalizePersistedAssetType(value, 'BACKTEST') as HistoricalAssetType;
+
+const clampDate = (value: unknown, minimum: string, maximum: string, fallback: string): string => {
+  if (typeof value !== 'string') return fallback;
+  if (value < minimum) return minimum;
+  if (value > maximum) return maximum;
+  return value;
+};
+
+export const normalizeBacktestSelection = (
+  input: BacktestSelectionInput,
+  getCoverage: HistoricalCoverageLookup,
+): BacktestAssetSelection => {
+  const primaryAsset = asHistoricalAsset(input.primaryAsset);
+  const comparisonAssets = [...new Set(input.comparisonAssets.map(asHistoricalAsset))]
+    .filter((asset): asset is HistoricalAssetType => asset !== primaryAsset)
+    .slice(0, 2);
+  const coverage = getCommonCoverage([primaryAsset, ...comparisonAssets], getCoverage);
+  let startDate = clampDate(input.startDate, coverage.startDate, coverage.endDate, coverage.startDate);
+  let endDate = clampDate(input.endDate, coverage.startDate, coverage.endDate, coverage.endDate);
+  if (startDate > endDate) {
+    startDate = coverage.startDate;
+    endDate = coverage.endDate;
+  }
+
+  return { primaryAsset, comparisonAssets, startDate, endDate };
+};
+
+export const transitionBacktestPrimary = (
+  current: BacktestSelectionInput,
+  primaryAsset: unknown,
+  getCoverage: HistoricalCoverageLookup,
+): BacktestAssetSelection => normalizeBacktestSelection({
+  ...current,
+  primaryAsset,
+  comparisonAssets: [],
+}, getCoverage);
 
 export const selectLeverageFamily = (familyId: LeverageFamilyId) => {
   const members = LEVERAGE_FAMILIES[familyId].members;

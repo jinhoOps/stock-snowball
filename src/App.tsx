@@ -22,7 +22,14 @@ import {
   normalizePersistedSimulationParams,
   readPersistedSimulationParams,
 } from './data/assetMigration';
-import { applyFamilySelection, calculateLeverageInsights, LEVERAGE_FAMILIES, type LeverageFamily } from './data/leverageFamilies';
+import {
+  applyFamilySelection,
+  calculateLeverageInsights,
+  LEVERAGE_FAMILIES,
+  normalizeBacktestSelection,
+  transitionBacktestPrimary,
+  type LeverageFamily,
+} from './data/leverageFamilies';
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
@@ -114,6 +121,22 @@ function App() {
     }));
     setComparisonAssets(selection.comparisonAssets);
   };
+
+  const handleComparisonAssetsChange = (assets: HistoricalAssetType[]) => {
+    const selection = normalizeBacktestSelection({
+      primaryAsset: backtestParams.assetType,
+      comparisonAssets: assets,
+      startDate: backtestParams.startDate,
+      endDate: backtestParams.endDate,
+    }, getHistoricalCoverage);
+    setBacktestParams((previous) => ({
+      ...previous,
+      assetType: selection.primaryAsset,
+      startDate: selection.startDate,
+      endDate: selection.endDate,
+    }));
+    setComparisonAssets(selection.comparisonAssets);
+  };
   
   const handleUpdateParams = (newParams: Partial<SimulationParams>) => {
     const applyLimits = (params: SimulationParams, changes: Partial<SimulationParams>): SimulationParams => {
@@ -132,11 +155,31 @@ function App() {
         'PROJECTION',
       ));
     } else {
-      setBacktestParams(prev => normalizePersistedSimulationParams(
-        applyLimits(prev, newParams),
+      const normalized = normalizePersistedSimulationParams(
+        applyLimits(backtestParams, newParams),
         DEFAULT_BACKTEST_PARAMS,
         'BACKTEST',
-      ));
+      );
+      const selection = normalized.assetType !== backtestParams.assetType
+        ? transitionBacktestPrimary({
+          primaryAsset: backtestParams.assetType,
+          comparisonAssets,
+          startDate: normalized.startDate,
+          endDate: normalized.endDate,
+        }, normalized.assetType, getHistoricalCoverage)
+        : normalizeBacktestSelection({
+          primaryAsset: normalized.assetType,
+          comparisonAssets,
+          startDate: normalized.startDate,
+          endDate: normalized.endDate,
+        }, getHistoricalCoverage);
+      setBacktestParams({
+        ...normalized,
+        assetType: selection.primaryAsset,
+        startDate: selection.startDate,
+        endDate: selection.endDate,
+      });
+      setComparisonAssets(selection.comparisonAssets);
     }
   };
 
@@ -607,7 +650,7 @@ function App() {
                         comparisonAssets={comparisonAssets}
                         results={comparisonResults}
                         leverageInsights={leverageInsights}
-                        onComparisonAssetsChange={setComparisonAssets}
+                        onComparisonAssetsChange={handleComparisonAssetsChange}
                         onFamilySelect={handleFamilySelect}
                         currency={currency}
                         valueBasis={valueBasis}
@@ -674,7 +717,8 @@ function App() {
                     whileTap={{ scale: 0.98 }}
                     className={`bg-apple-surface-pearl/80 backdrop-blur-md border rounded-xl p-6 transition-all cursor-pointer shadow-sm hover:shadow-md relative overflow-hidden group ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-2 ring-apple-primary/20 bg-white' : 'border-white/60 hover:border-apple-primary/40'}`}
                     onClick={() => {
-                      setMode(s.simulationMode || 'PROJECTION');
+                      const scenarioMode = s.simulationMode || 'PROJECTION';
+                      setMode(scenarioMode);
                       const newParams: SimulationParams = {
                         principal: s.principal,
                         contribution: s.strategyBaseAmount,
@@ -689,8 +733,34 @@ function App() {
                         startDate: s.backtestStartDate,
                         endDate: s.backtestEndDate,
                       };
-                      if (s.simulationMode === 'BACKTEST') setBacktestParams(newParams);
-                      else setProjectionParams(newParams);
+                      if (scenarioMode === 'BACKTEST') {
+                        const normalized = normalizePersistedSimulationParams(
+                          newParams,
+                          DEFAULT_BACKTEST_PARAMS,
+                          'BACKTEST',
+                        );
+                        const selection = transitionBacktestPrimary({
+                          primaryAsset: backtestParams.assetType,
+                          comparisonAssets,
+                          startDate: normalized.startDate,
+                          endDate: normalized.endDate,
+                        }, normalized.assetType, getHistoricalCoverage);
+                        setBacktestParams({
+                          ...normalized,
+                          assetType: selection.primaryAsset,
+                          startDate: selection.startDate,
+                          endDate: selection.endDate,
+                        });
+                        setComparisonAssets(selection.comparisonAssets);
+                        setValueBasis('NOMINAL');
+                        setBacktestResultView('PORTFOLIO');
+                      } else {
+                        setProjectionParams(normalizePersistedSimulationParams(
+                          newParams,
+                          DEFAULT_PROJECTION_PARAMS,
+                          'PROJECTION',
+                        ));
+                      }
                       setScenarioName(s.name);
                     }}
                   >
