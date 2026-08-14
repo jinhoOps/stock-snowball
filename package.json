@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "data:refresh": "uv run python scripts/refresh_market_data.py",
+    "data:check": "uv run python scripts/refresh_market_data.py --check"
   },
   "repository": {
     "type": "git",

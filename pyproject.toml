@@ -1,0 +1,12 @@
+[project]
+name = "stock-snowball-market-data"
+version = "0.1.0"
+description = "Manual static market-data generation for Stock Snowball"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "yfinance>=1.6.0",
+]
+
+[tool.uv]
+package = false

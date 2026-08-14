@@ -24,6 +24,21 @@ npm install
 npm run dev
 ```
 
+## 백테스트 데이터 갱신
+
+백테스트 데이터는 브라우저와 배포 CI가 외부 시세 API를 호출하지 않도록 정적 파일로 제공합니다. Python 도구는 `uv`와 Python 3.13을 사용하며, 데이터 갱신은 개발자가 수동으로 실행합니다.
+
+```bash
+uv python install 3.13 --default
+uv sync --locked
+npm run data:refresh # Yahoo Finance 데이터를 수동으로 갱신
+npm run data:check   # 네트워크 없이 생성 데이터를 검증
+npm test
+npm run build
+```
+
+시세는 실제 종목·지수의 제공 가능한 기간만 사용합니다. 생성 데이터는 분할 조정 종가와 별도 현금 배당을 보관하며, CSV와 매니페스트 변경 사항을 검토한 후 커밋합니다.
+
 ⚡ *Built autonomously using [GSD](https://github.com/gsd-build/get-shit-done).*
 ---
 
