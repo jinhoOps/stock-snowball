@@ -5,6 +5,7 @@
 - Repository: `stock-snowball@1.3.27`; verification date: 2026-08-14.
 - Candidate dependency commit: `f9b2f62d96ef25e49db6e9c4d31da3275bbe30e7` (`chore: restore React 19 dependency integrity`).
 - The development server was started with `npm run dev -- --host 127.0.0.1` at `http://127.0.0.1:5173/stock-snowball/`, then stopped after the browser attempt.
+- The resumed check used the Orca built-in browser. Its actual browser viewport was 881x838 at DPR 2; the documented typed command surface has no viewport setter, and required `orca exec --command "help"` returned `Unknown command: help`. The requested 1440x900 and 390x844 sizes therefore could not be set without guessing an unsupported command.
 
 ## Install and dependency graph
 
@@ -26,15 +27,17 @@ The build emitted `vendor-visx-DDVHAbEc.js` at 20.40 kB raw and 7.74 kB gzip. Ag
 
 ## Desktop visual smoke test
 
-Blocked. The required in-app-browser runtime selection for the local URL returned `No browser is available`; the required availability check returned `[]`. Consequently, the 1440x900 projection and backtest chart layout, labels, axes, legend, controls, tooltip/scrub behavior, and console could not be observed in a real browser.
+Blocked at the required 1440x900 size because the Orca built-in browser could not set that viewport. At its actual 881x838 viewport, the default projection rendered as a 791x387.5 SVG with grid, axes, year/value labels, and non-zero dimensions. A pointer event over the chart showed the `visx-tooltip` (`2031년 8월 18일`, scenario, invested amount, and range). Activating `과거 백테스트 모드` set the backtest tab to `aria-pressed=true` and rendered the historical chart, date/YTD/1Y/5Y controls, asset selector, comparison table, and legend. `orca console --limit 50` returned no messages.
+
+The matching chart hover through the built-in browser's `hover` command on the exposed backtest graphics symbol did not create a `visx-tooltip`; its scrub/tooltip condition is therefore not passed. No Visx, `ResizeObserver`, ESM-resolution, or React-peer console error was present.
 
 ## Mobile visual smoke test
 
-Blocked for the same unavailable required browser backend. The 390x844 projection and backtest chart layout, labels, axes, legend, controls, tooltip/scrub behavior, and console could not be observed in a real browser.
+Blocked. The Orca browser was available, but its fixed 881x838 viewport could not be changed to the required 390x844 mobile size through a documented built-in-browser command. Mobile layout, tooltip/scrub behavior, and console assertions at 390x844 remain unverified.
 
 ## Deferred findings
 
-Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and transitive audit findings are listed above. The visual smoke-test acceptance condition remains unavailable, not passed: no alternative browser surface was used. Reconnect an in-app browser and rerun both viewport checks before accepting Workstream 1.
+Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and transitive audit findings are listed above. The visual smoke-test acceptance condition remains not passed: exact desktop/mobile viewport control was unavailable and the observed backtest hover did not expose a tooltip. No alternative browser surface was used. Add a documented Orca viewport control (or make it available), then rerun both target sizes and resolve the backtest hover evidence before accepting Workstream 1.
 
 ## Rollback
 
