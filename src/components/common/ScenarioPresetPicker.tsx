@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { HistoricalCoverage } from '../../data/historicalAssets';
 
 export interface PresetScenario {
   name: string;
@@ -9,11 +10,8 @@ export interface PresetScenario {
   isDuration?: boolean;
 }
 
-// Today is 2026-05-14
-const TODAY = "2026-05-14";
-
-const getDurationPresets = (): PresetScenario[] => {
-  const today = new Date(TODAY);
+export const getDurationPresets = (coverage: HistoricalCoverage): PresetScenario[] => {
+  const today = new Date(coverage.endDate);
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
   
   const ytdStart = new Date(today.getFullYear(), 0, 1);
@@ -31,12 +29,12 @@ const getDurationPresets = (): PresetScenario[] => {
   };
 
   return [
-    { name: "YTD", startDate: formatDate(ytdStart), endDate: TODAY, description: "올해 초부터 현재까지", isDuration: true },
-    { name: "1M", startDate: formatDate(subMonths(today, 1)), endDate: TODAY, description: "최근 1개월", isDuration: true },
-    { name: "6M", startDate: formatDate(subMonths(today, 6)), endDate: TODAY, description: "최근 6개월", isDuration: true },
-    { name: "1Y", startDate: formatDate(subYears(today, 1)), endDate: TODAY, description: "최근 1년", isDuration: true },
-    { name: "5Y", startDate: formatDate(subYears(today, 5)), endDate: TODAY, description: "최근 5년", isDuration: true },
-    { name: "10Y", startDate: formatDate(subYears(today, 10)), endDate: TODAY, description: "최근 10년", isDuration: true },
+    { name: "YTD", startDate: formatDate(ytdStart), endDate: coverage.endDate, description: "올해 초부터 현재까지", isDuration: true },
+    { name: "1M", startDate: formatDate(subMonths(today, 1)), endDate: coverage.endDate, description: "최근 1개월", isDuration: true },
+    { name: "6M", startDate: formatDate(subMonths(today, 6)), endDate: coverage.endDate, description: "최근 6개월", isDuration: true },
+    { name: "1Y", startDate: formatDate(subYears(today, 1)), endDate: coverage.endDate, description: "최근 1년", isDuration: true },
+    { name: "5Y", startDate: formatDate(subYears(today, 5)), endDate: coverage.endDate, description: "최근 5년", isDuration: true },
+    { name: "10Y", startDate: formatDate(subYears(today, 10)), endDate: coverage.endDate, description: "최근 10년", isDuration: true },
   ];
 };
 
@@ -73,17 +71,26 @@ export const HISTORICAL_SCENARIOS: PresetScenario[] = [
   }
 ];
 
-export const PRESET_SCENARIOS = [...getDurationPresets(), ...HISTORICAL_SCENARIOS];
+export const isPresetSupported = (preset: PresetScenario, coverage: HistoricalCoverage): boolean =>
+  preset.startDate >= coverage.startDate &&
+  preset.endDate <= coverage.endDate &&
+  preset.startDate <= preset.endDate;
+
+export const getPresetScenarios = (coverage: HistoricalCoverage): PresetScenario[] => [
+  ...getDurationPresets(coverage),
+  ...HISTORICAL_SCENARIOS,
+];
 
 interface ScenarioPresetPickerProps {
   onSelect: (preset: PresetScenario) => void;
+  coverage: HistoricalCoverage;
   activePresetName?: string;
 }
 
-const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, activePresetName }) => {
+const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, coverage, activePresetName }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const durationPresets = useMemo(() => getDurationPresets(), []);
+  const durationPresets = useMemo(() => getDurationPresets(coverage), [coverage]);
   
   // Basic scenarios to show when not expanded (YTD, 1Y, 5Y)
   const basicScenarios = useMemo(() => 
@@ -99,6 +106,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, a
             key={preset.name}
             preset={preset}
             isActive={activePresetName === preset.name}
+            disabled={!isPresetSupported(preset, coverage)}
             onClick={() => onSelect(preset)}
           />
         ))}
@@ -133,6 +141,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, a
                     key={preset.name}
                     preset={preset}
                     isActive={activePresetName === preset.name}
+                    disabled={!isPresetSupported(preset, coverage)}
                     onClick={() => onSelect(preset)}
                   />
                 ))}
@@ -147,6 +156,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, a
                     key={preset.name}
                     preset={preset}
                     isActive={activePresetName === preset.name}
+                    disabled={!isPresetSupported(preset, coverage)}
                     onClick={() => onSelect(preset)}
                   />
                 ))}
@@ -162,18 +172,21 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({ onSelect, a
 const ScenarioButton = ({ 
   preset, 
   isActive, 
+  disabled,
   onClick 
 }: { 
   preset: PresetScenario; 
   isActive: boolean; 
+  disabled: boolean;
   onClick: () => void;
 }) => (
   <motion.button
     whileHover={{ scale: 1.05 }}
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
+    disabled={disabled}
     title={preset.description}
-    className={`px-4 py-2 rounded-pill text-[12px] font-bold border transition-all relative overflow-hidden ${
+    className={`px-4 py-2 rounded-pill text-[12px] font-bold border transition-all relative overflow-hidden disabled:cursor-not-allowed disabled:opacity-40 ${
       isActive
         ? 'bg-apple-primary text-white border-apple-primary shadow-md scale-105 z-10'
         : 'bg-white text-apple-ink border-apple-hairline hover:bg-apple-canvas-parchment shadow-sm hover:border-apple-primary/30'

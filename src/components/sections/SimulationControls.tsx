@@ -3,7 +3,8 @@ import { SimulationMode, SimulationParams } from '../../types/finance';
 import { motion } from 'framer-motion';
 import { BigNumberHelper } from '../common/BigNumberHelper';
 import { NumericInput } from '../common/NumericInput';
-import ScenarioPresetPicker, { PRESET_SCENARIOS } from '../common/ScenarioPresetPicker';
+import ScenarioPresetPicker, { getPresetScenarios } from '../common/ScenarioPresetPicker';
+import { getHistoricalCoverage, getHistoricalRangeError } from '../../data/historicalAssets';
 
 interface SimulationControlsProps {
   mode: SimulationMode;
@@ -17,6 +18,14 @@ interface SimulationControlsProps {
 }
 
 const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
+  const historicalCoverage = getHistoricalCoverage(props.params.assetType);
+  const historicalRangeError = getHistoricalRangeError(
+    props.params.assetType,
+    props.params.startDate || historicalCoverage.startDate,
+    props.params.endDate || historicalCoverage.endDate,
+  );
+  const presetScenarios = getPresetScenarios(historicalCoverage);
+
   const handleCurrencyToggle = (newCurrency: 'KRW' | 'USD') => {
     props.setCurrency(newCurrency);
   };
@@ -195,24 +204,34 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
                  <input 
                   type="date"
                   value={props.params.startDate}
+                  min={historicalCoverage.startDate}
+                  max={historicalCoverage.endDate}
                   onChange={(e) => updateParam('startDate', e.target.value)}
                   className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 h-12 text-body outline-none focus:border-apple-primary transition-all font-text"
                  />
                  <input 
                   type="date"
                   value={props.params.endDate}
+                  min={historicalCoverage.startDate}
+                  max={historicalCoverage.endDate}
                   onChange={(e) => updateParam('endDate', e.target.value)}
                   className="flex-1 bg-apple-canvas border border-apple-hairline rounded-pill px-4 h-12 text-body outline-none focus:border-apple-primary transition-all font-text"
                  />
                </div>
+               {historicalRangeError && (
+                 <p className="text-caption text-apple-error px-2" role="alert">
+                   {historicalRangeError}
+                 </p>
+               )}
                <ScenarioPresetPicker 
+                 coverage={historicalCoverage}
                  onSelect={(preset) => {
                    props.onUpdate({
                      startDate: preset.startDate,
                      endDate: preset.endDate
                    });
                  }}
-                 activePresetName={PRESET_SCENARIOS.find(p => p.startDate === props.params.startDate && p.endDate === props.params.endDate)?.name}
+                 activePresetName={presetScenarios.find(p => p.startDate === props.params.startDate && p.endDate === props.params.endDate)?.name}
                />
              </div>
           </div>

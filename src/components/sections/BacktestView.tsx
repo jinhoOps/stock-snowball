@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { BacktestResult, AssetType, SimulationParams } from '../../types/finance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { BacktestEngine } from '../../core/BacktestEngine';
-import { getHistoricalData } from '../../data/historicalAssets';
+import { getHistoricalData, getHistoricalRangeError } from '../../data/historicalAssets';
 import BacktestChart from '../charts/BacktestChart';
 
 interface BacktestViewProps {
@@ -32,13 +32,17 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency
     comparisonAssets.forEach((assetId) => {
       if (assetId === assetName) return; // Skip if same as primary
 
+      const startDate = params.startDate || '2010-01-01';
+      const endDate = params.endDate || '2024-01-01';
+      if (getHistoricalRangeError(assetId, startDate, endDate)) return;
+
       const data = getHistoricalData(assetId);
       const btParams = {
         initialPrincipal: params.principal,
         monthlyInstallment: params.contribution,
         cycle: params.cycle,
-        startDate: params.startDate || '2010-01-01',
-        endDate: params.endDate || '2024-01-01',
+        startDate,
+        endDate,
         reinvestDividends: true,
         assetId,
         accountType: params.accountType,

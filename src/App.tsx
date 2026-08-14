@@ -13,7 +13,7 @@ import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { useScenarios } from './hooks/useScenarios';
 import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
-import { getHistoricalData, calculateMedianCAGR } from './data/historicalAssets';
+import { calculateMedianCAGR, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
 
@@ -181,16 +181,18 @@ function App() {
 
   const activeBacktest = useMemo(() => {
     if (mode !== 'BACKTEST') return null;
-    
-    // 선택된 자산의 과거 데이터 사용
+    const startDate = backtestParams.startDate || '2010-01-01';
+    const endDate = backtestParams.endDate || '2024-01-01';
+    if (getHistoricalRangeError(backtestParams.assetType, startDate, endDate)) return null;
+
     const data = getHistoricalData(backtestParams.assetType);
     
     const params = {
       initialPrincipal: backtestParams.principal,
       monthlyInstallment: backtestParams.contribution,
       cycle: backtestParams.cycle,
-      startDate: backtestParams.startDate || '2010-01-01',
-      endDate: backtestParams.endDate || '2024-01-01',
+      startDate,
+      endDate,
       reinvestDividends: true,
       assetId: backtestParams.assetType,
       accountType: backtestParams.accountType,
@@ -267,17 +269,22 @@ function App() {
 
     const comparing = scenarios
       .filter(s => comparingScenarioIds.includes(s.id))
-      .map((s, index) => {
+      .flatMap((s, index) => {
         if (s.simulationMode === 'BACKTEST') {
-          const data = getHistoricalData(s.assetType || 'SPY');
+          const assetType = s.assetType || 'SPY';
+          const startDate = s.backtestStartDate || '2010-01-01';
+          const endDate = s.backtestEndDate || '2024-01-01';
+          if (getHistoricalRangeError(assetType, startDate, endDate)) return [];
+
+          const data = getHistoricalData(assetType);
           const bt = BacktestEngine.run({
             initialPrincipal: s.principal,
             monthlyInstallment: s.strategyBaseAmount,
             cycle: s.contributionCycle || 'MONTHLY',
-            startDate: s.backtestStartDate || '2010-01-01',
-            endDate: s.backtestEndDate || '2024-01-01',
+            startDate,
+            endDate,
             reinvestDividends: true,
-            assetId: s.assetType || 'SPY',
+            assetId: assetType,
             accountType: s.accountType,
             buyFeeRate: 0.00015,
             sellFeeRate: 0.00015,
@@ -286,12 +293,12 @@ function App() {
             taxIsaLimit: 2000000,
             taxIsaReducedRate: 0.095,
           }, data);
-          return {
+          return [{
             id: s.id,
             name: s.name,
             color: SCENARIO_COLORS[(index + 1) % SCENARIO_COLORS.length],
             points: bt.history.map(r => ({ date: new Date(r.date), value: r.value, contribution: r.principal }))
-          };
+          }];
         }
 
         const sim = SnowballEngine.simulateRange(
@@ -312,7 +319,7 @@ function App() {
           30,
           s.assetType || 'CUSTOM'
         );
-        return {
+        return [{
           id: s.id,
           name: s.name,
           color: SCENARIO_COLORS[(index + 1) % SCENARIO_COLORS.length],
@@ -324,7 +331,7 @@ function App() {
           optimistic: sim.optimistic[i].postTaxValue,
           contribution: r.totalContribution
           }))
-          };
+        }];
           });
     return [main, ...comparing];
   }, [activeSimulation, activeBacktest, scenarioName, scenarios, comparingScenarioIds, mode]);
