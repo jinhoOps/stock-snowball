@@ -31,6 +31,20 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+
+      - name: Install pinned Python
+        run: uv python install --managed-python
+
+      - name: Validate static market data
+        run: |
+          uv sync --locked
+          uv run python -m unittest tests.test_market_data -v
+          npm run data:check
+
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
