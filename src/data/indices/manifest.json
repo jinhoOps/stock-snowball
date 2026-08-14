@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "source": "Yahoo Finance via yfinance",
+  "generatedAt": "2026-08-14T01:19:15Z",
+  "assets": {
+    "QQQM": {
+      "assetId": "QQQM",
+      "ticker": "QQQM",
+      "displayName": "QQQM",
+      "currency": "USD",
+      "startDate": "2020-10-13",
+      "endDate": "2026-08-13",
+      "rowCount": 1465
+    },
+    "QLD": {
+      "assetId": "QLD",
+      "ticker": "QLD",
+      "displayName": "QLD",
+      "currency": "USD",
+      "startDate": "2006-06-21",
+      "endDate": "2026-08-13",
+      "rowCount": 5068
+    },
+    "TQQQ": {
+      "assetId": "TQQQ",
+      "ticker": "TQQQ",
+      "displayName": "TQQQ",
+      "currency": "USD",
+      "startDate": "2010-02-11",
+      "endDate": "2026-08-13",
+      "rowCount": 4151
+    },
+    "SPY": {
+      "assetId": "SPY",
+      "ticker": "SPY",
+      "displayName": "SPY",
+      "currency": "USD",
+      "startDate": "1993-01-29",
+      "endDate": "2026-08-13",
+      "rowCount": 8442
+    },
+    "SCHD": {
+      "assetId": "SCHD",
+      "ticker": "SCHD",
+      "displayName": "SCHD",
+      "currency": "USD",
+      "startDate": "2011-10-20",
+      "endDate": "2026-08-13",
+      "rowCount": 3724
+    },
+    "KOSPI": {
+      "assetId": "KOSPI",
+      "ticker": "^KS200",
+      "displayName": "KOSPI 200",
+      "currency": "KRW",
+      "startDate": "1996-03-20",
+      "endDate": "2026-08-14",
+      "rowCount": 7421
+    },
+    "KOSDAQ": {
+      "assetId": "KOSDAQ",
+      "ticker": "^KQ11",
+      "displayName": "KOSDAQ",
+      "currency": "KRW",
+      "startDate": "2000-10-16",
+      "endDate": "2026-08-14",
+      "rowCount": 6365
+    },
+    "GOLD": {
+      "assetId": "GOLD",
+      "ticker": "GC=F",
+      "displayName": "Gold Futures",
+      "currency": "USD",
+      "startDate": "2000-08-30",
+      "endDate": "2026-08-13",
+      "rowCount": 6512
+    }
+  }
+}
