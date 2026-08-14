@@ -2,7 +2,7 @@
 
 ## Goal
 
-Move Stock Snowball to current stable frontend dependencies through reversible, independently verifiable migrations. Adopt Anime.js as the sole JavaScript animation engine over time, use CSS and Tailwind for simple interaction states, and remove Motion after its React-specific behaviors have either been simplified or replaced.
+Move Stock Snowball to current stable frontend dependencies through reversible, independently verifiable migrations. Adopt Anime.js as the sole general-purpose UI animation engine over time, use CSS and Tailwind for simple interaction states, and remove Motion after its React-specific behaviors have either been simplified or replaced.
 
 ## Current state
 
@@ -30,11 +30,13 @@ The stable target versions evaluated on 2026-08-14 are:
 
 These targets are a roadmap, not one atomic dependency update. The existing uv market-data design retains its Node 20 CI constraint until the dedicated runtime migration updates and re-verifies that workflow.
 
+The final browser floor is Chrome 111+, Edge 111+, Firefox 128+, and Safari 16.4+. This combines the stricter requirements of Tailwind CSS 4 and Vite 8. Browsers below this floor are not supported after those migrations ship.
+
 ## Architecture decisions
 
 ### One animation owner
 
-Anime.js becomes the only long-term JavaScript animation dependency. New Motion usage is prohibited once the Anime.js migration starts. The application does not maintain two permanent animation abstractions.
+Anime.js becomes the only long-term general-purpose UI animation engine. New Motion usage is prohibited once the Anime.js migration starts. The application does not maintain two permanent UI animation abstractions. `canvas-confetti` remains as a specialized particle-effect dependency and is not replaced by Anime.js.
 
 Animation ownership is divided as follows:
 
@@ -55,7 +57,7 @@ Every Anime.js integration is scoped to a component root with `createScope({ roo
 - Every animation path respects `prefers-reduced-motion` and presents the final state without delay when motion is reduced.
 - Animation must not change keyboard focus order, accessible names, or the availability of controls.
 - Decorative effects must not block interaction or trigger React state updates on every frame.
-- Each migration records the production bundle delta. Anime.js is not accepted if the migrated slice leaves the Motion code in the same chunk while adding an unbounded second animation chunk.
+- Each migration records the production bundle delta. The Anime.js pilot may add no more than 12 KiB gzip to total production JavaScript relative to the Workstream 2 baseline while Motion temporarily remains. After Motion removal, total production JavaScript must be no larger than that baseline. If either limit is exceeded, expansion stops until imports move to CSS or `animejs/waapi`, or the affected feature is simplified.
 
 ### Stateful storage safety
 
@@ -65,7 +67,7 @@ The current CryptoJS wrapper and hard-coded database password remain a known sec
 
 ## Delivery decomposition
 
-Each workstream produces a buildable, testable commit series and receives its own implementation plan.
+Each of the seven workstreams produces a buildable, testable commit series and receives its own implementation plan.
 
 ### Workstream 1: Restore dependency integrity
 
@@ -107,16 +109,24 @@ Acceptance: the pilot has no mixed ownership on a DOM element, cleanup is proven
 
 Acceptance: zero Motion imports, no Motion package, equivalent control availability, passing accessibility checks, and no custom general-purpose presence framework.
 
-### Workstream 5: Upgrade styling and build tooling
+### Workstream 5: Upgrade styling
 
 - Migrate Tailwind 3 to Tailwind 4 with its Vite integration and CSS-first theme configuration.
 - Validate all custom Apple design tokens, `@apply` usage, Preflight changes, and supported browser floors through screenshot comparison.
-- Migrate Vite 6 through the documented Rolldown compatibility path to Vite 8, then update the React plugin.
+- Replace the current PostCSS integration with `@tailwindcss/vite`, then remove obsolete PostCSS and Autoprefixer declarations when the build no longer consumes them.
+
+Acceptance: desktop and mobile visual baselines pass at every supported browser floor, design tokens and `@apply` output remain correct, and PostCSS audit findings are resolved.
+
+### Workstream 6: Upgrade Vite and PWA build tooling
+
+- Migrate Vite 6 through the documented Rolldown compatibility path to Vite 8.
+- Update `@vitejs/plugin-react` to 6.0.5.
 - Verify PWA generation, service-worker updates, `manualChunks`, static historical data, and GitHub Pages base paths.
+- Compare production chunk names, gzip sizes, cache invalidation, and offline behavior with the Tailwind 4 baseline.
 
-Acceptance: visual baselines pass, PWA install and offline reload work, production chunks remain intentional, and Vite/PostCSS audit findings are resolved.
+Acceptance: development and production preview modes work, PWA install and offline reload succeed, production chunks remain intentional, GitHub Pages paths remain valid, and Vite audit findings are resolved.
 
-### Workstream 6: Upgrade TypeScript and runtime policy
+### Workstream 7: Upgrade TypeScript and runtime policy
 
 - Remove TypeScript 6 deprecation suppressions and deprecated compiler options before installing TypeScript 7.
 - Make `rootDir`, global `types`, and path resolution explicit where TypeScript 7 defaults differ.
@@ -151,9 +161,10 @@ Stateful storage and service-worker changes add dedicated upgrade and rollback e
 - Updating every dependency in one command.
 - Rewriting charts while upgrading Visx.
 - Building a replacement animation framework around Anime.js.
+- Replacing `canvas-confetti` with a custom Anime.js particle system.
 - Changing financial calculations or historical data semantics.
 - Changing the RxDB schema or encryption key during a dependency-only storage update.
-- Supporting browsers below the eventually approved Tailwind 4 and Vite 8 browser floors.
+- Supporting Chrome below 111, Edge below 111, Firefox below 128, or Safari below 16.4 after the Tailwind 4 and Vite 8 migrations.
 
 ## Final acceptance
 
