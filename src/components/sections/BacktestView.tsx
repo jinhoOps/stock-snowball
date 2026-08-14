@@ -152,6 +152,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
           {ASSET_OPTIONS.map((asset) => {
             const isPrimary = asset === primaryAsset;
             const isSelected = isPrimary || comparisonAssets.includes(asset);
+            const isUnavailableAtLimit = comparisonAssets.length >= 2 && !isSelected;
             const multiple = targetMultipleOf(asset);
             return (
               <button
@@ -159,18 +160,20 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                 type="button"
                 aria-label={`${asset} 개별 자산 ${isSelected ? '선택됨' : '선택'}`}
                 aria-pressed={isSelected}
+                aria-describedby={isUnavailableAtLimit ? 'asset-selection-limit' : undefined}
+                title={isUnavailableAtLimit ? '최대 3개까지 선택할 수 있습니다.' : undefined}
                 onClick={() => toggleAsset(asset)}
-                disabled={isPrimary}
+                disabled={isPrimary || isUnavailableAtLimit}
                 className={`flex items-center gap-2 rounded-pill border px-3 py-2 text-caption-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2 ${isSelected
                   ? 'border-apple-surface-black bg-apple-surface-black text-apple-on-dark'
-                  : 'border-white/60 bg-apple-surface-pearl text-apple-ink hover:border-apple-primary/40'} ${isPrimary ? 'cursor-default' : ''}`}
+                  : 'border-white/60 bg-apple-surface-pearl text-apple-ink hover:border-apple-primary/40'} ${isPrimary ? 'cursor-default' : ''} ${isUnavailableAtLimit ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 {asset}<MetricBadge multiple={multiple} />
               </button>
             );
           })}
         </div>
-        <p className="text-fine-print text-apple-ink-muted-48">비교할 자산을 최대 3개까지 선택할 수 있습니다.</p>
+        <p id="asset-selection-limit" className="text-fine-print text-apple-ink-muted-48">비교할 자산을 최대 3개까지 선택할 수 있습니다.</p>
       </div>
 
       <div className="flex w-full max-w-[1200px] flex-col justify-between gap-3 px-4 sm:flex-row sm:items-start">

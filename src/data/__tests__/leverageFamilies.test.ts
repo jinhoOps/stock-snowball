@@ -14,6 +14,18 @@ import {
 } from '../leverageFamilies';
 
 describe('leveraged asset families', () => {
+  it('defines the exact approved membership and target for all four families', () => {
+    expect(Object.fromEntries(Object.entries(LEVERAGE_FAMILIES).map(([id, family]) => [
+      id,
+      family.members.map(({ assetId, targetMultiple }) => [assetId, targetMultiple]),
+    ]))).toEqual({
+      NASDAQ: [['QQQ', 1], ['QLD', 2], ['TQQQ', 3]],
+      AMD: [['AMD', 1], ['AMDL', 2]],
+      TESLA: [['TSLA', 1], ['TSLL', 2]],
+      SEMICONDUCTORS: [['SOXX', 1], ['SOXL', 3]],
+    });
+  });
+
   it('changes primary, comparisons, and dates as one family action', () => {
     const next = applyFamilySelection(
       { assetType: 'SPY', startDate: '2000-01-01', endDate: '2026-08-13' },

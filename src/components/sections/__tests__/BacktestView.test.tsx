@@ -222,7 +222,12 @@ describe('BacktestView', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /AMD 개별 자산/ }));
+    const unavailableAsset = screen.getByRole('button', { name: /AMD 개별 자산/ });
+    expect(unavailableAsset.hasAttribute('disabled')).toBe(true);
+    expect(unavailableAsset.getAttribute('title')).toContain('최대 3개');
+    expect(unavailableAsset.getAttribute('aria-describedby')).toBe('asset-selection-limit');
+
+    await user.click(unavailableAsset);
 
     expect(onComparisonAssetsChange).not.toHaveBeenCalled();
   });

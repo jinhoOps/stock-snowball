@@ -5,6 +5,7 @@ import {
   getHistoricalData,
   getHistoricalRangeError,
   isHistoricalRangeCovered,
+  findPointOnOrBefore,
   parseHistoricalCsv,
 } from '../historicalAssets';
 
@@ -38,5 +39,25 @@ describe('historical CSV data', () => {
     expect(isHistoricalRangeCovered('QQQ', qqq.startDate, qqq.endDate)).toBe(true);
     expect(isHistoricalRangeCovered('QQQ', '1999-03-09', '2002-10-09')).toBe(false);
     expect(getHistoricalRangeError('QQQ', '1999-03-09', '2002-10-09')).toContain('QQQ');
+  });
+
+  it('finds prior GOLD dates with logarithmic indexed access', () => {
+    const points = Array.from({ length: 16_384 }, (_, index) => ({
+      date: new Date(Date.UTC(1980, 0, index + 1)).toISOString().slice(0, 10),
+      price: index + 1,
+      dividendYield: 0,
+    }));
+    let indexedReads = 0;
+    const instrumented = new Proxy(points, {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && /^\d+$/.test(property)) indexedReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    expect(findPointOnOrBefore(instrumented, points[12_345].date)).toEqual(points[12_345]);
+    expect(indexedReads).toBeLessThan(64);
+    expect(findPointOnOrBefore(points, '0000-01-01')).toBeNull();
+    expect(findPointOnOrBefore(points, '9999-12-31')).toEqual(points.at(-1));
   });
 });

@@ -187,15 +187,14 @@ export const findPointOnOrBefore = (
   points: readonly IndexPoint[],
   date: string,
 ): IndexPoint | null => {
-  let closest: IndexPoint | null = null;
-
-  for (const point of points) {
-    if (point.date <= date && (!closest || point.date > closest.date)) {
-      closest = point;
-    }
+  let low = 0;
+  let high = points.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (points[middle].date <= date) low = middle + 1;
+    else high = middle;
   }
-
-  return closest;
+  return low > 0 ? points[low - 1] : null;
 };
 
 /**

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { AxisBottom, AxisLeft } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { localPoint } from '@visx/event';
@@ -51,6 +51,39 @@ export const findClosestPointOnOrBefore = (
   return low > 0 ? points[low - 1] : null;
 };
 
+type BacktestTooltipPoint = BacktestDisplayPoint & Pick<BacktestDisplaySeries, 'assetId' | 'targetMultiple' | 'color'>;
+
+export interface BacktestTooltipData {
+  date: string;
+  points: BacktestTooltipPoint[];
+}
+
+export const resolveBacktestTooltip = (
+  series: readonly BacktestDisplaySeries[],
+  date: string,
+): BacktestTooltipData | null => {
+  const points = series.flatMap((item) => {
+    const closest = findClosestPointOnOrBefore(item.points, date);
+    return closest ? [{
+      ...closest,
+      assetId: item.assetId,
+      targetMultiple: item.targetMultiple,
+      color: item.color,
+    }] : [];
+  });
+  return points.length > 0 ? { date, points } : null;
+};
+
+const tooltipDateFormatter = new Intl.DateTimeFormat('ko-KR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+
+export const formatBacktestTooltipDate = (date: string): string =>
+  tooltipDateFormatter.format(new Date(`${date}T00:00:00Z`));
+
 const tooltipStyles = {
   ...defaultStyles,
   background: 'rgba(255, 255, 255, 0.94)',
@@ -65,7 +98,7 @@ const tooltipStyles = {
   zIndex: 100,
 };
 
-const BacktestChartInner: React.FC<BacktestChartProps & { width: number; height: number }> = React.memo(({
+export const BacktestChartInner: React.FC<BacktestChartProps & { width: number; height: number }> = React.memo(({
   series,
   currency,
   resultView,
@@ -101,10 +134,18 @@ const BacktestChartInner: React.FC<BacktestChartProps & { width: number; height:
   const formatValue = useCallback((value: number) => resultView === 'NORMALIZED'
     ? value.toLocaleString('ko-KR', { maximumFractionDigits: 2 })
     : SnowballEngine.formatBigNumber(value, currency), [currency, resultView]);
-  const { showTooltip, hideTooltip, tooltipData, tooltipLeft } = useTooltip<{
-    date: Date;
-    points: Array<BacktestDisplayPoint & Pick<BacktestDisplaySeries, 'assetId' | 'targetMultiple' | 'color'>>;
-  }>();
+  const { showTooltip, hideTooltip, tooltipData, tooltipLeft } = useTooltip<BacktestTooltipData>();
+  const keyboardDates = useMemo(() => [...new Set(series.flatMap((item) => item.points.map((point) => point.date)))].sort(), [series]);
+  const [keyboardIndex, setKeyboardIndex] = useState(0);
+  const [keyboardFocused, setKeyboardFocused] = useState(false);
+  const currentKeyboardIndex = Math.min(keyboardIndex, Math.max(0, keyboardDates.length - 1));
+
+  const showTooltipAtDate = useCallback((date: string, requestedLeft?: number) => {
+    const resolved = resolveBacktestTooltip(series, date);
+    if (!resolved) return;
+    const left = requestedLeft ?? dateScale(new Date(`${date}T00:00:00Z`));
+    showTooltip({ tooltipData: resolved, tooltipLeft: left });
+  }, [dateScale, series, showTooltip]);
 
   const handleTooltip = useCallback((event: React.MouseEvent<SVGRectElement> | React.TouchEvent<SVGRectElement>) => {
     const point = localPoint(event);
@@ -116,13 +157,26 @@ const BacktestChartInner: React.FC<BacktestChartProps & { width: number; height:
     }
     const hoveredDate = dateScale.invert(left);
     const date = hoveredDate.toISOString().slice(0, 10);
-    const rows = series.flatMap((item) => {
-      const closest = findClosestPointOnOrBefore(item.points, date);
-      return closest ? [{ ...closest, assetId: item.assetId, targetMultiple: item.targetMultiple, color: item.color }] : [];
-    });
-    if (rows.length === 0) return;
-    showTooltip({ tooltipData: { date: hoveredDate, points: rows }, tooltipLeft: left });
-  }, [dateScale, hideTooltip, innerWidth, margin.left, series, showTooltip]);
+    showTooltipAtDate(date, left);
+  }, [dateScale, hideTooltip, innerWidth, margin.left, showTooltipAtDate]);
+
+  const showKeyboardTooltip = useCallback((index: number) => {
+    if (keyboardDates.length === 0) return;
+    const nextIndex = Math.max(0, Math.min(index, keyboardDates.length - 1));
+    setKeyboardIndex(nextIndex);
+    showTooltipAtDate(keyboardDates[nextIndex]);
+  }, [keyboardDates, showTooltipAtDate]);
+
+  const handleKeyboard = useCallback((event: React.KeyboardEvent<SVGRectElement>) => {
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowLeft') nextIndex = currentKeyboardIndex - 1;
+    if (event.key === 'ArrowRight') nextIndex = currentKeyboardIndex + 1;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = keyboardDates.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    showKeyboardTooltip(nextIndex);
+  }, [currentKeyboardIndex, keyboardDates.length, showKeyboardTooltip]);
 
   if (width < 10 || height < 10 || allPoints.length === 0) return null;
   const principalPoints = datedSeries[0]?.points.filter((point) => point.principal !== undefined) ?? [];
@@ -180,11 +234,30 @@ const BacktestChartInner: React.FC<BacktestChartProps & { width: number; height:
             onTouchStart={handleTooltip}
             onTouchMove={handleTooltip}
             onMouseMove={handleTooltip}
-            onMouseLeave={hideTooltip}
+            onMouseLeave={() => {
+              if (!keyboardFocused) hideTooltip();
+            }}
+            onFocus={() => {
+              setKeyboardFocused(true);
+              showKeyboardTooltip(currentKeyboardIndex);
+            }}
+            onBlur={() => {
+              setKeyboardFocused(false);
+              hideTooltip();
+            }}
+            onKeyDown={handleKeyboard}
+            role="slider"
+            aria-label="차트 날짜 탐색"
+            aria-valuemin={0}
+            aria-valuemax={Math.max(0, keyboardDates.length - 1)}
+            aria-valuenow={currentKeyboardIndex}
+            aria-valuetext={keyboardDates[currentKeyboardIndex] ? formatBacktestTooltipDate(keyboardDates[currentKeyboardIndex]) : undefined}
+            stroke={keyboardFocused ? 'var(--apple-primary)' : 'transparent'}
+            strokeWidth={2}
             tabIndex={0}
           />
           {tooltipData && (
-            <line x1={tooltipLeft} x2={tooltipLeft} y1={0} y2={innerHeight} stroke="var(--apple-ink-muted-48)" strokeWidth={1} pointerEvents="none" />
+            <line x1={tooltipLeft ?? 0} x2={tooltipLeft ?? 0} y1={0} y2={innerHeight} stroke="var(--apple-ink-muted-48)" strokeWidth={1} pointerEvents="none" />
           )}
         </Group>
       </svg>
@@ -192,13 +265,15 @@ const BacktestChartInner: React.FC<BacktestChartProps & { width: number; height:
         {tooltipData && (
           <TooltipWithBounds top={margin.top} left={(tooltipLeft ?? 0) + margin.left} style={tooltipStyles}>
             <motion.div
+              role="status"
+              aria-live="polite"
               initial={reduceMotion ? false : { opacity: 0, scale: 0.97 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={reduceMotion ? undefined : { opacity: 0 }}
               transition={{ duration: reduceMotion ? 0 : 0.16 }}
             >
               <div className="mb-3 border-b border-apple-hairline pb-2 font-semibold text-apple-ink">
-                {tooltipData.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                {formatBacktestTooltipDate(tooltipData.date)}
               </div>
               <div className="min-w-[190px] space-y-2">
                 {tooltipData.points.map((point) => (
