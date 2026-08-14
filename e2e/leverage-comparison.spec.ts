@@ -40,9 +40,20 @@ test('AMD family explains unavailable long periods and supports gold basis', asy
   await page.getByRole('button', { name: '백테스트 모드' }).click();
   await page.getByRole('button', { name: 'AMD 레버리지 가족 선택' }).click();
 
+  const titleWordLineCount = await page.getByRole('heading', { name: '과거가 보여주는 부의 지도.' }).evaluate((heading) => {
+    const textNode = heading.firstChild;
+    const start = textNode?.textContent?.indexOf('지도.') ?? -1;
+    if (!textNode || start < 0) return 0;
+    const range = document.createRange();
+    range.setStart(textNode, start);
+    range.setEnd(textNode, start + '지도.'.length);
+    return new Set(Array.from(range.getClientRects(), (rect) => Math.round(rect.top))).size;
+  });
+  expect(titleWordLineCount).toBe(1);
   await expect(page.getByRole('button', { name: '5년' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '10년' })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '5년' })).toHaveAttribute('title', /AMDL/);
+  await expect(page.getByRole('button', { name: '5년' })).toHaveAttribute('aria-describedby', 'family-preset-disabled-reason');
+  await expect(page.getByText('AMDL 데이터는 2024-03-18부터 사용할 수 있습니다.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '금 기준' }).click();
   await expect(page.getByText('시작일 금 가치 기준')).toBeVisible();
   await expect.poll(() => page.evaluate(

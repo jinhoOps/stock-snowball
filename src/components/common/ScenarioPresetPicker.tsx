@@ -110,6 +110,12 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
       : durationPresets.filter(p => ["YTD", "1Y", "5Y"].includes(p.name)),
     [durationPresets, isFamilySelection],
   );
+  const familyDisabledReason = isFamilySelection
+    ? durationPresets.find((preset) => preset.disabled)?.reason
+    : undefined;
+  const familyDisabledReasonId = familyDisabledReason
+    ? 'family-preset-disabled-reason'
+    : undefined;
 
   return (
     <div className="flex flex-col gap-3 w-full mt-1">
@@ -120,6 +126,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
             preset={preset}
             isActive={activePresetName === preset.name}
             disabled={preset.disabled ?? !isPresetSupported(preset, coverage)}
+            disabledReasonId={familyDisabledReasonId}
             onClick={() => onSelect(preset)}
           />
         ))}
@@ -136,6 +143,15 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
           </motion.span>
         </motion.button>}
       </div>
+
+      {familyDisabledReason && (
+        <p
+          id={familyDisabledReasonId}
+          className="px-1 text-left text-fine-print leading-relaxed text-apple-ink-muted-64"
+        >
+          {familyDisabledReason}
+        </p>
+      )}
 
       <AnimatePresence>
         {!isFamilySelection && isExpanded && (
@@ -186,11 +202,13 @@ const ScenarioButton = ({
   preset, 
   isActive, 
   disabled,
+  disabledReasonId,
   onClick 
 }: { 
   preset: PresetScenario; 
   isActive: boolean; 
   disabled: boolean;
+  disabledReasonId?: string;
   onClick: () => void;
 }) => (
   <motion.button
@@ -198,6 +216,7 @@ const ScenarioButton = ({
     whileTap={{ scale: 0.95 }}
     onClick={onClick}
     disabled={disabled}
+    aria-describedby={disabled ? disabledReasonId : undefined}
     title={preset.description}
     className={`px-4 py-2 rounded-pill text-[12px] font-bold border transition-all relative overflow-hidden disabled:cursor-not-allowed disabled:opacity-40 ${
       isActive

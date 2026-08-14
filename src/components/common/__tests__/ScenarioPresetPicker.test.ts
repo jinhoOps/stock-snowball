@@ -40,4 +40,18 @@ describe('asset-aware backtest presets', () => {
     expect(markup).toContain('전체');
     expect(markup).not.toContain('YTD');
   });
+
+  it('visibly explains disabled family periods and associates the reason', () => {
+    const familyPresets = getFamilyDurationPresets(LEVERAGE_FAMILIES.AMD, getHistoricalCoverage);
+    const markup = renderToStaticMarkup(React.createElement(ScenarioPresetPicker, {
+      coverage: getHistoricalCoverage('AMD'),
+      onSelect: () => undefined,
+      familyPresets,
+    }));
+
+    expect(markup).toContain('aria-describedby="family-preset-disabled-reason"');
+    expect(markup).toMatch(
+      /<p[^>]*id="family-preset-disabled-reason"[^>]*>AMDL 데이터는 2024-03-18부터 사용할 수 있습니다.<\/p>/,
+    );
+  });
 });
