@@ -12,6 +12,7 @@ interface KPIGridProps {
   totalReturn: number;
   returnPercentage: number;
   cagr: number;
+  cagrLabel?: string;
   currency: 'USD' | 'KRW';
   exchangeRate?: number;
   isMilestoneReached?: boolean;
@@ -201,6 +202,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
   totalReturn,
   returnPercentage,
   cagr,
+  cagrLabel = '연복리 수익률 (CAGR)',
   currency,
   exchangeRate = 1450,
   isMilestoneReached,
@@ -241,7 +243,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({
       subFormatter: formatPercent,
     },
     {
-      label: '연복리 수익률 (CAGR)',
+      label: cagrLabel,
       value: cagr,
       formatter: (v: number) => `${formatPercent(v)}%`,
     },

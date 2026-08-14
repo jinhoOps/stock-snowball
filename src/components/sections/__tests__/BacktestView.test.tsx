@@ -20,6 +20,27 @@ const baseProps: BacktestViewProps = {
   onResultViewChange: vi.fn(),
 };
 
+const basisResult: ComparisonAssetResult = {
+  status: 'success',
+  assetId: 'SPY',
+  targetMultiple: 1,
+  portfolio: {
+    history: [
+      { date: '2024-01-01', value: 100, principal: 100 },
+      { date: '2025-01-01', value: 121, principal: 100 },
+    ],
+    metrics: {
+      totalReturn: 0.1, cagr: 0.1, irr: 0.1, mdd: 0, volatility: 0,
+      finalValue: 110, totalPrincipal: 100, finalAnnualDividend: 0,
+      estimatedTax: 11, totalFees: 0,
+    },
+  },
+  product: {
+    points: [{ date: '2024-01-01', value: 100 }, { date: '2025-01-01', value: 110 }],
+    metrics: { cumulativeReturn: 0.1, cagr: 0.1, mdd: 0, volatility: 0 },
+  },
+};
+
 afterEach(cleanup);
 
 beforeAll(() => {
@@ -138,6 +159,41 @@ describe('BacktestView', () => {
     expect(screen.queryByText('$121')).toBeNull();
     expect(screen.getByLabelText('차트 최종값: SPY 110')).toBeTruthy();
     expect(screen.getByText(/ISA 만기 세금 추정치가 포함됩니다/)).toBeTruthy();
+  });
+
+  it('uses the same REAL portfolio series in the table, cards, and chart', () => {
+    render(
+      <BacktestView
+        {...baseProps}
+        results={[basisResult]}
+        valueBasis="REAL"
+        inflationRate={0.1}
+      />,
+    );
+
+    expect(screen.getByLabelText(/차트 최종값: SPY 99\.980431/)).toBeTruthy();
+    expect(screen.getAllByText('$100')).toHaveLength(2);
+    expect(screen.getAllByText('-0.02%').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('uses the same GOLD-normalized product series in the table and chart', () => {
+    render(
+      <BacktestView
+        {...baseProps}
+        results={[basisResult]}
+        valueBasis="GOLD"
+        resultView="NORMALIZED"
+        goldData={[
+          { date: '2024-01-01', price: 2_000, dividendYield: 0 },
+          { date: '2025-01-01', price: 2_200, dividendYield: 0 },
+        ]}
+      />,
+    );
+
+    expect(screen.getByLabelText(/차트 최종값: SPY (99\.999|100)/)).toBeTruthy();
+    expect(screen.getAllByText('$100')).toHaveLength(2);
+    expect(screen.getAllByText('0.00%').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('시작일 금 가치 기준')).toBeTruthy();
   });
 
   it('shows an asset calculation error inline', () => {

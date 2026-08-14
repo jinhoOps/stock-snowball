@@ -5,6 +5,7 @@ import {
   BacktestHistoryPoint 
 } from '../types/finance';
 import { SnowballEngine } from './SnowballEngine';
+import { calculateMoneyWeightedReturn } from './MoneyWeightedReturn';
 
 // Decimal 설정: SnowballEngine과 동일하게 유지
 Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
@@ -235,9 +236,10 @@ export class BacktestEngine {
       ? Math.pow(finalValue / initialPrincipal, 1 / years) - 1 
       : 0;
 
-    // IRR 계산 (월수 기준)
-    const monthsForIRR = Math.max(1, Math.round(diffDays / 30.4375));
-    const irr = this.calculateIRR(initialPrincipal, monthlyInstallment, finalValue, monthsForIRR).toNumber();
+    const reconciledHistory = history.map((point, index) => index === history.length - 1
+      ? { ...point, value: finalValue }
+      : point);
+    const irr = calculateMoneyWeightedReturn(reconciledHistory);
 
     return {
       metrics: {
@@ -254,47 +256,5 @@ export class BacktestEngine {
       },
       history
     };
-  }
-
-  /**
-   * 내부 수익률(IRR)을 계산합니다 (이분법 사용, Decimal.js 기반)
-   */
-  static calculateIRR(
-    initial: Decimal | number, 
-    monthly: Decimal | number, 
-    final: Decimal | number, 
-    months: number
-  ): Decimal {
-    const P = new Decimal(initial);
-    const M = new Decimal(monthly);
-    const F = new Decimal(final);
-    const n = new Decimal(months);
-
-    if (n.isZero() || (P.isZero() && M.isZero())) return new Decimal(0);
-
-    const f = (r: Decimal): Decimal => {
-      if (r.abs().lt(1e-12)) return P.plus(M.times(n)).minus(F);
-      const compound = r.plus(1).pow(n);
-      return P.times(compound).plus(M.times(compound.minus(1).dividedBy(r))).minus(F);
-    };
-
-    let low = new Decimal(-0.999999);
-    let high = new Decimal(10.0);
-
-    // 해가 존재하는지 확인
-    if (f(low).times(f(high)).gt(0)) {
-        if (f(high).lt(0)) return new Decimal(10.0);
-        return new Decimal(-0.999);
-    }
-
-    for (let i = 0; i < 60; i++) { // 정밀도를 위해 반복 횟수 증가
-      const mid = low.plus(high).dividedBy(2);
-      if (f(mid).gt(0)) high = mid;
-      else low = mid;
-    }
-
-    const monthlyRate = low.plus(high).dividedBy(2);
-    // 연율화: (1 + monthlyRate)^12 - 1
-    return monthlyRate.plus(1).pow(12).minus(1);
   }
 }

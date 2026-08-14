@@ -12,7 +12,11 @@ import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { calculateProductPerformance } from './core/ProductPerformance';
-import { calculateSeriesCagr, getGoldBasisError, reconcilePortfolioHistoryFinalValue, transformPortfolioHistory } from './core/ValueBasis';
+import {
+  getGoldBasisError,
+  prepareBacktestDisplayResult,
+  preparePortfolioDisplayResult,
+} from './core/ValueBasis';
 import { useScenarios } from './hooks/useScenarios';
 import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
 import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
@@ -276,12 +280,8 @@ function App() {
           taxIsaLimit: 2000000,
           taxIsaReducedRate: 0.095,
         }, data);
-        const portfolio = {
-          ...rawPortfolio,
-          history: reconcilePortfolioHistoryFinalValue(rawPortfolio.history, rawPortfolio.metrics.finalValue),
-        };
         const product = calculateProductPerformance(data, startDate, endDate);
-        return { status: 'success', assetId, targetMultiple: multiple, portfolio, product };
+        return { status: 'success', assetId, targetMultiple: multiple, portfolio: rawPortfolio, product };
       } catch (error) {
         return {
           status: 'error',
@@ -310,12 +310,22 @@ function App() {
     ? getGoldBasisError(backtestParams.startDate || '2010-01-01', backtestParams.endDate || '2024-01-01', goldData)
     : null;
   const effectiveValueBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
-  const activeDisplayHistory = useMemo(() => activeBacktest
-    ? transformPortfolioHistory(activeBacktest.history, effectiveValueBasis, {
-      inflationRate: backtestParams.inflationRate,
-      gold: goldData,
-    })
-    : [], [activeBacktest, backtestParams.inflationRate, effectiveValueBasis, goldData]);
+  const preparedComparisonResults = useMemo<ComparisonAssetResult[]>(() => comparisonResults.map((result) =>
+    result.status === 'success'
+      ? {
+        ...result,
+        display: prepareBacktestDisplayResult(
+          result.portfolio,
+          result.product,
+          effectiveValueBasis,
+          { inflationRate: backtestParams.inflationRate, gold: goldData },
+        ),
+      }
+      : result), [comparisonResults, effectiveValueBasis, backtestParams.inflationRate, goldData]);
+  const activePreparedResult = preparedComparisonResults.find((result) =>
+    result.status === 'success' && result.assetId === backtestParams.assetType);
+  const activeDisplay = activePreparedResult?.status === 'success' ? activePreparedResult.display : undefined;
+  const activeDisplayHistory = activeDisplay?.portfolioHistory ?? [];
   const activeDisplayPoint = activeDisplayHistory.at(-1);
 
   const activeResult: SimulationResult = mode === 'PROJECTION' 
@@ -333,9 +343,14 @@ function App() {
 
   const totalReturn = activeResult.postTaxValue - activeResult.totalContribution;
   const returnPercentage = activeResult.totalContribution > 0 ? (totalReturn / activeResult.totalContribution) * 100 : 0;
-  const cagr = mode === 'PROJECTION' && projectionParams.years > 0 
+  const cagr = mode === 'PROJECTION' && projectionParams.years > 0
     ? (Math.pow(activeResult.postTaxValue / activeResult.totalContribution, 1 / projectionParams.years) - 1) * 100 
-    : calculateSeriesCagr(activeDisplayHistory) * 100;
+    : backtestResultView === 'NORMALIZED'
+      ? (activeDisplay?.productMetrics.cagr ?? 0) * 100
+      : (activeDisplay?.portfolioIrr ?? 0) * 100;
+  const cagrLabel = mode === 'BACKTEST' && backtestResultView === 'PORTFOLIO'
+    ? '내부수익률 (IRR)'
+    : '연복리 수익률 (CAGR)';
   
   // Milestone Celebration Effect
   useEffect(() => {
@@ -370,7 +385,7 @@ function App() {
             optimistic: activeSimulation.optimistic[i].postTaxValue,
             contribution: r.totalContribution
           }))
-        : (activeBacktest?.history.map(r => ({ date: new Date(r.date), value: r.value, contribution: r.principal })) || [])
+        : activeDisplayHistory.map(r => ({ date: new Date(`${r.date}T00:00:00Z`), value: r.value, contribution: r.principal }))
     };
 
     const comparing = scenarios
@@ -399,11 +414,19 @@ function App() {
             taxIsaLimit: 2000000,
             taxIsaReducedRate: 0.095,
           }, data);
+          const prepared = preparePortfolioDisplayResult(bt, effectiveValueBasis, {
+            inflationRate: s.inflationRate,
+            gold: goldData,
+          });
           return [{
             id: s.id,
             name: s.name,
             color: SCENARIO_COLORS[(index + 1) % SCENARIO_COLORS.length],
-            points: bt.history.map(r => ({ date: new Date(r.date), value: r.value, contribution: r.principal }))
+            points: prepared.portfolioHistory.map(r => ({
+              date: new Date(`${r.date}T00:00:00Z`),
+              value: r.value,
+              contribution: r.principal,
+            }))
           }];
         }
 
@@ -440,7 +463,7 @@ function App() {
         }];
           });
     return [main, ...comparing];
-  }, [activeSimulation, activeBacktest, scenarioName, scenarios, comparingScenarioIds, mode]);
+  }, [activeSimulation, activeDisplayHistory, scenarioName, scenarios, comparingScenarioIds, mode, effectiveValueBasis, goldData]);
 
   const handleSaveScenario = async () => {
     if (!scenarioName.trim()) {
@@ -530,6 +553,7 @@ function App() {
         totalReturn={totalReturn}
         returnPercentage={returnPercentage}
         cagr={cagr}
+        rateLabel={cagrLabel.includes('IRR') ? 'IRR' : 'CAGR'}
         years={mode === 'PROJECTION' ? projectionParams.years : backtestParams.years}
         currency={currency}
       />
@@ -576,10 +600,10 @@ function App() {
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
-                        {SnowballEngine.formatBigNumber(showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, true)}
+                        {SnowballEngine.formatBigNumber(mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, true)}
                       </span>
                       <span className="text-body-strong text-apple-ink-muted-48 mt-1 font-display tracking-tight">
-                        {SnowballEngine.formatDualCurrency(showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true, true)}
+                        {SnowballEngine.formatDualCurrency(mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true, true)}
                       </span>
                     </div>
                   </div>
@@ -589,8 +613,8 @@ function App() {
                       scenarios={chartScenarios} 
                       mode={mode}
                       comparisonMode={comparingScenarioIds.length > 0}
-                      showRealValue={showRealValue}
-                      onShowRealValueChange={setShowRealValue}
+                      showRealValue={mode === 'PROJECTION' && showRealValue}
+                      onShowRealValueChange={mode === 'PROJECTION' ? setShowRealValue : undefined}
                       onPointHover={(d) => d && setSelectedPoint(d as any)}
                       onPointSelect={(d) => setSelectedPoint(d as any)}
                     />
@@ -636,6 +660,7 @@ function App() {
                       totalReturn={totalReturn}
                       returnPercentage={returnPercentage}
                       cagr={cagr}
+                      cagrLabel={cagrLabel}
                       currency={currency}
                       exchangeRate={exchangeRate}
                       isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
@@ -648,7 +673,7 @@ function App() {
                       <BacktestView
                         primaryAsset={backtestParams.assetType as HistoricalAssetType}
                         comparisonAssets={comparisonAssets}
-                        results={comparisonResults}
+                        results={preparedComparisonResults}
                         leverageInsights={leverageInsights}
                         onComparisonAssetsChange={handleComparisonAssetsChange}
                         onFamilySelect={handleFamilySelect}

@@ -12,6 +12,7 @@ interface ShareCardProps {
   totalReturn: number;
   returnPercentage: number;
   cagr: number;
+  rateLabel?: string;
   years: number;
   currency: 'KRW' | 'USD';
   cardRef: React.RefObject<HTMLDivElement | null>;
@@ -33,6 +34,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
   totalReturn,
   returnPercentage,
   cagr,
+  rateLabel = 'CAGR',
   years,
   currency,
   cardRef,
@@ -89,7 +91,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
             <span className="text-[10px] font-bold text-apple-ink break-keep">{SnowballEngine.formatBigNumber(totalReturn, currency, true)}</span>
           </div>
           <div className="bg-white/60 backdrop-blur-md rounded-2xl p-2.5 border border-white shadow-sm flex flex-col items-center text-center">
-            <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">CAGR</span>
+            <span className="text-[7px] font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">{rateLabel}</span>
             <span className="text-[10px] font-bold text-apple-ink whitespace-nowrap">{cagr.toFixed(1)}%</span>
           </div>
         </div>

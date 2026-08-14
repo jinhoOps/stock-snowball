@@ -1,15 +1,32 @@
 import { findPointOnOrBefore, IndexPoint } from '../data/historicalAssets';
 import {
   BacktestHistoryPoint,
+  BacktestResult,
+  ProductPerformanceMetrics,
   ProductPerformancePoint,
+  ProductPerformanceResult,
   ValueBasis,
 } from '../types/finance';
+import { calculateMoneyWeightedReturn } from './MoneyWeightedReturn';
+import { calculateProductPerformanceMetrics } from './ProductPerformance';
 
 const MS_PER_DAY = 86_400_000;
 
 export interface ValueBasisOptions {
   inflationRate: number;
   gold: readonly IndexPoint[];
+}
+
+export interface PreparedBacktestDisplayResult {
+  portfolioHistory: BacktestHistoryPoint[];
+  portfolioIrr: number;
+  productPoints: ProductPerformancePoint[];
+  productMetrics: ProductPerformanceMetrics;
+}
+
+export interface PreparedPortfolioDisplayResult {
+  portfolioHistory: BacktestHistoryPoint[];
+  portfolioIrr: number;
 }
 
 export class ValueBasisError extends Error {
@@ -139,4 +156,37 @@ export const transformProductSeries = (
     ...point,
     value: point.value / getFactor(point.date, startDate, basis, options, startGold),
   }));
+};
+
+export const prepareBacktestDisplayResult = (
+  portfolio: BacktestResult,
+  product: ProductPerformanceResult,
+  basis: ValueBasis,
+  options: ValueBasisOptions,
+): PreparedBacktestDisplayResult => {
+  const preparedPortfolio = preparePortfolioDisplayResult(portfolio, basis, options);
+  const productPoints = transformProductSeries(product.points, basis, options);
+
+  return {
+    ...preparedPortfolio,
+    productPoints,
+    productMetrics: calculateProductPerformanceMetrics(productPoints),
+  };
+};
+
+export const preparePortfolioDisplayResult = (
+  portfolio: BacktestResult,
+  basis: ValueBasis,
+  options: ValueBasisOptions,
+): PreparedPortfolioDisplayResult => {
+  const reconciledHistory = reconcilePortfolioHistoryFinalValue(
+    portfolio.history,
+    portfolio.metrics.finalValue,
+  );
+  const portfolioHistory = transformPortfolioHistory(reconciledHistory, basis, options);
+
+  return {
+    portfolioHistory,
+    portfolioIrr: calculateMoneyWeightedReturn(portfolioHistory),
+  };
 };

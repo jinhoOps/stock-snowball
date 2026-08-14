@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFamilyId, LeverageInsight, ProductPerformanceMetrics, ProductPerformanceResult, ValueBasis } from '../../types/finance';
+import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFamilyId, LeverageInsight, ProductPerformanceResult, ValueBasis } from '../../types/finance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
 import { LEVERAGE_FAMILIES, type LeverageFamily } from '../../data/leverageFamilies';
-import { reconcilePortfolioHistoryFinalValue, transformPortfolioHistory, transformProductSeries } from '../../core/ValueBasis';
+import { prepareBacktestDisplayResult, type PreparedBacktestDisplayResult } from '../../core/ValueBasis';
 import BacktestChart, { BacktestDisplaySeries } from '../charts/BacktestChart';
 import SegmentedControl from '../common/SegmentedControl';
 
@@ -14,7 +14,7 @@ interface ComparisonAssetBase {
 }
 
 export type ComparisonAssetResult = ComparisonAssetBase & (
-  | { status: 'success'; portfolio: BacktestResult; product: ProductPerformanceResult; error?: never }
+  | { status: 'success'; portfolio: BacktestResult; product: ProductPerformanceResult; display?: PreparedBacktestDisplayResult; error?: never }
   | { status: 'error'; error: string; portfolio?: never; product?: never }
 );
 
@@ -57,29 +57,6 @@ const completeFamilyFor = (selectedAssets: readonly HistoricalAssetType[]) => fa
 
 const percentage = (value: number) => `${(value * 100).toFixed(2)}%`;
 
-const metricsFromPoints = (points: readonly { date: string; value: number }[]): ProductPerformanceMetrics => {
-  if (points.length < 2) return { cumulativeReturn: 0, cagr: 0, mdd: 0, volatility: 0 };
-  const first = points[0];
-  const last = points.at(-1)!;
-  const cumulativeReturn = last.value / first.value - 1;
-  const days = (Date.parse(last.date) - Date.parse(first.date)) / 86_400_000;
-  const dailyReturns = points.slice(1).map((point, index) => point.value / points[index].value - 1);
-  const mean = dailyReturns.reduce((sum, value) => sum + value, 0) / dailyReturns.length;
-  const variance = dailyReturns.length < 2 ? 0 : dailyReturns.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (dailyReturns.length - 1);
-  let peak = first.value;
-  let mdd = 0;
-  for (const point of points) {
-    peak = Math.max(peak, point.value);
-    mdd = Math.max(mdd, (peak - point.value) / peak);
-  }
-  return {
-    cumulativeReturn,
-    cagr: days > 0 ? (last.value / first.value) ** (365.25 / days) - 1 : 0,
-    mdd,
-    volatility: Math.sqrt(variance) * Math.sqrt(252),
-  };
-};
-
 const MetricBadge = ({ multiple }: { multiple: 1 | 2 | 3 }) => (
   <span className="rounded-sm bg-apple-canvas px-1.5 py-0.5 text-micro-legal font-bold text-apple-ink">
     {multiple}×
@@ -110,18 +87,15 @@ const BacktestView: React.FC<BacktestViewProps> = ({
     (result): result is Extract<ComparisonAssetResult, { status: 'success' }> => result.status === 'success',
   ), [results]);
   const preparedResults = useMemo(() => successfulResults.map((result) => {
-    const options = { inflationRate, gold: goldData };
-    const afterTaxHistory = reconcilePortfolioHistoryFinalValue(
-      result.portfolio.history,
-      result.portfolio.metrics.finalValue,
+    const display = result.display ?? prepareBacktestDisplayResult(
+      result.portfolio,
+      result.product,
+      displayBasis,
+      { inflationRate, gold: goldData },
     );
-    const portfolioHistory = transformPortfolioHistory(afterTaxHistory, displayBasis, options);
-    const productPoints = transformProductSeries(result.product.points, displayBasis, options);
     return {
       ...result,
-      portfolioHistory,
-      productPoints,
-      productMetrics: metricsFromPoints(productPoints),
+      ...display,
     };
   }), [successfulResults, inflationRate, goldData, displayBasis]);
   const chartSeries: BacktestDisplaySeries[] = useMemo(() => preparedResults.map((result) => {

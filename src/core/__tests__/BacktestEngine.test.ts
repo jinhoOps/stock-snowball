@@ -227,6 +227,28 @@ describe('BacktestEngine', () => {
       // 1월 2일(첫날) 투자(1000원), 1월 9일(7일 후) 투자(1000원) -> 2000원
       expect(result.metrics.totalPrincipal).toBe(2000);
     });
+
+    it.each(['DAILY', 'WEEKLY', 'MONTHLY'] as const)(
+      'flat prices produce a zero dated IRR for the %s contribution cycle',
+      (cycle) => {
+        const data = Array.from({ length: 63 }, (_, index) => {
+          const date = new Date('2024-01-02T00:00:00Z');
+          date.setUTCDate(date.getUTCDate() + index);
+          return { date: date.toISOString().slice(0, 10), price: 100 };
+        });
+
+        const result = BacktestEngine.run({
+          ...defaultParams,
+          initialPrincipal: 100,
+          monthlyInstallment: 10,
+          cycle,
+          startDate: data[0].date,
+          endDate: data.at(-1)!.date,
+        }, data);
+
+        expect(result.metrics.irr).toBe(0);
+      },
+    );
   });
 
   describe('Fees and Taxes', () => {

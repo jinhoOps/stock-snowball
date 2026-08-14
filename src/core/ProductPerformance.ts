@@ -13,7 +13,7 @@ const calendarDaysBetween = (startDate: string, endDate: string): number => {
   return (end.getTime() - start.getTime()) / MS_PER_DAY;
 };
 
-const calculateAnnualizedSampleVolatility = (points: ProductPerformancePoint[]): number => {
+const calculateAnnualizedSampleVolatility = (points: readonly ProductPerformancePoint[]): number => {
   const dailyReturns = points.slice(1).map((point, index) => point.value / points[index].value - 1);
 
   if (dailyReturns.length < 2) return 0;
@@ -25,6 +25,34 @@ const calculateAnnualizedSampleVolatility = (points: ProductPerformancePoint[]):
   ) / (dailyReturns.length - 1);
 
   return Math.sqrt(variance) * Math.sqrt(252);
+};
+
+export const calculateProductPerformanceMetrics = (
+  points: readonly ProductPerformancePoint[],
+): ProductPerformanceMetrics => {
+  if (points.length < 2 || points[0].value <= 0) {
+    return { cumulativeReturn: 0, cagr: 0, mdd: 0, volatility: 0 };
+  }
+
+  const first = points[0];
+  const last = points.at(-1)!;
+  const cumulativeReturn = last.value / first.value - 1;
+  const calendarDays = calendarDaysBetween(first.date, last.date);
+  let peak = first.value;
+  let mdd = 0;
+  for (const point of points) {
+    peak = Math.max(peak, point.value);
+    if (peak > 0) mdd = Math.max(mdd, (peak - point.value) / peak);
+  }
+
+  return {
+    cumulativeReturn,
+    cagr: calendarDays > 0 && last.value > 0
+      ? (last.value / first.value) ** (365.25 / calendarDays) - 1
+      : 0,
+    mdd,
+    volatility: calculateAnnualizedSampleVolatility(points),
+  };
 };
 
 export const calculateProductPerformance = (
@@ -42,31 +70,16 @@ export const calculateProductPerformance = (
   }
 
   let value = 100;
-  let peak = value;
-  let mdd = 0;
   const points: ProductPerformancePoint[] = [{ date: selectedData[0].date, value }];
 
   for (let index = 1; index < selectedData.length; index += 1) {
     const previous = selectedData[index - 1];
     const current = selectedData[index];
     value *= (current.price / previous.price) * (1 + current.dividendYield);
-    peak = Math.max(peak, value);
-    mdd = Math.max(mdd, (peak - value) / peak);
     points.push({ date: current.date, value });
   }
 
-  const cumulativeReturn = value / 100 - 1;
-  const calendarDays = calendarDaysBetween(selectedData[0].date, selectedData.at(-1)!.date);
-  const cagr = calendarDays > 0
-    ? (value / 100) ** (365.25 / calendarDays) - 1
-    : 0;
-
-  const metrics: ProductPerformanceMetrics = {
-    cumulativeReturn,
-    cagr,
-    mdd,
-    volatility: calculateAnnualizedSampleVolatility(points),
-  };
+  const metrics = calculateProductPerformanceMetrics(points);
 
   return { points, metrics };
 };
