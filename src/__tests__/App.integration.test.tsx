@@ -35,7 +35,7 @@ vi.mock('../components/charts/SnowballChart', () => ({
     scenarios,
     onShowRealValueChange,
   }: {
-    scenarios: Array<{ name: string; points: Array<{ value: number; contribution?: number }> }>;
+    scenarios: Array<{ name: string; color: string; points: Array<{ value: number; contribution?: number }> }>;
     onShowRealValueChange?: (show: boolean) => void;
   }) => (
     <>
@@ -45,6 +45,7 @@ vi.mock('../components/charts/SnowballChart', () => ({
           return `${scenario.name}:${last?.value.toFixed(6)}:${last?.contribution?.toFixed(6) ?? '-'}`;
         }).join('|')}
       </output>
+      <output data-testid="chart-colors">{scenarios.map((scenario) => scenario.color).join('|')}</output>
       {onShowRealValueChange && <button onClick={() => onShowRealValueChange(true)}>legacy real toggle</button>}
     </>
   ),
@@ -403,5 +404,17 @@ describe('App backtest selection', () => {
     await waitFor(() => {
       expect(screen.getByTestId('chart-scenarios').textContent).toContain('saved ISA:99.980431:100.000000');
     });
+  });
+
+  it('keeps active and saved comparison lines out of the legacy orange/green palette', async () => {
+    scenarioState.scenarios = [savedScenario({ name: 'saved comparison' })];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    fireEvent.click(await screen.findByRole('button', { name: '비교하기' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('chart-colors').textContent).toBe('#0066cc|#1d1d1f');
+    });
+    expect(screen.getByTestId('chart-colors').textContent).not.toMatch(/#FF9500|#34C759/i);
   });
 });

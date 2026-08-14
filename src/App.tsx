@@ -40,13 +40,13 @@ const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_0
 
 // Fixed colors for scenarios to avoid re-renders
 const SCENARIO_COLORS = [
-  '#0066cc', // Main
-  '#FF9500', // Orange
-  '#34C759', // Green
-  '#AF52DE', // Purple
-  '#FF2D55', // Red
-  '#5AC8FA', // Blue
-  '#FFCC00', // Yellow
+  '#0066cc', // Frost Blue
+  '#1d1d1f', // Near black
+  '#5ac8fa', // Sky Frost
+  '#424245', // Graphite
+  '#0a84ff', // Bright Frost
+  '#6e6e73', // Slate
+  '#64d2ff', // Light Sky
 ];
 
 export const resetBacktestSelection = () => ({
@@ -375,7 +375,7 @@ function App() {
     const main = {
       id: 'active-scenario',
       name: scenarioName || (mode === 'PROJECTION' ? '현재 스노우볼' : '현재 백테스트'),
-      color: mode === 'PROJECTION' ? SCENARIO_COLORS[0] : '#FF9500',
+      color: SCENARIO_COLORS[0],
       points: mode === 'PROJECTION' 
         ? activeSimulation.average.map((r, i) => ({ 
             date: r.date, 
