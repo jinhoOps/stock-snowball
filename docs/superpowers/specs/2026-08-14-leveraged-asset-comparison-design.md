@@ -51,6 +51,8 @@ Keep the existing individual asset chips. Add a compact “leveraged families”
 
 The user may still add or remove individual assets. The existing maximum of three simultaneous comparison series remains, which accommodates the largest family. Selecting a family replaces the current comparison set with that family so the action is deterministic.
 
+Family selection updates parent-owned backtest selection state, not only local comparison state. It sets the family's 1× underlying as the primary asset, sets the remaining members as comparison assets, and then clamps the parent start and end dates to the family's common coverage. For example, selecting the Nasdaq family while SPY is primary changes the primary asset to QQQ and the comparisons to QLD and TQQQ. This avoids retaining an unrelated fourth primary series and keeps the complete selection stable across parent rerenders.
+
 Each selected series has a textual `1×`, `2×`, or `3×` badge. Meaning must not depend on color alone.
 
 ### Date range
@@ -93,12 +95,14 @@ Include the concise explanation: `2배·3배는 하루의 목표이며, 전체 �
 
 Run every selected asset with identical current backtest inputs:
 
-- the initial principal is invested on the first available trading day;
-- the configured contribution is then invested on the configured daily, weekly, or monthly cycle;
-- dividends are reinvested;
-- current transaction-fee and account-tax settings are applied consistently.
+- the initial principal and first scheduled contribution are invested together on the first available trading day, preserving the current backtest convention;
+- subsequent configured contributions are invested on the configured daily, weekly, or monthly cycle;
+- a dividend is reinvested only on a CSV row whose explicit cash dividend is positive; the last non-zero dividend must never be carried forward to later rows;
+- the current buy fee and ISA end-of-period tax estimate are applied consistently to every selected asset.
 
 The traded fund's expenses and realized tracking behavior are treated as already reflected in its historical price and distribution data. Do not subtract an expense ratio a second time.
+
+Product-performance metrics and the leverage insight are pre-tax. The mixed-cash-flow portfolio uses only costs already implemented by the backtest engine: buy fees and the ISA end-of-period estimate. Sell fees, dividend tax, and general-account capital-gains tax are not silently presented as calculated; extending those models is outside this feature. Add a concise disclosure directly below the portfolio results naming the included and excluded costs.
 
 Portfolio metrics use final value, total contributed principal, and money-weighted IRR. Product CAGR, MDD, and volatility come from the contribution-free normalized total-return series, so contributions do not distort product comparisons.
 
@@ -139,7 +143,9 @@ The generator fetches maximum available daily history and writes compact `date,c
 
 ### Atomic full-catalog replacement
 
-Generate every CSV and the manifest in a temporary staging directory. Validate the entire 14-asset catalog before replacing any committed file. If fetching, normalization, or validation fails for one asset, leave the existing committed catalog untouched.
+Generate every CSV and the manifest in a sibling staging directory on the same filesystem. Validate the entire 14-asset catalog before replacing any committed file. If fetching, normalization, or validation fails for one asset, delete the staging directory and leave the existing committed catalog untouched.
+
+After validation, replace the catalog with a recoverable directory swap: rename the current `indices` directory to a uniquely named backup, rename the staging directory to `indices`, and restore the backup if the second rename or any immediate post-swap validation fails. Delete the backup only after the new directory passes check-only validation. Staging and backup paths are never committed. This provides rollback around the otherwise multi-file replacement.
 
 On a successful refresh:
 
@@ -197,6 +203,7 @@ Write the migrated value back during the next normal save. Unknown asset identif
 - Verify compact CSV shape, chronological unique dates, positive finite closes, valid dividends, coverage, row counts, ticker provenance, and schema version.
 - Test full-catalog staged generation and atomic replacement.
 - Inject a single-asset failure and prove that committed output remains unchanged.
+- Inject a failure between the two directory renames and prove that the backup is restored.
 - Prove that check-only validation performs no network call.
 
 ### TypeScript core and data
@@ -205,12 +212,14 @@ Write the migrated value back during the next normal save. Unknown asset identif
 - Test family membership, target multiples, selection replacement, and common-coverage intersections.
 - Test duration availability and limiting-asset messages.
 - Test total-return normalization and 2×/3× reference differences, including flat and negative underlying returns.
+- Prove that one explicit dividend is reinvested exactly once and is not repeated on later zero-dividend rows.
 - Test nominal, inflation, and gold transformations, per-contribution basis conversion, and prior-gold-date lookup without look-ahead.
 - Test gold coverage failure independently from nominal and real results.
 
 ### Components and visual review
 
-- Test family selection, individual selection, the three-series limit, segmented controls, disabled presets, inline errors, and keyboard semantics.
+- Test family selection updates the parent primary asset, comparison members, and clamped dates together.
+- Test individual selection, the three-series limit, segmented controls, disabled presets, inline errors, and keyboard semantics.
 - Verify desktop and mobile production builds.
 - Capture the completed comparison with Playwright at desktop and phone widths for user review, including the three-member Nasdaq family and a short-history single-stock family.
 
@@ -221,5 +230,6 @@ Write the migrated value back during the next normal save. Unknown asset identif
 - Short or inverse products
 - User-defined leverage multiples
 - Physical-gold premiums, storage costs, or currency hedging
+- New sell-fee, dividend-tax, or general-account capital-gains-tax calculations
 - A separate leverage page or application mode
 - Automatic or CI-triggered external market-data refresh
