@@ -5,7 +5,7 @@
 - Repository: `stock-snowball@1.3.27`; verification date: 2026-08-14.
 - Candidate dependency commit: `f9b2f62d96ef25e49db6e9c4d31da3275bbe30e7` (`chore: restore React 19 dependency integrity`).
 - The development server was started with `npm run dev -- --host 127.0.0.1` at `http://127.0.0.1:5173/stock-snowball/`, then stopped after the browser attempt.
-- The resumed check used the Orca built-in browser. Its actual browser viewport was 881x838 at DPR 2; the documented typed command surface has no viewport setter, and required `orca exec --command "help"` returned `Unknown command: help`. The requested 1440x900 and 390x844 sizes therefore could not be set without guessing an unsupported command.
+- The resumed check used the Orca built-in browser. The current Orca CLI documents `orca viewport --width <w> --height <h> [--mobile]`. It returned success for both required sizes, but after a page reload the inspected CSS viewport remained 881x838 at DPR 2 (and `navigator.maxTouchPoints` remained 0 for the mobile attempt). Thus the requested 1440x900 and 390x844 sizes were not actually applied to the page.
 
 ## Install and dependency graph
 
@@ -27,17 +27,17 @@ The build emitted `vendor-visx-DDVHAbEc.js` at 20.40 kB raw and 7.74 kB gzip. Ag
 
 ## Desktop visual smoke test
 
-Blocked at the required 1440x900 size because the Orca built-in browser could not set that viewport. At its actual 881x838 viewport, the default projection rendered as a 791x387.5 SVG with grid, axes, year/value labels, and non-zero dimensions. A pointer event over the chart showed the `visx-tooltip` (`2031년 8월 18일`, scenario, invested amount, and range). Activating `과거 백테스트 모드` set the backtest tab to `aria-pressed=true` and rendered the historical chart, date/YTD/1Y/5Y controls, asset selector, comparison table, and legend. `orca console --limit 50` returned no messages.
+Blocked at the required 1440x900 size: `orca viewport --width 1440 --height 900` reported success, but the reloaded page inspected at 881x838. At that actual viewport, the default projection rendered as a 791x387.5 SVG with grid, axes, year/value labels, and non-zero dimensions. An actual built-in-browser `mouse move` over its `rect.visx-bar` showed the `visx-tooltip` (`2031년 8월 18일`, scenario, invested amount, and range) and a vertical scrub line.
 
-The matching chart hover through the built-in browser's `hover` command on the exposed backtest graphics symbol did not create a `visx-tooltip`; its scrub/tooltip condition is therefore not passed. No Visx, `ResizeObserver`, ESM-resolution, or React-peer console error was present.
+Activating `과거 백테스트 모드` set the backtest tab to `aria-pressed=true` and rendered the historical chart, date/YTD/1Y/5Y controls, asset selector, comparison table, and legend. Its interaction `rect.visx-bar` measured 687x315.5. Dispatching `PointerEvent` and `MouseEvent` with `clientX/clientY` 455/810 and 650/810, followed by official `orca mouse move`, produced visible tooltips for 2016-12-21 and 2020-12-11 respectively; the vertical scrub line moved from x=342.09 to x=537.05. No Visx, `ResizeObserver`, ESM-resolution, or React-peer console error was present. The dev console did contain the separate existing RxDB DVM1 scenario-initialization error.
 
 ## Mobile visual smoke test
 
-Blocked. The Orca browser was available, but its fixed 881x838 viewport could not be changed to the required 390x844 mobile size through a documented built-in-browser command. Mobile layout, tooltip/scrub behavior, and console assertions at 390x844 remain unverified.
+Blocked. `orca viewport --width 390 --height 844 --mobile` returned `mobile: true`, but the reloaded page remained 881x838 at DPR 2 with `navigator.maxTouchPoints: 0`. Mobile layout, tooltip/scrub behavior, and console assertions at the required 390x844 remain unverified.
 
 ## Deferred findings
 
-Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and transitive audit findings are listed above. The visual smoke-test acceptance condition remains not passed: exact desktop/mobile viewport control was unavailable and the observed backtest hover did not expose a tooltip. No alternative browser surface was used. Add a documented Orca viewport control (or make it available), then rerun both target sizes and resolve the backtest hover evidence before accepting Workstream 1.
+Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and transitive audit findings are listed above. The visual smoke-test acceptance condition remains not passed solely because the actual browser viewport did not match either required target. The default and backtest Visx chart interactions now pass at the browser's actual 881x838 viewport. No alternative browser surface was used. The acceptable next gate is to use an Orca runtime where `window.innerWidth/innerHeight` prove 1440/900 and 390/844 after `orca viewport`, then repeat these same checks; CLI success output alone is insufficient.
 
 ## Rollback
 
