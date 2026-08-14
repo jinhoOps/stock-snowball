@@ -65,6 +65,9 @@ export const getCommonCoverage = (
   const endCoverage = coverages.reduce((earliest, coverage) =>
     coverage.endDate < earliest.endDate ? coverage : earliest,
   );
+  if (startCoverage.startDate > endCoverage.endDate) {
+    throw new RangeError('Selected assets do not have a common historical coverage interval.');
+  }
 
   return {
     startDate: startCoverage.startDate,

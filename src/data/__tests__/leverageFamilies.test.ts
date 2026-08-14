@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { HistoricalCoverage } from '../historicalAssets';
 import { getHistoricalCoverage } from '../historicalAssets';
+import type { HistoricalAssetType } from '../../types/finance';
 import {
   calculateLeverageInsights,
   getCommonCoverage,
@@ -26,6 +28,26 @@ describe('leveraged asset families', () => {
         .map((item) => item.endDate)
         .sort()[0],
     );
+  });
+
+  it('rejects histories without a shared coverage interval', () => {
+    const coverages: Record<'QQQ' | 'TQQQ', HistoricalCoverage> = {
+      QQQ: {
+        assetId: 'QQQ', ticker: 'QQQ', displayName: 'QQQ', currency: 'USD',
+        startDate: '2000-01-01', endDate: '2001-01-01', rowCount: 1,
+      },
+      TQQQ: {
+        assetId: 'TQQQ', ticker: 'TQQQ', displayName: 'TQQQ', currency: 'USD',
+        startDate: '2002-01-01', endDate: '2003-01-01', rowCount: 1,
+      },
+    };
+    const getCoverage = (asset: HistoricalAssetType): HistoricalCoverage => {
+      const coverage = coverages[asset as keyof typeof coverages];
+      if (!coverage) throw new Error(`Unexpected test asset: ${asset}`);
+      return coverage;
+    };
+
+    expect(() => getCommonCoverage(['QQQ', 'TQQQ'], getCoverage)).toThrow(RangeError);
   });
 
   it('reports percentage-point differences without dividing by the underlying return', () => {
