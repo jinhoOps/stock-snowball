@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
+import { findPointOnOrBefore, getHistoricalData } from '../data/historicalAssets';
 
 const backtestRun = vi.hoisted(() => vi.fn());
 const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[] }));
@@ -115,7 +116,7 @@ vi.mock('../components/sections/BacktestView', () => ({
       status: string;
       display?: { portfolioHistory: Array<{ value: number }> };
     }>;
-    onValueBasisChange: (basis: 'REAL') => void;
+    onValueBasisChange: (basis: 'NOMINAL' | 'REAL' | 'GOLD') => void;
     onResultViewChange: (view: 'NORMALIZED') => void;
     valueBasis: string;
     resultView: string;
@@ -130,6 +131,8 @@ vi.mock('../components/sections/BacktestView', () => ({
         {results.find((result) => result.status === 'success')?.display?.portfolioHistory.at(-1)?.value}
       </output>
       <button onClick={() => onValueBasisChange('REAL')}>show real basis</button>
+      <button onClick={() => onValueBasisChange('NOMINAL')}>show nominal basis</button>
+      <button onClick={() => onValueBasisChange('GOLD')}>show gold basis</button>
       <button onClick={() => onResultViewChange('NORMALIZED')}>show normalized</button>
       <button onClick={() => onComparisonAssetsChange(['QLD', 'QLD', primaryAsset, 'TQQQ'])}>
         send invalid comparisons
@@ -343,7 +346,7 @@ describe('App backtest selection', () => {
     });
   });
 
-  it('feeds the basis-transformed active portfolio and principal to the upper chart without the legacy toggle', async () => {
+  it('keeps nominal, real, and gold values numerically aligned across active surfaces', async () => {
     testStorage.setItem('backtest_params', JSON.stringify({
       principal: 100,
       contribution: 0,
@@ -363,12 +366,29 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     await waitFor(() => expect(screen.getByTestId('prepared-final-value').textContent).toBe('110'));
     expect(screen.getByText('110원')).toBeTruthy();
+    expect(screen.getByTestId('kpi-values').textContent).toContain('110.000000|');
+    expect(screen.getByTestId('chart-scenarios').textContent).toContain('기본 시나리오:110.000000:100.000000');
     expect(screen.queryByRole('button', { name: 'legacy real toggle' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'show real basis' }));
     await waitFor(() => {
       expect(screen.getByTestId('kpi-values').textContent).toBe('99.980431|-0.019529');
       expect(screen.getByTestId('chart-scenarios').textContent).toContain('기본 시나리오:99.980431:100.000000');
+    });
+
+    const gold = getHistoricalData('GOLD');
+    const startGold = findPointOnOrBefore(gold, '2024-01-01')!;
+    const endGold = findPointOnOrBefore(gold, '2025-01-01')!;
+    const expectedGoldValue = 110 / (endGold.price / startGold.price);
+    const expectedGoldPrincipal = 100;
+
+    fireEvent.click(screen.getByRole('button', { name: 'show gold basis' }));
+    await waitFor(() => {
+      expect(Number(screen.getByTestId('prepared-final-value').textContent)).toBeCloseTo(expectedGoldValue, 8);
+      expect(screen.getByTestId('kpi-values').textContent).toContain(`${expectedGoldValue.toFixed(6)}|`);
+      expect(screen.getByTestId('chart-scenarios').textContent).toContain(
+        `기본 시나리오:${expectedGoldValue.toFixed(6)}:${expectedGoldPrincipal.toFixed(6)}`,
+      );
     });
   });
 

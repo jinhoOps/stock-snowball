@@ -174,4 +174,33 @@ describe('value-basis transforms', () => {
     expect(goldResult.productPoints.at(-1)?.value).toBeCloseTo(100, 10);
     expect(goldResult.productMetrics.cagr).toBeCloseTo(0, 10);
   });
+
+  it('keeps a large GOLD portfolio transform sub-quadratic without timing assumptions', () => {
+    const goldPoints = Array.from({ length: 4_096 }, (_, index) => ({
+      date: new Date(Date.UTC(2010, 0, index + 1)).toISOString().slice(0, 10),
+      price: 1_000 + index,
+      dividendYield: 0,
+    }));
+    let indexedReads = 0;
+    const instrumentedGold = new Proxy(goldPoints, {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && /^\d+$/.test(property)) indexedReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const history = Array.from({ length: 512 }, (_, index) => ({
+      date: goldPoints[index * 8].date,
+      value: 100 + index,
+      principal: 100 + index,
+    }));
+
+    const transformed = transformPortfolioHistory(history, 'GOLD', {
+      inflationRate: 0,
+      gold: instrumentedGold,
+    });
+
+    expect(transformed).toHaveLength(history.length);
+    expect(transformed.at(-1)?.date).toBe(history.at(-1)?.date);
+    expect(indexedReads).toBeLessThan(25_000);
+  });
 });

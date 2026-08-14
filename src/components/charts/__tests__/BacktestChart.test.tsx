@@ -9,6 +9,7 @@ import {
   resolveBacktestTooltip,
   type BacktestDisplaySeries,
 } from '../BacktestChart';
+import { transformPortfolioHistory } from '../../../core/ValueBasis';
 
 const series: BacktestDisplaySeries[] = [
   {
@@ -88,5 +89,36 @@ describe('BacktestChart date alignment', () => {
 
     fireEvent.keyDown(scrubber, { key: 'ArrowLeft' });
     expect(screen.getByRole('status').textContent).toContain('2024년 1월 2일');
+  });
+
+  it('announces the exact prepared GOLD value used by the chart tooltip', () => {
+    const points = transformPortfolioHistory([
+      { date: '2024-01-02', value: 100, principal: 100 },
+      { date: '2025-01-02', value: 110, principal: 100 },
+    ], 'GOLD', {
+      inflationRate: 0,
+      gold: [
+        { date: '2024-01-02', price: 2_000, dividendYield: 0 },
+        { date: '2025-01-02', price: 2_200, dividendYield: 0 },
+      ],
+    });
+
+    render(
+      <BacktestChartInner
+        series={[{ assetId: 'SPY', targetMultiple: 1, color: '#111111', points }]}
+        currency="USD"
+        resultView="PORTFOLIO"
+        width={800}
+        height={360}
+      />,
+    );
+    const scrubber = screen.getByRole('slider', { name: '차트 날짜 탐색' });
+    fireEvent.focus(scrubber);
+    fireEvent.keyDown(scrubber, { key: 'End' });
+
+    const liveTooltip = screen.getByRole('status');
+    expect(liveTooltip.textContent).toContain('2025년 1월 2일');
+    expect(liveTooltip.textContent).toContain('SPY');
+    expect(liveTooltip.textContent).toContain('$100');
   });
 });
