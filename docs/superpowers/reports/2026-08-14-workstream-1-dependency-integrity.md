@@ -52,6 +52,15 @@ Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and trans
 
 ## Rollback
 
-Workstream 1 is the ordered commit set `1bb4bc6` (deferred-migration documentation), `698708b` (test scope), `f9b2f62` (dependency metadata and lockfile), `b7ac583` (clean-install CI gate), then the verification/report commits `67c6eb1`, `a163106`, `ea1f384`, and `925352b`. Do not revert `f9b2f62` alone while `b7ac583` remains: that separates the restored dependency/lockfile state from the later clean-`npm ci` gate and can make the CI install fail.
+Workstream 1 starts with the plan commit `f444614` and includes every commit through the current Workstream head, including subsequent acceptance-report corrections. Do not revert `f9b2f62` alone while `b7ac583` remains: that separates the restored dependency/lockfile state from the later clean-`npm ci` gate and can make the CI install fail.
 
-To roll back the whole workstream safely, revert in reverse order: `925352b`, `ea1f384`, `a163106`, `67c6eb1`, `b7ac583`, `f9b2f62`, `698708b`, and `1bb4bc6` (equivalently, reverse the full `1bb4bc6^..925352b` range). This keeps `package.json`, `package-lock.json`, and CI configuration aligned. The range changes code, configuration, and documentation only; it does not alter application data.
+To roll back the whole workstream safely, record the current head first, inspect the range in its default newest-to-oldest order, then create one reverse commit from that same range:
+
+```sh
+WORKSTREAM_HEAD=$(git rev-parse HEAD)
+git rev-list f444614^.."$WORKSTREAM_HEAD"
+git revert --no-commit f444614^.."$WORKSTREAM_HEAD"
+git commit -m "revert: roll back Workstream 1"
+```
+
+`git revert` applies this range newest-first, so later reports and the clean-install CI gate are removed before the dependency/lockfile commit and the plan. The range keeps `package.json`, `package-lock.json`, and CI configuration aligned, and automatically includes future report-only corrections made before `WORKSTREAM_HEAD` is captured. It changes code, configuration, and documentation only; it does not alter application data.
