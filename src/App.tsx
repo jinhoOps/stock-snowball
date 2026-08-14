@@ -11,13 +11,16 @@ import SimulationControls from './components/sections/SimulationControls';
 import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
+import { calculateProductPerformance } from './core/ProductPerformance';
+import { getGoldBasisError, transformPortfolioHistory } from './core/ValueBasis';
 import { useScenarios } from './hooks/useScenarios';
-import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
+import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
 import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
 import { normalizeLegacyAssetType } from './data/assetMigration';
-import { applyFamilySelection } from './data/leverageFamilies';
+import { applyFamilySelection, calculateLeverageInsights, LEVERAGE_FAMILIES, type LeverageFamily } from './data/leverageFamilies';
+import type { ComparisonAssetResult } from './components/sections/BacktestView';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -95,6 +98,8 @@ function App() {
     };
   });
   const [comparisonAssets, setComparisonAssets] = useState<HistoricalAssetType[]>([]);
+  const [valueBasis, setValueBasis] = useState<ValueBasis>('NOMINAL');
+  const [backtestResultView, setBacktestResultView] = useState<'PORTFOLIO' | 'NORMALIZED'>('PORTFOLIO');
  
   // Cache to localStorage
   useEffect(() => {
@@ -114,10 +119,10 @@ function App() {
   }, [exchangeRate]);
 
   const activeParams = mode === 'PROJECTION' ? projectionParams : backtestParams;
-  const selectedBacktestAssets = [
+  const selectedBacktestAssets = useMemo(() => [
     backtestParams.assetType as HistoricalAssetType,
     ...comparisonAssets,
-  ];
+  ], [backtestParams.assetType, comparisonAssets]);
 
   const handleFamilySelect = (familyId: LeverageFamilyId) => {
     const selection = applyFamilySelection(backtestParams, familyId, getHistoricalCoverage);
@@ -153,6 +158,8 @@ function App() {
       setProjectionParams(DEFAULT_PROJECTION_PARAMS);
       setBacktestParams(backtestSelection.params);
       setComparisonAssets(backtestSelection.comparisonAssets);
+      setValueBasis('NOMINAL');
+      setBacktestResultView('PORTFOLIO');
       setExchangeRate(DEFAULT_EXCHANGE_RATE);
       setCurrency('KRW');
       setScenarioName('기본 시나리오');
@@ -207,47 +214,83 @@ function App() {
     );
   }, [projectionParams]);
 
-  const activeBacktest = useMemo(() => {
-    if (mode !== 'BACKTEST') return null;
+  const comparisonResults = useMemo<ComparisonAssetResult[]>(() => {
+    if (mode !== 'BACKTEST') return [];
     const startDate = backtestParams.startDate || '2010-01-01';
     const endDate = backtestParams.endDate || '2024-01-01';
-    if (getHistoricalRangeError(backtestParams.assetType, startDate, endDate)) return null;
+    const families: readonly LeverageFamily[] = Object.values(LEVERAGE_FAMILIES);
+    const targetMultiple = (assetId: HistoricalAssetType): 1 | 2 | 3 => families
+      .flatMap((family) => family.members)
+      .find((member) => member.assetId === assetId)?.targetMultiple ?? 1;
 
-    const data = getHistoricalData(backtestParams.assetType);
-    
-    const params = {
-      initialPrincipal: backtestParams.principal,
-      monthlyInstallment: backtestParams.contribution,
-      cycle: backtestParams.cycle,
-      startDate,
-      endDate,
-      reinvestDividends: true,
-      assetId: backtestParams.assetType,
-      accountType: backtestParams.accountType,
-      buyFeeRate: 0.00015,
-      sellFeeRate: 0.00015,
-      taxDividendRate: 0.154,
-      taxCapitalGainRate: 0.22,
-      taxIsaLimit: 2000000,
-      taxIsaReducedRate: 0.095,
-    };
+    return selectedBacktestAssets.map((assetId): ComparisonAssetResult => {
+      const multiple = targetMultiple(assetId);
+      const rangeError = getHistoricalRangeError(assetId, startDate, endDate);
+      if (rangeError) return { status: 'error', assetId, targetMultiple: multiple, error: rangeError };
+      try {
+        const data = getHistoricalData(assetId);
+        const portfolio = BacktestEngine.run({
+          initialPrincipal: backtestParams.principal,
+          monthlyInstallment: backtestParams.contribution,
+          cycle: backtestParams.cycle,
+          startDate,
+          endDate,
+          reinvestDividends: true,
+          assetId,
+          accountType: backtestParams.accountType,
+          buyFeeRate: 0.00015,
+          sellFeeRate: 0.00015,
+          taxDividendRate: 0.154,
+          taxCapitalGainRate: 0.22,
+          taxIsaLimit: 2000000,
+          taxIsaReducedRate: 0.095,
+        }, data);
+        const product = calculateProductPerformance(data, startDate, endDate);
+        return { status: 'success', assetId, targetMultiple: multiple, portfolio, product };
+      } catch (error) {
+        return {
+          status: 'error',
+          assetId,
+          targetMultiple: multiple,
+          error: error instanceof Error ? error.message : '알 수 없는 계산 오류가 발생했습니다.',
+        };
+      }
+    });
+  }, [mode, backtestParams, selectedBacktestAssets]);
 
-    try {
-      return BacktestEngine.run(params, data);
-    } catch (e) {
-      console.error('Backtest error:', e);
-      return null;
-    }
-  }, [mode, backtestParams]);
+  const activeBacktest = comparisonResults?.find((result) =>
+    result.status === 'success' && result.assetId === backtestParams.assetType)?.portfolio ?? null;
+  const completeSelectedFamily = Object.values(LEVERAGE_FAMILIES).find((family) =>
+    family.members.length === selectedBacktestAssets.length
+    && family.members.every((member) => selectedBacktestAssets.includes(member.assetId)));
+  const leverageInsights = useMemo(() => {
+    if (!completeSelectedFamily) return [];
+    if (comparisonResults.some((result) => result.status === 'error')) return [];
+    const productResults = Object.fromEntries(comparisonResults.flatMap((result) =>
+      result.status === 'success' ? [[result.assetId, result.product]] : []));
+    return calculateLeverageInsights(productResults, completeSelectedFamily);
+  }, [comparisonResults, completeSelectedFamily]);
+  const goldData = useMemo(() => getHistoricalData('GOLD'), []);
+  const goldBasisError = mode === 'BACKTEST'
+    ? getGoldBasisError(backtestParams.startDate || '2010-01-01', backtestParams.endDate || '2024-01-01', goldData)
+    : null;
+  const effectiveValueBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
+  const activeDisplayHistory = useMemo(() => activeBacktest
+    ? transformPortfolioHistory(activeBacktest.history, effectiveValueBasis, {
+      inflationRate: backtestParams.inflationRate,
+      gold: goldData,
+    })
+    : [], [activeBacktest, backtestParams.inflationRate, effectiveValueBasis, goldData]);
+  const activeDisplayPoint = activeDisplayHistory.at(-1);
 
   const activeResult: SimulationResult = mode === 'PROJECTION' 
     ? activeSimulation.average[activeSimulation.average.length - 1]
     : ({ 
-        postTaxValue: activeBacktest?.metrics.finalValue || 0, 
-        totalContribution: activeBacktest?.metrics.totalPrincipal || 0,
+        postTaxValue: activeDisplayPoint?.value || 0,
+        totalContribution: activeDisplayPoint?.principal || 0,
         nominalValue: activeBacktest?.metrics.finalValue || 0,
-        realValue: activeBacktest?.metrics.finalValue || 0,
-        totalGains: (activeBacktest?.metrics.finalValue || 0) - (activeBacktest?.metrics.totalPrincipal || 0),
+        realValue: activeDisplayPoint?.value || 0,
+        totalGains: (activeDisplayPoint?.value || 0) - (activeDisplayPoint?.principal || 0),
         totalFees: activeBacktest?.metrics.totalFees || 0,
         estimatedTax: activeBacktest?.metrics.estimatedTax || 0,
         date: new Date()
@@ -565,16 +608,23 @@ function App() {
                     />
                   </div>
 
-                  {mode === 'BACKTEST' && activeBacktest && (
+                  {mode === 'BACKTEST' && (
                     <div className="w-full max-w-[1200px] mt-12">
                       <BacktestView
-                        result={activeBacktest}
                         primaryAsset={backtestParams.assetType as HistoricalAssetType}
                         comparisonAssets={comparisonAssets}
+                        results={comparisonResults}
+                        leverageInsights={leverageInsights}
                         onComparisonAssetsChange={setComparisonAssets}
                         onFamilySelect={handleFamilySelect}
                         currency={currency}
-                        params={backtestParams}
+                        valueBasis={valueBasis}
+                        resultView={backtestResultView}
+                        goldBasisError={goldBasisError}
+                        goldData={goldData}
+                        inflationRate={backtestParams.inflationRate}
+                        onValueBasisChange={setValueBasis}
+                        onResultViewChange={setBacktestResultView}
                       />
                     </div>
                   )}

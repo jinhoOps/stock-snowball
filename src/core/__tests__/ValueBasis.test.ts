@@ -69,6 +69,34 @@ describe('value-basis transforms', () => {
     ]);
   });
 
+  it('deflates a product series directly in real terms', () => {
+    const result = transformProductSeries([
+      { date: '2024-01-01', value: 100 },
+      { date: '2025-01-01', value: 110 },
+    ], 'REAL', { inflationRate: 0.1, gold: [] });
+
+    expect(result[0].value).toBe(100);
+    expect(result[1].value).toBeCloseTo(99.9804310361, 8);
+  });
+
+  it('converts a product series directly with the closest prior gold price', () => {
+    const result = transformProductSeries([
+      { date: '2024-01-02', value: 100 },
+      { date: '2024-01-03', value: 120 },
+    ], 'GOLD', {
+      inflationRate: 0,
+      gold: [
+        { date: '2024-01-02', price: 2000, dividendYield: 0 },
+        { date: '2024-01-04', price: 2400, dividendYield: 0 },
+      ],
+    });
+
+    expect(result).toEqual([
+      { date: '2024-01-02', value: 100 },
+      { date: '2024-01-03', value: 120 },
+    ]);
+  });
+
   it('reports incomplete gold coverage and throws a typed error only for gold transforms', () => {
     const history = [{ date: '2024-01-01', value: 100, principal: 100 }];
 

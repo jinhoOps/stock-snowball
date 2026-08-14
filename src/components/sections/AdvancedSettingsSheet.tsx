@@ -141,7 +141,7 @@ const AdvancedSettingsSheet: React.FC<AdvancedSettingsSheetProps> = ({
                       <option value="KOSDAQ">KOSDAQ</option>
                       <option value="SPY">S&P 500 (SPY)</option>
                       <option value="SCHD">Dividend Equity (SCHD)</option>
-                      <option value="GOLD">Gold (GLD)</option>
+                      <option value="GOLD">Gold Futures (GC=F)</option>
                     </select>
                     <div className="absolute right-6 top-3.5 pointer-events-none text-apple-ink-muted-48">
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
