@@ -9,7 +9,7 @@
 
 ## Install and dependency graph
 
-`npm ls --depth=0` exited 0. React and React DOM resolve at `19.2.8`; all eleven direct `@visx/*` packages resolve at `4.0.0`; no invalid peers or Visx peer-resolution errors were reported. Clean-install evidence is supplied by the preceding `b7ac583 ci: enforce clean dependency installation` gate.
+`npm ls --depth=0` exited 0. React and React DOM resolve at `19.2.8`; all ten direct `@visx/*` packages resolve at `4.0.0`; no invalid peers or Visx peer-resolution errors were reported. Clean-install evidence is supplied by the preceding `b7ac583 ci: enforce clean dependency installation` gate.
 
 ## Tests and production build
 
@@ -52,4 +52,6 @@ Vite 6.4.2 and RxDB 17.2.0 remain intentionally deferred; their direct and trans
 
 ## Rollback
 
-The Workstream 1 dependency commit is `f9b2f62d96ef25e49db6e9c4d31da3275bbe30e7` (`chore: restore React 19 dependency integrity`). Reverting that commit restores the preceding lockfile state and changes dependency metadata only; it does not touch application data.
+Workstream 1 is the ordered commit set `1bb4bc6` (deferred-migration documentation), `698708b` (test scope), `f9b2f62` (dependency metadata and lockfile), `b7ac583` (clean-install CI gate), then the verification/report commits `67c6eb1`, `a163106`, `ea1f384`, and `925352b`. Do not revert `f9b2f62` alone while `b7ac583` remains: that separates the restored dependency/lockfile state from the later clean-`npm ci` gate and can make the CI install fail.
+
+To roll back the whole workstream safely, revert in reverse order: `925352b`, `ea1f384`, `a163106`, `67c6eb1`, `b7ac583`, `f9b2f62`, `698708b`, and `1bb4bc6` (equivalently, reverse the full `1bb4bc6^..925352b` range). This keeps `package.json`, `package-lock.json`, and CI configuration aligned. The range changes code, configuration, and documentation only; it does not alter application data.
