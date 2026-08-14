@@ -3,6 +3,7 @@ import type { HistoricalCoverage } from '../historicalAssets';
 import { getHistoricalCoverage } from '../historicalAssets';
 import type { HistoricalAssetType } from '../../types/finance';
 import {
+  applyFamilySelection,
   calculateLeverageInsights,
   getCommonCoverage,
   getFamilyDurationPresets,
@@ -11,6 +12,22 @@ import {
 } from '../leverageFamilies';
 
 describe('leveraged asset families', () => {
+  it('changes primary, comparisons, and dates as one family action', () => {
+    const next = applyFamilySelection(
+      { assetType: 'SPY', startDate: '2000-01-01', endDate: '2026-08-13' },
+      'NASDAQ',
+      getHistoricalCoverage,
+    );
+
+    const common = getCommonCoverage(['QQQ', 'QLD', 'TQQQ'], getHistoricalCoverage);
+    expect(next).toEqual({
+      primaryAsset: 'QQQ',
+      comparisonAssets: ['QLD', 'TQQQ'],
+      startDate: common.startDate,
+      endDate: common.endDate,
+    });
+  });
+
   it('selects the Nasdaq family with the underlying as primary', () => {
     expect(selectLeverageFamily('NASDAQ')).toEqual({
       primaryAsset: 'QQQ',

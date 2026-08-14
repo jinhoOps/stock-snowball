@@ -1,5 +1,6 @@
 import type { HistoricalCoverage } from './historicalAssets';
 import type {
+  AssetType,
   CommonCoverage,
   HistoricalAssetType,
   LeverageFamilyId,
@@ -38,6 +39,13 @@ export const LEVERAGE_FAMILIES = {
 
 type HistoricalCoverageLookup = (asset: HistoricalAssetType) => HistoricalCoverage;
 
+export interface BacktestAssetSelection {
+  primaryAsset: HistoricalAssetType;
+  comparisonAssets: HistoricalAssetType[];
+  startDate: string;
+  endDate: string;
+}
+
 export const selectLeverageFamily = (familyId: LeverageFamilyId) => {
   const members = LEVERAGE_FAMILIES[familyId].members;
   const primary = members.find((member) => member.targetMultiple === 1)!;
@@ -47,6 +55,24 @@ export const selectLeverageFamily = (familyId: LeverageFamilyId) => {
     comparisonAssets: members
       .filter((member) => member.targetMultiple > 1)
       .map((member) => member.assetId),
+  };
+};
+
+export const applyFamilySelection = (
+  _params: Pick<{ assetType: AssetType; startDate?: string; endDate?: string }, 'assetType' | 'startDate' | 'endDate'>,
+  familyId: LeverageFamilyId,
+  getCoverage: HistoricalCoverageLookup,
+): BacktestAssetSelection => {
+  const selection = selectLeverageFamily(familyId);
+  const coverage = getCommonCoverage(
+    [selection.primaryAsset, ...selection.comparisonAssets],
+    getCoverage,
+  );
+
+  return {
+    ...selection,
+    startDate: coverage.startDate,
+    endDate: coverage.endDate,
   };
 };
 

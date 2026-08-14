@@ -12,11 +12,12 @@ import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
 import { useScenarios } from './hooks/useScenarios';
-import { StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
-import { calculateMedianCAGR, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
+import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
+import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
 import { normalizeLegacyAssetType } from './data/assetMigration';
+import { applyFamilySelection } from './data/leverageFamilies';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -88,6 +89,7 @@ function App() {
       endDate: '2024-01-01',
     };
   });
+  const [comparisonAssets, setComparisonAssets] = useState<HistoricalAssetType[]>([]);
  
   // Cache to localStorage
   useEffect(() => {
@@ -107,6 +109,21 @@ function App() {
   }, [exchangeRate]);
 
   const activeParams = mode === 'PROJECTION' ? projectionParams : backtestParams;
+  const selectedBacktestAssets = [
+    backtestParams.assetType as HistoricalAssetType,
+    ...comparisonAssets,
+  ];
+
+  const handleFamilySelect = (familyId: LeverageFamilyId) => {
+    const selection = applyFamilySelection(backtestParams, familyId, getHistoricalCoverage);
+    setBacktestParams((previous) => ({
+      ...previous,
+      assetType: selection.primaryAsset,
+      startDate: selection.startDate,
+      endDate: selection.endDate,
+    }));
+    setComparisonAssets(selection.comparisonAssets);
+  };
   
   const handleUpdateParams = (newParams: Partial<SimulationParams>) => {
     const applyLimits = (params: SimulationParams, changes: Partial<SimulationParams>): SimulationParams => {
@@ -447,6 +464,7 @@ function App() {
                 currency={currency} setCurrency={handleCurrencyChange}
                 exchangeRate={exchangeRate}
                 onOpenAdvanced={() => setIsAdvancedOpen(true)}
+                selectedAssets={selectedBacktestAssets}
               />
 
               <AdvancedSettingsSheet 
@@ -542,7 +560,15 @@ function App() {
 
                   {mode === 'BACKTEST' && activeBacktest && (
                     <div className="w-full max-w-[1200px] mt-12">
-                      <BacktestView result={activeBacktest} assetName={backtestParams.assetType} currency={currency} params={backtestParams} />
+                      <BacktestView
+                        result={activeBacktest}
+                        primaryAsset={backtestParams.assetType as HistoricalAssetType}
+                        comparisonAssets={comparisonAssets}
+                        onComparisonAssetsChange={setComparisonAssets}
+                        onFamilySelect={handleFamilySelect}
+                        currency={currency}
+                        params={backtestParams}
+                      />
                     </div>
                   )}
                 </motion.div>

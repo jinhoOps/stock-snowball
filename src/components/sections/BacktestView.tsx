@@ -1,36 +1,47 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { BacktestResult, AssetType, HISTORICAL_ASSET_IDS, SimulationParams } from '../../types/finance';
+import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFamilyId, SimulationParams } from '../../types/finance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { BacktestEngine } from '../../core/BacktestEngine';
 import { getHistoricalData, getHistoricalRangeError } from '../../data/historicalAssets';
 import BacktestChart from '../charts/BacktestChart';
+import { LEVERAGE_FAMILIES } from '../../data/leverageFamilies';
 
 interface BacktestViewProps {
   result: BacktestResult; // Primary result
-  assetName: string;
+  primaryAsset: HistoricalAssetType;
+  comparisonAssets: HistoricalAssetType[];
+  onComparisonAssetsChange: (assets: HistoricalAssetType[]) => void;
+  onFamilySelect: (familyId: LeverageFamilyId) => void;
   currency: 'KRW' | 'USD';
   params: SimulationParams;
 }
 
-const ASSET_OPTIONS: AssetType[] = [...HISTORICAL_ASSET_IDS];
+const ASSET_OPTIONS: HistoricalAssetType[] = [...HISTORICAL_ASSET_IDS];
 
 const ASSET_COLORS = ['#0066cc', '#34C759', '#FF9500'];
 
-const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency, params }) => {
-  const [comparisonAssets, setComparisonAssets] = useState<AssetType[]>([]);
+const BacktestView: React.FC<BacktestViewProps> = ({
+  result,
+  primaryAsset,
+  comparisonAssets,
+  onComparisonAssetsChange,
+  onFamilySelect,
+  currency,
+  params,
+}) => {
 
   const allResults = useMemo(() => {
     const results = [
       {
-        assetId: assetName as AssetType,
+        assetId: primaryAsset,
         result,
         color: ASSET_COLORS[0]
       }
     ];
 
     comparisonAssets.forEach((assetId) => {
-      if (assetId === assetName) return; // Skip if same as primary
+      if (assetId === primaryAsset) return; // Skip if same as primary
 
       const startDate = params.startDate || '2010-01-01';
       const endDate = params.endDate || '2024-01-01';
@@ -67,7 +78,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency
     });
 
     return results;
-  }, [result, assetName, comparisonAssets, params]);
+  }, [result, primaryAsset, comparisonAssets, params]);
 
   const formatCurrency = (val: number) => {
     if (currency === 'KRW') {
@@ -77,15 +88,14 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency
     return SnowballEngine.formatUSD(val);
   };
 
-  const toggleAsset = (asset: AssetType) => {
-    if (asset === assetName) return;
-    setComparisonAssets(prev => {
-      if (prev.includes(asset)) {
-        return prev.filter(a => a !== asset);
-      }
-      if (prev.length >= 2) return prev; // Limit to 3 total
-      return [...prev, asset];
-    });
+  const toggleAsset = (asset: HistoricalAssetType) => {
+    if (asset === primaryAsset) return;
+    if (comparisonAssets.includes(asset)) {
+      onComparisonAssetsChange(comparisonAssets.filter((selected) => selected !== asset));
+      return;
+    }
+    if (comparisonAssets.length >= 2) return; // Limit to 3 total
+    onComparisonAssetsChange([...comparisonAssets, asset]);
   };
 
   return (
@@ -93,8 +103,19 @@ const BacktestView: React.FC<BacktestViewProps> = ({ result, assetName, currency
       {/* Asset Selector Chips */}
       <div className="w-full max-w-[1200px] px-4 flex flex-col items-center gap-4">
         <div className="flex flex-wrap justify-center gap-2">
+          {(Object.keys(LEVERAGE_FAMILIES) as LeverageFamilyId[]).map((familyId) => (
+            <button
+              key={familyId}
+              onClick={() => onFamilySelect(familyId)}
+              className="px-4 py-2 rounded-pill text-caption-strong border transition-all bg-apple-surface-pearl text-apple-ink border-white/60 hover:border-apple-primary/30 active:scale-95"
+            >
+              {LEVERAGE_FAMILIES[familyId].label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap justify-center gap-2">
           {ASSET_OPTIONS.map((asset) => {
-            const isPrimary = asset === assetName;
+            const isPrimary = asset === primaryAsset;
             const isSelected = isPrimary || comparisonAssets.includes(asset);
             const colorIndex = allResults.findIndex(r => r.assetId === asset);
             const color = colorIndex >= 0 ? ASSET_COLORS[colorIndex] : null;

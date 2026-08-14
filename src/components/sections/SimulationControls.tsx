@@ -1,10 +1,11 @@
 import React from 'react';
-import { SimulationMode, SimulationParams } from '../../types/finance';
+import { HistoricalAssetType, SimulationMode, SimulationParams } from '../../types/finance';
 import { motion } from 'framer-motion';
 import { BigNumberHelper } from '../common/BigNumberHelper';
 import { NumericInput } from '../common/NumericInput';
 import ScenarioPresetPicker, { getPresetScenarios } from '../common/ScenarioPresetPicker';
-import { getHistoricalCoverage, getHistoricalRangeError } from '../../data/historicalAssets';
+import { getHistoricalCoverage } from '../../data/historicalAssets';
+import { getCommonCoverage } from '../../data/leverageFamilies';
 
 interface SimulationControlsProps {
   mode: SimulationMode;
@@ -15,15 +16,23 @@ interface SimulationControlsProps {
   setCurrency: (c: 'KRW' | 'USD') => void;
   exchangeRate: number;
   onOpenAdvanced: () => void;
+  selectedAssets: HistoricalAssetType[];
 }
 
 const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
-  const historicalCoverage = getHistoricalCoverage(props.params.assetType);
-  const historicalRangeError = getHistoricalRangeError(
-    props.params.assetType,
-    props.params.startDate || historicalCoverage.startDate,
-    props.params.endDate || historicalCoverage.endDate,
-  );
+  const commonCoverage = getCommonCoverage(props.selectedAssets, getHistoricalCoverage);
+  const historicalCoverage = {
+    ...getHistoricalCoverage(props.selectedAssets[0]),
+    startDate: commonCoverage.startDate,
+    endDate: commonCoverage.endDate,
+  };
+  const startDate = props.params.startDate || historicalCoverage.startDate;
+  const endDate = props.params.endDate || historicalCoverage.endDate;
+  const historicalRangeError = startDate > endDate
+    ? '백테스트 시작일은 종료일보다 앞서야 합니다.'
+    : startDate < historicalCoverage.startDate || endDate > historicalCoverage.endDate
+      ? `선택한 자산의 공통 데이터는 ${historicalCoverage.startDate}부터 ${historicalCoverage.endDate}까지 사용할 수 있습니다.`
+      : null;
   const presetScenarios = getPresetScenarios(historicalCoverage);
 
   const handleCurrencyToggle = (newCurrency: 'KRW' | 'USD') => {
