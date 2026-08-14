@@ -32,6 +32,11 @@ const SCENARIO_COLORS = [
   '#FFCC00', // Yellow
 ];
 
+export const resetBacktestSelection = () => ({
+  params: { ...DEFAULT_BACKTEST_PARAMS },
+  comparisonAssets: [] as HistoricalAssetType[],
+});
+
 function App() {
   const { scenarios, addScenario, removeScenario, loading } = useScenarios();
   const lastCelebratedMilestone = useRef<number>(0);
@@ -144,8 +149,10 @@ function App() {
 
   const handleResetAll = () => {
     if (confirm('모든 설정을 초기값으로 되돌리시겠습니까? (저장된 시나리오는 유지됩니다)')) {
+      const backtestSelection = resetBacktestSelection();
       setProjectionParams(DEFAULT_PROJECTION_PARAMS);
-      setBacktestParams(DEFAULT_BACKTEST_PARAMS);
+      setBacktestParams(backtestSelection.params);
+      setComparisonAssets(backtestSelection.comparisonAssets);
       setExchangeRate(DEFAULT_EXCHANGE_RATE);
       setCurrency('KRW');
       setScenarioName('기본 시나리오');

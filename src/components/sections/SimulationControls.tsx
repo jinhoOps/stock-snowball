@@ -5,7 +5,7 @@ import { BigNumberHelper } from '../common/BigNumberHelper';
 import { NumericInput } from '../common/NumericInput';
 import ScenarioPresetPicker, { getPresetScenarios } from '../common/ScenarioPresetPicker';
 import { getHistoricalCoverage } from '../../data/historicalAssets';
-import { getCommonCoverage } from '../../data/leverageFamilies';
+import { getCommonCoverage, getFamilyDurationPresets, LEVERAGE_FAMILIES } from '../../data/leverageFamilies';
 
 interface SimulationControlsProps {
   mode: SimulationMode;
@@ -33,7 +33,15 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     : startDate < historicalCoverage.startDate || endDate > historicalCoverage.endDate
       ? `선택한 자산의 공통 데이터는 ${historicalCoverage.startDate}부터 ${historicalCoverage.endDate}까지 사용할 수 있습니다.`
       : null;
+  const selectedFamily = Object.values(LEVERAGE_FAMILIES).find((family) =>
+    family.members.length === props.selectedAssets.length &&
+    family.members.every((member) => props.selectedAssets.includes(member.assetId)),
+  );
+  const familyPresets = selectedFamily
+    ? getFamilyDurationPresets(commonCoverage)
+    : undefined;
   const presetScenarios = getPresetScenarios(historicalCoverage);
+  const selectablePresets = familyPresets ?? presetScenarios;
 
   const handleCurrencyToggle = (newCurrency: 'KRW' | 'USD') => {
     props.setCurrency(newCurrency);
@@ -240,7 +248,8 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
                      endDate: preset.endDate
                    });
                  }}
-                 activePresetName={presetScenarios.find(p => p.startDate === props.params.startDate && p.endDate === props.params.endDate)?.name}
+                 activePresetName={selectablePresets.find(p => p.startDate === props.params.startDate && p.endDate === props.params.endDate)?.name}
+                 familyPresets={familyPresets}
                />
              </div>
           </div>
