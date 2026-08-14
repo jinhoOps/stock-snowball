@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Keep Vite on major 6, Tailwind CSS on major 3, TypeScript on major 6, RxDB at 17.2.0, Dexie at 4.4.2, `framer-motion` at 12.38.0, and the existing Node configuration.
+- Keep Vite on major 6, Tailwind CSS on major 3, TypeScript on major 6, and the existing Node configuration. Pin RxDB to `17.2.0`, Dexie to `4.4.2`, and `framer-motion` to `12.38.0` so lockfile regeneration cannot pull their deferred updates into this workstream.
 - Do not change application behavior, chart implementation, RxDB schema, encryption, animation ownership, financial calculations, historical data, PWA configuration, or browser support.
 - Set every installed `@visx/*` direct dependency to `^4.0.0`; never mix Visx major versions.
 - Set React and React DOM to `^19.2.8`, `@types/react` to `^19.2.18`, and `@types/react-dom` to `^19.2.4`.
@@ -120,8 +120,11 @@ Apply these dependency changes to `package.json`; leave every unlisted dependenc
     "@visx/scale": "^4.0.0",
     "@visx/shape": "^4.0.0",
     "@visx/tooltip": "^4.0.0",
+    "dexie": "4.4.2",
+    "framer-motion": "12.38.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "rxdb": "17.2.0"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
@@ -134,7 +137,7 @@ Apply these dependency changes to `package.json`; leave every unlisted dependenc
 }
 ```
 
-Remove `@types/canvas-confetti` from `dependencies`. Preserve `@types/node`, `@vitejs/plugin-react`, Tailwind CSS, TypeScript, Vite, RxDB, Dexie, Motion, and all other declared ranges exactly.
+Remove `@types/canvas-confetti` from `dependencies`. Apply the exact RxDB, Dexie, and Motion pins shown above. Preserve `@types/node`, `@vitejs/plugin-react`, Tailwind CSS, TypeScript, Vite, and all other declared ranges exactly.
 
 - [ ] **Step 3: Rebuild the lockfile without installing packages**
 
