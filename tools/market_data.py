@@ -9,7 +9,7 @@ import tempfile
 import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep as default_sleep
 from typing import Any
@@ -146,31 +146,45 @@ def normalize_history(asset_id: str, history: Any) -> list[MarketRecord]:
             f"{asset_id} history is missing required columns: {', '.join(sorted(missing_columns))}"
         )
 
-    by_date: dict[str, MarketRecord] = {}
+    records: list[MarketRecord] = []
+    previous_date: str | None = None
     for index, row in history.iterrows():
-        record_date = _to_iso_date(index)
+        try:
+            record_date = _to_iso_date(index)
+        except (TypeError, ValueError) as error:
+            raise MarketDataValidationError(
+                f"{asset_id} has an invalid provider date: {index!r}"
+            ) from error
+        if previous_date is not None and record_date <= previous_date:
+            raise MarketDataValidationError(
+                f"{asset_id} provider date {record_date} is not strictly increasing after {previous_date}"
+            )
+        previous_date = record_date
         if date.fromisoformat(record_date).weekday() >= 5:
-            continue
+            raise MarketDataValidationError(
+                f"{asset_id} has a non-trading weekend date on {record_date}"
+            )
 
         close = _finite_number(row["Close"])
         if close is None or close <= 0:
-            continue
+            raise MarketDataValidationError(
+                f"{asset_id} close on {record_date} must be a finite positive number"
+            )
 
         dividend = _finite_number(row["Dividends"])
-        if dividend is None:
-            dividend = 0.0
-        if dividend < 0:
-            raise MarketDataValidationError(f"{asset_id} has a negative dividend on {record_date}")
+        if dividend is None or dividend < 0:
+            raise MarketDataValidationError(
+                f"{asset_id} dividend on {record_date} must be a finite non-negative number"
+            )
 
-        by_date[record_date] = MarketRecord(
+        records.append(MarketRecord(
             date=record_date,
             close=close,
             dividend=dividend,
-        )
+        ))
 
-    records = [by_date[record_date] for record_date in sorted(by_date)]
     if not records:
-        raise MarketDataValidationError(f"{asset_id} has no valid trading-day records")
+        raise MarketDataValidationError(f"{asset_id} has no trading-day records")
     return records
 
 
@@ -236,9 +250,24 @@ def validate_generated_data(data_dir: Path) -> dict[str, AssetManifestEntry]:
         raise MarketDataValidationError("manifest schemaVersion does not match")
     if manifest.get("source") != SOURCE_NAME:
         raise MarketDataValidationError("manifest source does not match")
+    _validate_generated_at(manifest.get("generatedAt"))
     manifest_assets = manifest.get("assets")
     if not isinstance(manifest_assets, dict):
         raise MarketDataValidationError("manifest assets must be an object")
+
+    expected_members = {asset.output_filename for asset in ASSETS} | {"manifest.json"}
+    actual_members = {path.name for path in data_dir.iterdir()}
+    if actual_members != expected_members:
+        missing = sorted(expected_members - actual_members)
+        unexpected = sorted(actual_members - expected_members)
+        details = []
+        if missing:
+            details.append(f"missing: {', '.join(missing)}")
+        if unexpected:
+            details.append(f"unexpected: {', '.join(unexpected)}")
+        raise MarketDataValidationError(
+            f"catalog directory must contain exactly the approved files ({'; '.join(details)})"
+        )
 
     entries: dict[str, AssetManifestEntry] = {}
     for asset in ASSETS:
@@ -260,10 +289,6 @@ def refresh_all(
 ) -> dict[str, AssetManifestEntry]:
     """Fetch, validate, and atomically install every refreshed static dataset."""
     factory = client_factory or _default_client_factory
-    datasets: dict[str, list[MarketRecord]] = {}
-    for asset in ASSETS:
-        datasets[asset.asset_id] = normalize_history(asset.asset_id, fetch_history(asset, factory))
-
     data_dir.parent.mkdir(parents=True, exist_ok=True)
     staging_dir = Path(
         tempfile.mkdtemp(prefix=f".{data_dir.name}.staging-", dir=data_dir.parent)
@@ -271,7 +296,7 @@ def refresh_all(
     try:
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
-            records = datasets[asset.asset_id]
+            records = normalize_history(asset.asset_id, fetch_history(asset, factory))
             write_dataset(staging_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
         write_manifest(staging_dir / "manifest.json", entries)
@@ -410,6 +435,22 @@ def _validate_date(filename: str, line_number: int, value: str) -> None:
         raise MarketDataValidationError(f"{filename}:{line_number} has an invalid ISO date") from error
     if parsed.weekday() >= 5:
         raise MarketDataValidationError(f"{filename}:{line_number} must be a trading day")
+
+
+def _validate_generated_at(value: object) -> None:
+    if not isinstance(value, str):
+        raise MarketDataValidationError("manifest generatedAt must be a timezone-aware UTC ISO-8601 timestamp")
+    normalized = f"{value[:-1]}+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise MarketDataValidationError(
+            "manifest generatedAt must be a timezone-aware UTC ISO-8601 timestamp"
+        ) from error
+    if parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+        raise MarketDataValidationError(
+            "manifest generatedAt must be a timezone-aware UTC ISO-8601 timestamp"
+        )
 
 
 def _raise_manifest_difference(
