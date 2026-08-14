@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SnowballEngine } from '../SnowballEngine';
 import { BacktestEngine } from '../BacktestEngine';
-import { getHistoricalData } from '../../data/historicalAssets';
+import { getHistoricalCoverage, getHistoricalData } from '../../data/historicalAssets';
 import { AssetType, BacktestParams } from '../../types/finance';
 
 describe('SnowballEngine Projection', () => {
@@ -25,12 +25,15 @@ describe('SnowballEngine Projection', () => {
 describe('Multi-Asset Backtesting Logic', () => {
   it('should run backtests for multiple assets with same parameters', () => {
     const assets: AssetType[] = ['SPY', 'QQQM', 'SCHD'];
+    const coverage = assets.map((asset) => getHistoricalCoverage(asset));
+    const startDate = coverage.map((entry) => entry.startDate).sort().at(-1)!;
+    const endDate = coverage.map((entry) => entry.endDate).sort()[0]!;
     const baseParams: Omit<BacktestParams, 'assetId'> = {
       initialPrincipal: 10000000,
       monthlyInstallment: 1000000,
       cycle: 'MONTHLY',
-      startDate: '2015-01-01',
-      endDate: '2024-01-01',
+      startDate,
+      endDate,
       reinvestDividends: true,
       accountType: 'GENERAL',
       buyFeeRate: 0.00015,
