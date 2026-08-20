@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { animate, createScope, stagger } from 'animejs';
+import { waapi } from 'animejs/waapi';
+import { createScope } from 'animejs/scope';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import AnimatedCounter from '../common/AnimatedCounter';
 import { BigNumberHelper } from '../common/BigNumberHelper';
@@ -48,7 +49,7 @@ const KPICard = ({ label, value, formatter, subValue, subFormatter, index, isHig
   return (
     <div
       data-kpi-index={index}
-      className={`kpi-card bg-apple-surface-pearl/80 backdrop-blur-md border border-white/60 rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 active:scale-[0.98] shadow-sm hover:shadow-md relative overflow-hidden group select-none ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-surface-pearl' : ''}`}
+      className={`kpi-card animate-apple-rise bg-apple-surface-pearl/80 backdrop-blur-md border border-white/60 rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 active:scale-[0.98] shadow-sm hover:shadow-md relative overflow-hidden group select-none ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-surface-pearl' : ''}`}
       onMouseEnter={() => setHoverState(true)}
       onMouseLeave={() => setHoverState(false)}
       onPointerDown={() => setHoverState(true)}
@@ -101,28 +102,16 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
   const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    if (prefersReducedMotion || !rootRef.current) return undefined;
-
-    const scope = createScope({ root: rootRef.current });
-    scope.add(() => {
-      animate('.kpi-card', { opacity: [0, 1], translateY: [20, 0], duration: 600, delay: stagger(100), ease: 'out(3)' });
-      animate('.kpi-share-button', { opacity: [0, 1], translateY: [10, 0], duration: 500, delay: 500, ease: 'out(3)' });
-    });
-
-    return () => scope.revert();
-  }, [prefersReducedMotion]);
-
-  useEffect(() => {
     if (prefersReducedMotion || !rootRef.current || hoveredCardIndex === null) return undefined;
 
     const scope = createScope({ root: rootRef.current });
     scope.add(() => {
       const card = `.kpi-card[data-kpi-index="${hoveredCardIndex}"]`;
-      animate(`${card} .kpi-hidden-snowflake`, { opacity: 1, scale: 1.5, rotate: 180, duration: 2000, delay: 3300, ease: 'out(3)' });
-      animate(`${card} .kpi-rolling-snowball`, { translateX: ['0%', '450%'], rotate: [0, 720], opacity: [0, 1, 1, 0], duration: 2500, delay: 3300, ease: 'linear' });
-      animate(`${card} .kpi-snow-overlay`, { opacity: 1, duration: 2000, delay: 3300, ease: 'out(3)' });
-      animate(`${card} .kpi-snow-base`, { height: 32, duration: 3000, delay: 3300, ease: 'out(4)' });
-      animate(`${card} .kpi-snow-particle`, { translateY: ['-10%', '110%'], translateX: [0, 10, -10, 0], duration: 3000, delay: (_target, index) => 3300 + (index ?? 0) * 500, loop: true, ease: 'linear' });
+      waapi.animate(`${card} .kpi-hidden-snowflake`, { opacity: 1, scale: 1.5, rotate: 180, duration: 2000, delay: 3300, ease: 'ease-out' });
+      waapi.animate(`${card} .kpi-rolling-snowball`, { translateX: ['0%', '450%'], rotate: [0, 720], opacity: [0, 1, 1, 0], duration: 2500, delay: 3300, ease: 'linear' });
+      waapi.animate(`${card} .kpi-snow-overlay`, { opacity: 1, duration: 2000, delay: 3300, ease: 'ease-out' });
+      waapi.animate(`${card} .kpi-snow-base`, { height: 32, duration: 3000, delay: 3300, ease: 'ease-out' });
+      waapi.animate(`${card} .kpi-snow-particle`, { translateY: ['-10%', '110%'], translateX: [0, 10, -10, 0], duration: 3000, delay: (_target, index) => 3300 + (index ?? 0) * 500, loop: true, ease: 'linear' });
     });
 
     return () => scope.revert();
@@ -144,7 +133,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
         {kpis.map((kpi, index) => <KPICard key={`${kpi.label}-${index}`} {...kpi} index={index} currency={currency} exchangeRate={exchangeRate} isMilestoneReached={isMilestoneReached} prefersReducedMotion={prefersReducedMotion} onHoverChange={setHoveredCardIndex} />)}
       </div>
       {onShare && (
-        <button onClick={onShare} className="kpi-share-button mt-10 flex items-center gap-2 bg-apple-ink/90 backdrop-blur-md text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink active:scale-[0.98] transition-all group">
+        <button onClick={onShare} className="kpi-share-button animate-apple-rise [animation-delay:500ms] mt-10 flex items-center gap-2 bg-apple-ink/90 backdrop-blur-md text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink active:scale-[0.98] transition-all group">
           <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />공유(이미지)
         </button>
       )}

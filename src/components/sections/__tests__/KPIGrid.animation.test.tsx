@@ -10,10 +10,12 @@ const { animate, createScope, revert } = vi.hoisted(() => ({
   revert: vi.fn(),
 }));
 
-vi.mock('animejs', () => ({
-  animate,
+vi.mock('animejs/waapi', () => ({
+  waapi: { animate },
+}));
+
+vi.mock('animejs/scope', () => ({
   createScope,
-  stagger: (amount: number) => (_target: Element, index: number) => index * amount,
 }));
 
 const baseProps = {
@@ -45,12 +47,13 @@ afterEach(() => {
 });
 
 describe('KPIGrid Anime.js migration', () => {
-  it('scopes Anime.js to the grid root and reverts on unmount', () => {
+  it('scopes decorative Anime.js to the grid root and reverts on unmount', () => {
     createScope.mockImplementation(() => ({ add: vi.fn((callback: () => void) => callback()), revert }));
     animate.mockReturnValue({ revert: vi.fn(), restart: vi.fn(), cancel: vi.fn() });
     stubMotionPreference(false);
 
     const { unmount } = render(<KPIGrid {...baseProps} />);
+    fireEvent.mouseEnter(screen.getByText('총 투자 원금').closest('.kpi-card') as HTMLElement);
 
     expect(createScope).toHaveBeenCalledTimes(1);
     expect(createScope.mock.calls[0][0].root).toBeInstanceOf(HTMLDivElement);
@@ -84,15 +87,14 @@ describe('KPIGrid Anime.js migration', () => {
     expect(baseProps.onShare).toHaveBeenCalledTimes(1);
   });
 
-  it('does not replay entrance animations when a card is hovered', () => {
+  it('uses CSS instead of Anime.js for grid entrance states', () => {
     createScope.mockImplementation(() => ({ add: vi.fn((callback: () => void) => callback()), revert }));
     animate.mockReturnValue({ revert: vi.fn(), restart: vi.fn(), cancel: vi.fn() });
     stubMotionPreference(false);
 
     render(<KPIGrid {...baseProps} />);
-    fireEvent.mouseEnter(screen.getByText('총 투자 원금').closest('.kpi-card') as HTMLElement);
 
-    expect(animate.mock.calls.filter(([target]) => target === '.kpi-card')).toHaveLength(1);
-    expect(animate.mock.calls.filter(([target]) => target === '.kpi-share-button')).toHaveLength(1);
+    expect(animate.mock.calls.filter(([target]) => target === '.kpi-card')).toHaveLength(0);
+    expect(animate.mock.calls.filter(([target]) => target === '.kpi-share-button')).toHaveLength(0);
   });
 });
