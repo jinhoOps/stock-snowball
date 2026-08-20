@@ -38,3 +38,23 @@ Result: `animejs@4.5.0` and `framer-motion@12.38.0` installed.
 ## Concerns
 
 `npm install` reports 6 existing audit vulnerabilities (1 low, 1 moderate, 4 high) and pending install-script approval warnings. Dependency installation completed successfully; no remediation was included because it is outside Task 1 scope.
+
+## Round 1 Fix
+
+### Change
+
+- Removed the unused `React` import from the hook test, resolving the TypeScript `noUnusedLocals` build error.
+
+### Verification
+
+```text
+npm test -- src/lib/animation/__tests__/usePrefersReducedMotion.test.tsx
+```
+
+Result: 21 test files passed, 129 tests passed.
+
+```text
+npm run build
+```
+
+Result: production build completed successfully.
