@@ -107,8 +107,16 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
     scope.add(() => {
       animate('.kpi-card', { opacity: [0, 1], translateY: [20, 0], duration: 600, delay: stagger(100), ease: 'out(3)' });
       animate('.kpi-share-button', { opacity: [0, 1], translateY: [10, 0], duration: 500, delay: 500, ease: 'out(3)' });
-      if (hoveredCardIndex === null) return;
+    });
 
+    return () => scope.revert();
+  }, [prefersReducedMotion]);
+
+  useEffect(() => {
+    if (prefersReducedMotion || !rootRef.current || hoveredCardIndex === null) return undefined;
+
+    const scope = createScope({ root: rootRef.current });
+    scope.add(() => {
       const card = `.kpi-card[data-kpi-index="${hoveredCardIndex}"]`;
       animate(`${card} .kpi-hidden-snowflake`, { opacity: 1, scale: 1.5, rotate: 180, duration: 2000, delay: 3300, ease: 'out(3)' });
       animate(`${card} .kpi-rolling-snowball`, { translateX: ['0%', '450%'], rotate: [0, 720], opacity: [0, 1, 1, 0], duration: 2500, delay: 3300, ease: 'linear' });

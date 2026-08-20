@@ -83,4 +83,16 @@ describe('KPIGrid Anime.js migration', () => {
 
     expect(baseProps.onShare).toHaveBeenCalledTimes(1);
   });
+
+  it('does not replay entrance animations when a card is hovered', () => {
+    createScope.mockImplementation(() => ({ add: vi.fn((callback: () => void) => callback()), revert }));
+    animate.mockReturnValue({ revert: vi.fn(), restart: vi.fn(), cancel: vi.fn() });
+    stubMotionPreference(false);
+
+    render(<KPIGrid {...baseProps} />);
+    fireEvent.mouseEnter(screen.getByText('총 투자 원금').closest('.kpi-card') as HTMLElement);
+
+    expect(animate.mock.calls.filter(([target]) => target === '.kpi-card')).toHaveLength(1);
+    expect(animate.mock.calls.filter(([target]) => target === '.kpi-share-button')).toHaveLength(1);
+  });
 });
