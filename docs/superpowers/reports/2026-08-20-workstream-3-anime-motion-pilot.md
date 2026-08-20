@@ -43,12 +43,12 @@ Current production build:
 
 ```text
 historical-data-C4-30s6d.js 1939.40 kB 459.22 kB gzip
-index-DZ-dWnd_.js 108.71 kB 31.65 kB gzip
-vendor-BVTr40FY.js 570.02 kB 195.13 kB gzip
-vendor-framer-CHZ-_77X.js 34.24 kB 11.85 kB gzip
-vendor-rxdb-CTpFvg_L.js 230.87 kB 73.26 kB gzip
-vendor-visx-CnVp8PQD.js 19.92 kB 7.56 kB gzip
-TOTAL_JS 2903.15 kB 778.68 kB gzip
+index-CTkfM_cx.js 108.52 kB 31.56 kB gzip
+vendor-D89-n1CQ.js 543.92 kB 185.29 kB gzip
+vendor-framer-Cx6oBEx1.js 34.24 kB 11.85 kB gzip
+vendor-rxdb-D6WKDJtS.js 230.87 kB 73.26 kB gzip
+vendor-visx-BNCwOSqJ.js 19.92 kB 7.56 kB gzip
+TOTAL_JS 2876.86 kB 768.75 kB gzip
 ```
 
 Temporary `origin/main` baseline:
@@ -63,15 +63,15 @@ vendor-visx-5lXaaz9W.js 19.92 kB 7.56 kB gzip
 TOTAL_JS 2863.06 kB 763.04 kB gzip
 ```
 
-Temporary-baseline delta: +40.09 kB raw and +15.64 KiB gzip. The temporary Workstream 3 bundle limit did **not** pass: +15.64 KiB exceeds the +12 KiB limit by 3.64 KiB. This remains a Workstream 4 / release-gate concern until a Workstream 2 baseline and remediation decision are available.
+Temporary-baseline delta: +13.80 kB raw and +5.71 KiB gzip. The temporary Workstream 3 bundle limit **passed**: +5.71 KiB is within the +12 KiB limit. The baseline remains temporary until a Workstream 2 baseline is available.
 
 ## Browser Smoke
 
 - Orca internal browser dev server: `http://127.0.0.1:5173/stock-snowball/`.
 - Actual Orca desktop viewport: 961 x 838. Viewport control was not available in this runtime, so exact 390/1440 verification was not claimed.
 - Static mobile evidence: `KPIGrid.tsx` uses `grid-cols-1 sm:grid-cols-2 lg:grid-cols-5`; `BacktestView.tsx` provides an `md:hidden` mobile result layout alongside its `md:block` desktop layout; its comparison card grid moves to `sm:grid-cols-2`.
-- Exercised: hovered all KPI cards, clicked `공유(이미지)`, opened Advanced Settings, switched to historical backtest, and confirmed the rendered comparison table and chart (`과거 백테스트 결과 다중 자산 비교 차트`).
-- Console: no messages after page load and after exercised interactions; no Anime.js, ResizeObserver, Visx, or React peer errors observed.
+- Exercised: previous smoke covered `공유(이미지)`, Advanced Settings, and the historical comparison table/chart; this refresh reloaded the app and hovered all KPI cards after `perf: trim kpi animejs pilot`.
+- Console: no Anime.js, ResizeObserver, Visx, or React peer errors were observed. The dev console does contain an unrelated pre-existing RxDB dev-mode `DVM1` scenario-initialization error and its warning; it did not prevent KPI interactions.
 
 ## Rollback
 
@@ -87,4 +87,4 @@ Rollback restores Motion ownership for the migrated components and removes Anime
 
 Remaining Motion owners: App presence, AnimatedCounter, Tooltip, ScenarioPresetPicker, SimulationControls, BacktestChart, SnowballChart, and AdvancedSettingsSheet.
 
-Keep `framer-motion` 12.38.0 installed; package removal is deferred. Before release, reconcile the temporary +15.64 KiB gzip result against the proper Workstream 2 baseline and resolve the +3.64 KiB budget overage.
+Keep `framer-motion` 12.38.0 installed; package removal is deferred. Retain the temporary-baseline caveat until a proper Workstream 2 baseline is available; the current temporary bundle budget is within limit.
