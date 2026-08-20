@@ -12,7 +12,7 @@ const GlobalNav: React.FC<GlobalNavProps> = ({ onOpenAdvanced }) => {
         {/* Snowball Logo */}
         <a
           href={import.meta.env.BASE_URL}
-          className="flex items-center justify-center h-full min-w-[44px] hover:opacity-80 active:scale-95 transition-all"
+          className="flex items-center justify-center h-full min-w-[44px] hover:opacity-80 active:scale-95 transition-all motion-reduce:transition-none"
         >
           <Snowflake size={18} className="text-apple-primary-on-dark" />
         </a>
@@ -25,7 +25,7 @@ const GlobalNav: React.FC<GlobalNavProps> = ({ onOpenAdvanced }) => {
         {/* Settings Button */}
         <button
           onClick={onOpenAdvanced}
-          className="flex items-center justify-center h-[44px] w-[44px] text-apple-ink-muted hover:opacity-80 active:scale-90 transition-all"
+          className="flex items-center justify-center h-[44px] w-[44px] text-apple-ink-muted hover:opacity-80 active:scale-90 transition-all motion-reduce:transition-none"
           aria-label="고급 설정 열기"
         >
           <Settings size={18} className="text-apple-on-dark/80" />

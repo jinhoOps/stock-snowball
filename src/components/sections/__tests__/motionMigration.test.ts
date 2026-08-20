@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -37,5 +39,11 @@ describe('Workstream 3 Motion migration guard', () => {
 
     expect(packageJson.dependencies['framer-motion']).toBe('12.38.0');
     expect(packageJson.dependencies.animejs).toBe('4.5.0');
+  });
+
+  it('disables GlobalNav state transitions for reduced-motion users', () => {
+    const source = readSource('src/components/layout/GlobalNav.tsx');
+
+    expect(source.match(/motion-reduce:transition-none/g) ?? []).toHaveLength(2);
   });
 });
