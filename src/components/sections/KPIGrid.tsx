@@ -49,7 +49,7 @@ const KPICard = ({ label, value, formatter, subValue, subFormatter, index, isHig
   return (
     <div
       data-kpi-index={index}
-      className={`kpi-card animate-apple-rise bg-apple-surface-pearl/80 backdrop-blur-md border border-white/60 rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 hover:border-apple-primary/40 active:scale-[0.98] shadow-sm hover:shadow-md relative overflow-hidden group select-none ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-surface-pearl' : ''}`}
+      className={`kpi-card animate-apple-rise bg-apple-surface-pearl/80 backdrop-blur-md border border-white/60 rounded-xl p-5 sm:p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 motion-reduce:transition-none hover:border-apple-primary/40 active:scale-[0.98] shadow-sm hover:shadow-md relative overflow-hidden group select-none ${isHighlighted ? 'ring-2 ring-apple-primary/30 bg-apple-surface-pearl' : ''}`}
       onMouseEnter={() => setHoverState(true)}
       onMouseLeave={() => setHoverState(false)}
       onPointerDown={() => setHoverState(true)}
@@ -133,8 +133,8 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
         {kpis.map((kpi, index) => <KPICard key={`${kpi.label}-${index}`} {...kpi} index={index} currency={currency} exchangeRate={exchangeRate} isMilestoneReached={isMilestoneReached} prefersReducedMotion={prefersReducedMotion} onHoverChange={setHoveredCardIndex} />)}
       </div>
       {onShare && (
-        <button onClick={onShare} className="kpi-share-button animate-apple-rise [animation-delay:500ms] mt-10 flex items-center gap-2 bg-apple-ink/90 backdrop-blur-md text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink active:scale-[0.98] transition-all group">
-          <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />공유(이미지)
+        <button onClick={onShare} className="kpi-share-button animate-apple-rise [animation-delay:500ms] mt-10 flex items-center gap-2 bg-apple-ink/90 backdrop-blur-md text-apple-on-dark px-8 py-3 rounded-pill font-semibold text-button-utility shadow-lg hover:bg-apple-ink active:scale-[0.98] transition-all motion-reduce:transition-none group">
+          <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform motion-reduce:transition-none" />공유(이미지)
         </button>
       )}
     </div>

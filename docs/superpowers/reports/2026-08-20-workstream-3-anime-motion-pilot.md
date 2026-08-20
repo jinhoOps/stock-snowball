@@ -77,10 +77,13 @@ Temporary-baseline delta: +13.80 kB raw and +5.71 KiB gzip. The temporary Workst
 
 Revert the Workstream 3 commits in reverse order:
 
-1. `perf: trim kpi animejs pilot`
-2. `refactor: retire simple motion usage`
-3. `feat: pilot animejs in kpi grid`
-4. `feat: add animejs motion foundation`
+1. `269bae4` — `perf: trim kpi animejs pilot`
+2. `a68454f` — `fix: honor reduced motion in navigation`
+3. `cd80474` — `refactor: retire simple motion usage`
+4. `a295456` — `fix: keep kpi entrance animation stable`
+5. `6972ba7` — `fix: remove unused motion test import`
+6. `c544201` — `feat: pilot animejs in kpi grid`
+7. `cbab0e9` — `feat: add animejs motion foundation`
 
 Rollback restores Motion ownership for the migrated components and removes Anime.js if no later workstream depends on it.
 

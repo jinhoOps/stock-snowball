@@ -64,15 +64,29 @@ describe('KPIGrid Anime.js migration', () => {
     expect(revert).toHaveBeenCalledTimes(1);
   });
 
-  it('skips Anime.js animation calls when reduced motion is requested', () => {
+  it('uses immediate decorative final states and disables transitions when reduced motion is requested', () => {
     createScope.mockImplementation(() => ({ add: vi.fn((callback: () => void) => callback()), revert }));
     stubMotionPreference(true);
 
     render(<KPIGrid {...baseProps} />);
 
+    const rollingSnowballCard = screen.getByText('총 투자 원금').closest('.kpi-card') as HTMLElement;
+    const snowAccumulationCard = screen.getByText('누적 적립금').closest('.kpi-card') as HTMLElement;
+    fireEvent.mouseEnter(rollingSnowballCard);
+    fireEvent.mouseEnter(snowAccumulationCard);
+
     expect(createScope).not.toHaveBeenCalled();
     expect(animate).not.toHaveBeenCalled();
     expect(screen.getByText('Milestone')).toBeTruthy();
+    expect(rollingSnowballCard.querySelector('.kpi-rolling-snowball')?.classList.contains('opacity-100')).toBe(true);
+    expect(rollingSnowballCard.querySelector('.kpi-rolling-snowball')?.classList.contains('translate-x-[450%]')).toBe(true);
+    expect(snowAccumulationCard.querySelector('.kpi-snow-overlay')?.classList.contains('opacity-100')).toBe(true);
+    expect(snowAccumulationCard.querySelector('.kpi-snow-particle')?.getAttribute('style')).toContain('top: 110%');
+    expect(snowAccumulationCard.querySelector('.kpi-snow-base')?.classList.contains('h-8')).toBe(true);
+    expect(rollingSnowballCard.classList.contains('motion-reduce:transition-none')).toBe(true);
+    const shareButton = screen.getByRole('button', { name: '공유(이미지)' });
+    expect(shareButton.classList.contains('motion-reduce:transition-none')).toBe(true);
+    expect(shareButton.querySelector('svg')?.classList.contains('motion-reduce:transition-none')).toBe(true);
   });
 
   it('keeps controls usable after replacing Motion hover and tap handlers', () => {
