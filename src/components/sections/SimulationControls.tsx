@@ -19,6 +19,9 @@ interface SimulationControlsProps {
   selectedAssets: HistoricalAssetType[];
 }
 
+const CONTROL_LABEL_ROW_CLASS = 'mb-3 flex h-6 w-full items-center px-2';
+const CONTROL_LABEL_CLASS = 'text-caption-strong text-apple-ink tracking-tight';
+
 const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
   const commonCoverage = getCommonCoverage(props.selectedAssets, getHistoricalCoverage);
   const historicalCoverage = {
@@ -132,9 +135,11 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
       <div className="flex flex-col md:flex-row gap-6 w-full bg-apple-surface-pearl border border-white/60 p-5 sm:p-8 rounded-lg items-start shadow-sm">
         {/* 1순위: 투자 금액 */}
         <div className="flex-1 flex flex-col items-start w-full">
-          <label htmlFor="principal-input" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">
-            초기 자산 ({props.currency})
-          </label>
+          <div className={CONTROL_LABEL_ROW_CLASS}>
+            <label htmlFor="principal-input" className={CONTROL_LABEL_CLASS}>
+              초기 자산 ({props.currency})
+            </label>
+          </div>
           <NumericInput 
             id="principal-input"
             value={props.params.principal}
@@ -145,9 +150,9 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         </div>
 
         <div className="flex-1 flex flex-col items-start w-full">
-          <div className="flex justify-between w-full items-center mb-3 px-2">
-            <label htmlFor="monthly-investment-input" className="text-caption-strong text-apple-ink tracking-tight">납입액 ({props.currency})</label>
-            <div className="flex gap-1 bg-apple-surface-chip-translucent p-0.5 rounded-pill border border-apple-hairline scale-90 origin-right" role="tablist">
+          <div className={`relative ${CONTROL_LABEL_ROW_CLASS}`}>
+            <label htmlFor="monthly-investment-input" className={CONTROL_LABEL_CLASS}>납입액 ({props.currency})</label>
+            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1 bg-apple-surface-chip-translucent p-0.5 rounded-pill border border-apple-hairline scale-90 origin-right" role="tablist">
               {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map((c) => (
                 <button
                   key={c}
@@ -187,20 +192,24 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         {/* 2순위: 기간 */}
         {props.mode === 'PROJECTION' && (
           <div className="flex-1 flex flex-col items-start w-full">
-            <label htmlFor="years-range" className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">
-              투자 기간 (년)
-            </label>
+            <div className={CONTROL_LABEL_ROW_CLASS}>
+              <label htmlFor="years-range" className={CONTROL_LABEL_CLASS}>
+                투자 기간 (년)
+              </label>
+            </div>
             <div className="flex items-center gap-4 w-full h-12">
-              <input 
-                id="years-range"
-                type="range" 
-                min="1" 
-                max={props.params.cycle === 'DAILY' ? 30 : 50}
-                value={Math.min(props.params.years, props.params.cycle === 'DAILY' ? 30 : 50)}
-                onChange={(e) => updateParam('years', Number(e.target.value))}
-                className="flex-1 accent-apple-primary h-2 bg-apple-hairline rounded-pill appearance-none cursor-pointer"
-                aria-label="투자 기간 조절"
-              />
+              <div className="flex h-12 min-h-12 flex-1 items-center rounded-pill border border-apple-hairline bg-apple-canvas px-4">
+                <input
+                  id="years-range"
+                  type="range"
+                  min="1"
+                  max={props.params.cycle === 'DAILY' ? 30 : 50}
+                  value={Math.min(props.params.years, props.params.cycle === 'DAILY' ? 30 : 50)}
+                  onChange={(e) => updateParam('years', Number(e.target.value))}
+                  className="w-full accent-apple-primary h-2 bg-apple-hairline rounded-pill appearance-none cursor-pointer"
+                  aria-label="투자 기간 조절"
+                />
+              </div>
               <NumericInput 
                 id="years-number"
                 value={props.params.years}
@@ -215,7 +224,9 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
         {/* BACKTEST Dates */}
         {props.mode === 'BACKTEST' && (
           <div className="flex-[2] flex flex-col items-start w-full">
-             <label className="text-caption-strong text-apple-ink mb-3 tracking-tight ml-2">백테스트 기간</label>
+             <div className={CONTROL_LABEL_ROW_CLASS}>
+               <label className={CONTROL_LABEL_CLASS}>백테스트 기간</label>
+             </div>
              <div className="flex flex-col gap-4 w-full">
                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full">
                  <input 
