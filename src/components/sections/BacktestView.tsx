@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
 import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFamilyId, LeverageInsight, ProductPerformanceResult, ValueBasis } from '../../types/finance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
@@ -79,7 +78,6 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   onValueBasisChange,
   onResultViewChange,
 }) => {
-  const reduceMotion = useReducedMotion();
   const displayBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
   const selectedAssets = useMemo(() => [primaryAsset, ...comparisonAssets], [primaryAsset, comparisonAssets]);
   const completeFamily = completeFamilyFor(selectedAssets);
@@ -219,12 +217,10 @@ const BacktestView: React.FC<BacktestViewProps> = ({
             </tr></thead>
             <tbody>
               {preparedResults.map((result, index) => (
-                <motion.tr
+                <tr
                   key={result.assetId}
-                  initial={reduceMotion ? false : { opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.2, delay: reduceMotion ? 0 : index * 0.04 }}
-                  className="border-b border-apple-hairline last:border-0"
+                  className="animate-table-row-rise border-b border-apple-hairline last:border-0"
+                  style={{ animationDelay: `${index * 40}ms` }}
                 >
                   <td className="p-4">
                     <span className="flex items-center gap-2 font-display font-semibold text-apple-ink">
@@ -237,7 +233,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                   <td className="p-4 text-center font-display text-apple-ink">{percentage(result.productMetrics.cagr)}</td>
                   <td className="p-4 text-center font-display text-apple-ink">-{percentage(result.productMetrics.mdd)}</td>
                   <td className="p-4 text-center font-display text-apple-ink-muted-64">{percentage(result.productMetrics.volatility)}</td>
-                </motion.tr>
+                </tr>
               ))}
             </tbody>
           </table>

@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
 interface ProductHeroProps {
   title: string;
@@ -11,12 +10,7 @@ interface ProductHeroProps {
 const ProductHero: React.FC<ProductHeroProps> = ({ title, subtitle, ctaText, children }) => {
   return (
     <section className="relative w-full min-h-[90vh] pt-[44px] flex flex-col items-center justify-start text-center overflow-hidden">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-[80px] px-4"
-      >
+      <div className="mt-[80px] px-4 animate-apple-rise">
         <h1 className="break-keep text-apple-ink text-4xl sm:text-hero mb-2 tracking-tight">
           {title}
         </h1>
@@ -25,25 +19,17 @@ const ProductHero: React.FC<ProductHeroProps> = ({ title, subtitle, ctaText, chi
         </p>
         {ctaText && (
           <div className="flex justify-center space-x-4 mb-12">
-            <motion.button 
-              whileTap={{ scale: 0.95 }}
-              className="bg-apple-primary text-apple-on-primary px-8 py-3 rounded-pill text-button-utility font-medium hover:bg-apple-primary-focus transition-colors shadow-sm"
-            >
+            <button className="bg-apple-primary text-apple-on-primary px-8 py-3 rounded-pill text-button-utility font-medium hover:bg-apple-primary-focus active:scale-95 transition-colors shadow-sm">
               {ctaText}
-            </motion.button>
+            </button>
           </div>
         )}
-      </motion.div>
+      </div>
       
       {/* Visualization Area */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 0.3 }}
-        className="w-full px-4 pb-20 flex-grow flex items-center justify-center"
-      >
+      <div className="w-full px-4 pb-20 flex-grow flex items-center justify-center animate-apple-fade [animation-delay:300ms]">
         {children}
-      </motion.div>
+      </div>
     </section>
   );
 };
