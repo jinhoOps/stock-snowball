@@ -5,8 +5,29 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import BacktestView, { type BacktestViewProps, type ComparisonAssetResult } from '../BacktestView';
 
+vi.mock('../../charts/BacktestChart', () => ({
+  default: ({
+    series,
+    marketTrend,
+  }: {
+    series: Array<{ assetId: string; points: Array<{ value: number }> }>;
+    marketTrend?: { benchmarkId: string; label: string };
+  }) => (
+    <>
+      <output aria-label={`차트 최종값: ${series.map((item) => `${item.assetId} ${item.points.at(-1)?.value ?? 0}`).join(', ')}`} />
+      {marketTrend && (
+        <output data-testid="market-trend-legend">
+          {marketTrend.benchmarkId}|{marketTrend.label}
+        </output>
+      )}
+    </>
+  ),
+}));
+
 const baseProps: BacktestViewProps = {
   primaryAsset: 'SPY',
+  startDate: '2024-01-01',
+  endDate: '2025-01-01',
   comparisonAssets: [],
   results: [],
   leverageInsights: [],
@@ -54,6 +75,30 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 describe('BacktestView', () => {
+  it('derives the market trend solely from the active primary asset', () => {
+    const props: BacktestViewProps = {
+      ...baseProps,
+      primaryAsset: 'QQQ',
+      comparisonAssets: ['SPY'],
+    };
+    const { rerender } = render(<BacktestView {...props} />);
+
+    expect(screen.getByTestId('market-trend-legend').textContent).toBe('NASDAQ100|나스닥100');
+    expect(screen.getByText('주 자산 QQQ 대응 · 나스닥100 시장 추세')).toBeTruthy();
+
+    rerender(<BacktestView {...props} primaryAsset="SPY" comparisonAssets={['QQQ']} />);
+    expect(screen.getByTestId('market-trend-legend').textContent).toBe('SP500|S&P 500');
+    expect(screen.getByText('주 자산 SPY 대응 · S&P 500 시장 추세')).toBeTruthy();
+
+    rerender(<BacktestView {...props} primaryAsset="KOSPI" comparisonAssets={['SPY']} />);
+    expect(screen.getByTestId('market-trend-legend').textContent).toBe('KOSPI_INDEX|코스피');
+    expect(screen.getByText('주 자산 KOSPI 대응 · 코스피 시장 추세')).toBeTruthy();
+
+    rerender(<BacktestView {...props} primaryAsset="AMD" comparisonAssets={['SPY']} />);
+    expect(screen.queryByTestId('market-trend-legend')).toBeNull();
+    expect(screen.queryByText(/주 자산 AMD 대응/)).toBeNull();
+  });
+
   it('selects the entire Nasdaq family from one accessible button', async () => {
     const user = userEvent.setup();
     const onFamilySelect = vi.fn();
