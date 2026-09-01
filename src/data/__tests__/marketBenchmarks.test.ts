@@ -3,6 +3,7 @@ import manifest from '../indices/manifest.json';
 import {
   getMarketBenchmarkData,
   getMarketBenchmarkForAsset,
+  validateCompletedWeeklyPoints,
   type MarketBenchmarkId,
 } from '../marketBenchmarks';
 
@@ -26,6 +27,20 @@ describe('market benchmark data', () => {
       label: '나스닥100',
       currency: 'USD',
     });
+  });
+
+  it('rejects multiple rows from the same completed ISO week', () => {
+    expect(() => validateCompletedWeeklyPoints([
+      { date: '2026-08-24', close: 100 },
+      { date: '2026-08-25', close: 101 },
+    ], 'fixture.csv')).toThrow('one completed-week close');
+  });
+
+  it('rejects a non-final weekday when a later weekday exists in that ISO week', () => {
+    expect(() => validateCompletedWeeklyPoints([
+      { date: '2026-08-27', close: 100 },
+      { date: '2026-08-28', close: 101 },
+    ], 'fixture.csv')).toThrow('non-final');
   });
 
   it('loads nonempty validated completed-week datasets that agree with the manifest', () => {

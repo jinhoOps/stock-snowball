@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "source": "Yahoo Finance via yfinance",
-  "generatedAt": "2026-09-01T05:19:14Z",
+  "generatedAt": "2026-09-01T05:31:58Z",
   "assets": {
     "QQQ": {
       "assetId": "QQQ",
@@ -165,7 +165,7 @@
       "kind": "benchmark",
       "frequency": "weekly",
       "startDate": "1985-10-04",
-      "endDate": "2026-08-27",
+      "endDate": "2026-08-28",
       "rowCount": 2135
     },
     "SP500": {
@@ -176,7 +176,7 @@
       "kind": "benchmark",
       "frequency": "weekly",
       "startDate": "1927-12-30",
-      "endDate": "2026-08-27",
+      "endDate": "2026-08-28",
       "rowCount": 5148
     },
     "KOSPI_INDEX": {
@@ -187,7 +187,7 @@
       "kind": "benchmark",
       "frequency": "weekly",
       "startDate": "1996-12-13",
-      "endDate": "2026-08-27",
+      "endDate": "2026-08-28",
       "rowCount": 1549
     }
   }

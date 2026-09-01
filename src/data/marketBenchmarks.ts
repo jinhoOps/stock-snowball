@@ -36,6 +36,31 @@ interface ManifestBenchmark {
 
 const manifestAssets = manifest.assets as Record<string, ManifestBenchmark>;
 
+const isoWeekStart = (date: string): string => {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  parsed.setUTCDate(parsed.getUTCDate() - ((parsed.getUTCDay() + 6) % 7));
+  return parsed.toISOString().slice(0, 10);
+};
+
+export const validateCompletedWeeklyPoints = (
+  points: BenchmarkPoint[],
+  filename: string,
+): BenchmarkPoint[] => {
+  let previousWeekStart = '';
+  let previousDate = '';
+  for (const point of points) {
+    const weekStart = isoWeekStart(point.date);
+    if (weekStart === previousWeekStart) {
+      throw new Error(
+        `${filename} must contain one completed-week close per ISO week; ${previousDate} is non-final because ${point.date} is later in the same week`,
+      );
+    }
+    previousWeekStart = weekStart;
+    previousDate = point.date;
+  }
+  return points;
+};
+
 const createDataset = (
   id: MarketBenchmarkId,
   ticker: string,
@@ -67,13 +92,13 @@ const createDataset = (
     throw new Error(`manifest.json coverage does not match ${filename}`);
   }
 
-  const points = parsed.map(({ date, price, dividendYield }) => {
+  const points = validateCompletedWeeklyPoints(parsed.map(({ date, price, dividendYield }) => {
     const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
     if (dividendYield !== 0 || weekday === 0 || weekday === 6) {
       throw new Error(`${filename} must contain weekday completed-week closes with zero dividends`);
     }
     return { date, close: price };
-  });
+  }), filename);
 
   return {
     id,

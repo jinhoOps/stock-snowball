@@ -405,6 +405,7 @@ def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date) -> list[Ma
 
             records: list[MarketRecord] = []
             previous_date = ""
+            previous_week_start: date | None = None
             for line_number, row in enumerate(reader, start=2):
                 if len(row) != 3:
                     raise MarketDataValidationError(f"{path.name}:{line_number} must have three columns")
@@ -424,6 +425,15 @@ def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date) -> list[Ma
                     raise MarketDataValidationError(
                         f"{path.name}:{line_number} benchmark dividend must be zero"
                     )
+                if asset.frequency == "weekly":
+                    parsed_date = date.fromisoformat(record_date)
+                    week_start = parsed_date - timedelta(days=parsed_date.weekday())
+                    if week_start == previous_week_start:
+                        raise MarketDataValidationError(
+                            f"{path.name}:{line_number} must contain one completed-week close per ISO week; "
+                            f"{previous_date} is non-final because {record_date} is later in the same week"
+                        )
+                    previous_week_start = week_start
                 records.append(MarketRecord(record_date, close, dividend))
                 previous_date = record_date
     except FileNotFoundError as error:

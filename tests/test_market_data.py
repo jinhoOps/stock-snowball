@@ -360,6 +360,61 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                 with self.assertRaisesRegex(MarketDataValidationError, "nasdaq100.csv"):
                     validate_generated_data(data_dir, as_of=date(2026, 8, 24))
 
+    def test_validate_generated_data_rejects_multiple_completed_week_rows_for_a_benchmark(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            records = [
+                MarketRecord("2026-08-24", 100, 0),
+                MarketRecord("2026-08-25", 101, 0),
+            ]
+            (data_dir / "nasdaq100.csv").write_text(
+                "date,close,dividend\n2026-08-24,100,0\n2026-08-25,101,0\n",
+                encoding="utf-8",
+            )
+            self._replace_benchmark_manifest_entry(data_dir, records)
+
+            with self.assertRaisesRegex(MarketDataValidationError, "one completed-week close"):
+                validate_generated_data(data_dir, as_of=date(2026, 8, 31))
+
+    def test_validate_generated_data_rejects_non_final_benchmark_weekday_when_a_later_day_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            records = [
+                MarketRecord("2026-08-27", 100, 0),
+                MarketRecord("2026-08-28", 101, 0),
+            ]
+            (data_dir / "nasdaq100.csv").write_text(
+                "date,close,dividend\n2026-08-27,100,0\n2026-08-28,101,0\n",
+                encoding="utf-8",
+            )
+            self._replace_benchmark_manifest_entry(data_dir, records)
+
+            with self.assertRaisesRegex(MarketDataValidationError, "non-final"):
+                validate_generated_data(data_dir, as_of=date(2026, 8, 31))
+
+    def test_committed_benchmark_catalog_contains_the_august_28_final_trading_day(self) -> None:
+        data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        for filename in ("nasdaq100.csv", "sp500.csv", "kospi-index.csv"):
+            with self.subTest(filename=filename):
+                dates = {line.split(",", 1)[0] for line in (data_dir / filename).read_text().splitlines()[1:]}
+                self.assertTrue(
+                    "2026-08-28" in dates,
+                    f"{filename} is missing the 2026-08-28 final trading-day close",
+                )
+
+    @staticmethod
+    def _replace_benchmark_manifest_entry(data_dir: Path, records: list[MarketRecord]) -> None:
+        manifest_path = data_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        benchmark = next(asset for asset in MARKET_BENCHMARKS if asset.asset_id == "NASDAQ100")
+        manifest["assets"][benchmark.asset_id] = AssetManifestEntry.from_records(
+            benchmark,
+            records,
+        ).to_dict()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
     def test_validate_generated_data_rejects_current_week_benchmark_record(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             data_dir = Path(temp_dir)
