@@ -45,6 +45,20 @@ describe('market benchmark data', () => {
     ], 'fixture.csv')).toThrow('non-final');
   });
 
+  it('rejects an isolated Thursday when the static calendar expects Friday', () => {
+    expect(() => validateCompletedWeeklyPoints([
+      { date: '2026-09-03', close: 100 },
+    ], 'fixture.csv', '2026-09-04')).toThrow('final trading day 2026-09-04');
+  });
+
+  it('accepts Thursday when the static calendar records a Friday closure', () => {
+    expect(validateCompletedWeeklyPoints([
+      { date: '2026-12-24', close: 100 },
+    ], 'fixture.csv', '2026-12-24')).toEqual([
+      { date: '2026-12-24', close: 100 },
+    ]);
+  });
+
   it('rejects missing or mismatched reviewed weekly-close provenance', () => {
     const missingOverrides: unknown = {
       ...structuredClone(manifest),
@@ -74,7 +88,7 @@ describe('market benchmark data', () => {
   });
 
   it('loads nonempty validated completed-week datasets that agree with the manifest', () => {
-    expect(manifest.schemaVersion).toBe(3);
+    expect(manifest.schemaVersion).toBe(4);
     for (const id of BENCHMARK_IDS) {
       const dataset = getMarketBenchmarkData(id);
       const coverage = manifest.assets[id as keyof typeof manifest.assets];
@@ -83,6 +97,8 @@ describe('market benchmark data', () => {
         assetId: id,
         kind: 'benchmark',
         frequency: 'weekly',
+        calendar: id === 'KOSPI_INDEX' ? 'XKRX' : 'XNYS',
+        expectedEndDate: dataset.endDate,
         startDate: dataset.startDate,
         endDate: dataset.endDate,
         rowCount: dataset.points.length,

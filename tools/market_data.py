@@ -14,8 +14,12 @@ from pathlib import Path
 from time import sleep as default_sleep
 from typing import Any, Literal
 
+import exchange_calendars
 
-SCHEMA_VERSION = 3
+
+SCHEMA_VERSION = 4
+STATIC_CALENDAR_VERSION = "4.13.2"
+MAX_UNREVIEWED_DAILY_GAP_DAYS = 14
 
 
 class MarketDataError(RuntimeError):
@@ -39,6 +43,7 @@ class AssetDefinition:
     output_filename: str
     kind: Literal["asset", "benchmark"]
     frequency: Literal["daily", "weekly"]
+    exchange_calendar: Literal["XNYS", "XKRX"] | None = None
 
 
 @dataclass(frozen=True)
@@ -71,6 +76,71 @@ class ReviewedWeeklyCloseOverride:
 
 
 @dataclass(frozen=True)
+class ReviewedHistoricalDateRemoval:
+    asset_id: str
+    date: str
+    source_url: str
+    retrieved_at: str
+    reason: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "assetId": self.asset_id,
+            "date": self.date,
+            "sourceUrl": self.source_url,
+            "retrievedAt": self.retrieved_at,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
+class ReviewedDailyGapAllowance:
+    asset_id: str
+    previous_date: str
+    next_date: str
+    source_url: str
+    retrieved_at: str
+    reason: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "assetId": self.asset_id,
+            "previousDate": self.previous_date,
+            "nextDate": self.next_date,
+            "sourceUrl": self.source_url,
+            "retrievedAt": self.retrieved_at,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
+class ReviewedDailyBackfill:
+    asset_id: str
+    ticker: str
+    records: tuple[MarketRecord, ...]
+    source_url: str
+    retrieved_at: str
+    reason: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "assetId": self.asset_id,
+            "ticker": self.ticker,
+            "records": [
+                {
+                    "date": record.date,
+                    "close": record.close,
+                    "dividend": record.dividend,
+                }
+                for record in self.records
+            ],
+            "sourceUrl": self.source_url,
+            "retrievedAt": self.retrieved_at,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class AssetManifestEntry:
     asset_id: str
     ticker: str
@@ -81,6 +151,8 @@ class AssetManifestEntry:
     start_date: str
     end_date: str
     row_count: int
+    calendar: Literal["XNYS", "XKRX"] | None = None
+    expected_end_date: str | None = None
 
     @classmethod
     def from_records(
@@ -100,10 +172,12 @@ class AssetManifestEntry:
             start_date=records[0].date,
             end_date=records[-1].date,
             row_count=len(records),
+            calendar=asset.exchange_calendar,
+            expected_end_date=records[-1].date if asset.frequency == "weekly" else None,
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "assetId": self.asset_id,
             "ticker": self.ticker,
             "displayName": self.display_name,
@@ -114,6 +188,11 @@ class AssetManifestEntry:
             "endDate": self.end_date,
             "rowCount": self.row_count,
         }
+        if self.calendar is not None:
+            result["calendar"] = self.calendar
+        if self.expected_end_date is not None:
+            result["expectedEndDate"] = self.expected_end_date
+        return result
 
 
 HISTORICAL_ASSETS = (
@@ -134,9 +213,9 @@ HISTORICAL_ASSETS = (
 )
 
 MARKET_BENCHMARKS = (
-    AssetDefinition("NASDAQ100", "^NDX", "나스닥100", "USD", "nasdaq100.csv", "benchmark", "weekly"),
-    AssetDefinition("SP500", "^GSPC", "S&P 500", "USD", "sp500.csv", "benchmark", "weekly"),
-    AssetDefinition("KOSPI_INDEX", "^KS11", "코스피", "KRW", "kospi-index.csv", "benchmark", "weekly"),
+    AssetDefinition("NASDAQ100", "^NDX", "나스닥100", "USD", "nasdaq100.csv", "benchmark", "weekly", "XNYS"),
+    AssetDefinition("SP500", "^GSPC", "S&P 500", "USD", "sp500.csv", "benchmark", "weekly", "XNYS"),
+    AssetDefinition("KOSPI_INDEX", "^KS11", "코스피", "KRW", "kospi-index.csv", "benchmark", "weekly", "XKRX"),
 )
 
 ASSETS = HISTORICAL_ASSETS + MARKET_BENCHMARKS
@@ -159,11 +238,71 @@ REVIEWED_WEEKLY_CLOSE_OVERRIDES = (
     ),
 )
 
+REVIEWED_HISTORICAL_DATE_REMOVALS: tuple[ReviewedHistoricalDateRemoval, ...] = ()
+REVIEWED_DAILY_GAP_ALLOWANCES: tuple[ReviewedDailyGapAllowance, ...] = ()
+REVIEWED_DAILY_BACKFILLS = (
+    ReviewedDailyBackfill(
+        asset_id="KOSPI",
+        ticker="^KS200",
+        records=(
+            MarketRecord("2026-07-20", 1032.52, 0),
+            MarketRecord("2026-07-21", 1073.39, 0),
+            MarketRecord("2026-07-22", 1080.22, 0),
+            MarketRecord("2026-07-23", 1126.33, 0),
+            MarketRecord("2026-07-24", 1055.58, 0),
+            MarketRecord("2026-07-27", 1069.22, 0),
+            MarketRecord("2026-07-28", 945.69, 0),
+            MarketRecord("2026-07-29", 887.2, 0),
+            MarketRecord("2026-07-30", 872.49, 0),
+            MarketRecord("2026-07-31", 1046.81, 0),
+            MarketRecord("2026-08-03", 986.72, 0),
+            MarketRecord("2026-08-04", 1000.03, 0),
+            MarketRecord("2026-08-05", 1038.59, 0),
+            MarketRecord("2026-08-06", 982.92, 0),
+            MarketRecord("2026-08-07", 974.73, 0),
+            MarketRecord("2026-08-10", 977.84, 0),
+            MarketRecord("2026-08-11", 987.4, 0),
+            MarketRecord("2026-08-12", 1029.43, 0),
+            MarketRecord("2026-08-13", 1071.24, 0),
+            MarketRecord("2026-08-14", 1098.18, 0),
+            MarketRecord("2026-08-18", 1082.0, 0),
+            MarketRecord("2026-08-19", 1012.61, 0),
+            MarketRecord("2026-08-20", 1080.98, 0),
+            MarketRecord("2026-08-21", 1096.25, 0),
+            MarketRecord("2026-08-24", 1054.01, 0),
+            MarketRecord("2026-08-25", 1060.68, 0),
+            MarketRecord("2026-08-26", 1071.16, 0),
+            MarketRecord("2026-08-27", 1088.61, 0),
+            MarketRecord("2026-08-28", 1065.7, 0),
+            MarketRecord("2026-08-31", 1071.85, 0),
+        ),
+        source_url=(
+            "https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day"
+            "&count=100&requestType=0"
+        ),
+        retrieved_at="2026-09-01T06:57:29Z",
+        reason="Yahoo Finance ^KS200 history omitted valid KOSPI 200 trading dates",
+    ),
+)
+
 SOURCE_PROVENANCE = {
     "provider": "Yahoo Finance",
     "client": "yfinance",
+    "staticCalendar": {
+        "provider": "exchange_calendars",
+        "version": STATIC_CALENDAR_VERSION,
+    },
     "reviewedWeeklyCloseOverrides": [
         override.to_dict() for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES
+    ],
+    "reviewedHistoricalDateRemovals": [
+        removal.to_dict() for removal in REVIEWED_HISTORICAL_DATE_REMOVALS
+    ],
+    "reviewedDailyGapAllowances": [
+        allowance.to_dict() for allowance in REVIEWED_DAILY_GAP_ALLOWANCES
+    ],
+    "reviewedDailyBackfills": [
+        backfill.to_dict() for backfill in REVIEWED_DAILY_BACKFILLS
     ],
 }
 
@@ -289,6 +428,21 @@ def apply_reviewed_weekly_close_overrides(
     return sorted(result, key=lambda record: record.date)
 
 
+def apply_reviewed_daily_backfills(
+    asset: AssetDefinition,
+    records: list[MarketRecord],
+) -> list[MarketRecord]:
+    """Replay reviewed daily rows that the primary provider omitted."""
+    result = records
+    for backfill in REVIEWED_DAILY_BACKFILLS:
+        if backfill.asset_id != asset.asset_id:
+            continue
+        backfill_dates = {record.date for record in backfill.records}
+        result = [record for record in result if record.date not in backfill_dates]
+        result.extend(backfill.records)
+    return sorted(result, key=lambda record: record.date)
+
+
 def write_dataset(path: Path, records: Iterable[MarketRecord]) -> None:
     """Write a compact CSV through an atomic replacement."""
     rows = list(records)
@@ -355,9 +509,9 @@ def validate_generated_data(
         raise MarketDataValidationError("manifest schemaVersion does not match")
     if manifest.get("source") != SOURCE_PROVENANCE:
         raise MarketDataValidationError(
-            "manifest reviewed weekly close override provenance does not match"
+            "manifest reviewed weekly close override provenance or other market-data provenance does not match"
         )
-    _validate_generated_at(manifest.get("generatedAt"))
+    generated_at = _validate_generated_at(manifest.get("generatedAt"))
     manifest_assets = manifest.get("assets")
     if not isinstance(manifest_assets, dict):
         raise MarketDataValidationError("manifest assets must be an object")
@@ -376,7 +530,7 @@ def validate_generated_data(
             f"catalog directory must contain exactly the approved files ({'; '.join(details)})"
         )
 
-    validation_date = as_of or datetime.now(timezone.utc).date()
+    validation_date = as_of or generated_at.date()
     entries: dict[str, AssetManifestEntry] = {}
     for asset in ASSETS:
         records = _read_dataset(
@@ -384,7 +538,10 @@ def validate_generated_data(
             asset,
             as_of=validation_date,
         )
+        _validate_reviewed_daily_backfills(asset, records)
         _validate_reviewed_weekly_close_overrides(asset, records)
+        if asset.frequency == "weekly":
+            _validate_weekly_endpoint(asset, records, as_of=validation_date)
         expected_entry = AssetManifestEntry.from_records(asset, records)
         actual_entry = manifest_assets.get(asset.asset_id)
         if actual_entry != expected_entry.to_dict():
@@ -411,6 +568,7 @@ def refresh_all(
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
             records = normalize_history(asset.asset_id, fetch_history(asset, factory))
+            records = apply_reviewed_daily_backfills(asset, records)
             if asset.frequency == "weekly":
                 records = completed_weekly_records(records, as_of=refresh_date)
                 records = apply_reviewed_weekly_close_overrides(asset, records)
@@ -418,6 +576,8 @@ def refresh_all(
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
         write_manifest(staging_dir / "manifest.json", entries)
         validate_generated_data(staging_dir)
+        if data_dir.exists():
+            validate_historical_date_preservation(data_dir, staging_dir)
         swap_catalog(staging_dir, data_dir)
         return entries
     finally:
@@ -488,6 +648,13 @@ def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date) -> list[Ma
                     raise MarketDataValidationError(
                         f"{path.name}:{line_number} dates must be strictly increasing"
                     )
+                if asset.frequency == "daily" and previous_date:
+                    _validate_daily_gap(
+                        asset,
+                        path.name,
+                        previous_date,
+                        record_date,
+                    )
                 close = _parse_number(path.name, line_number, "close", close_text)
                 dividend = _parse_number(path.name, line_number, "dividend", dividend_text)
                 if close <= 0:
@@ -523,6 +690,91 @@ def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date) -> list[Ma
     return records
 
 
+def validate_historical_date_preservation(
+    previous_data_dir: Path,
+    candidate_data_dir: Path,
+) -> None:
+    """Reject a refresh that silently removes committed daily trading dates."""
+    reviewed_removals = {
+        (removal.asset_id, removal.date)
+        for removal in REVIEWED_HISTORICAL_DATE_REMOVALS
+    }
+    for asset in HISTORICAL_ASSETS:
+        previous_dates = _read_date_column(previous_data_dir / asset.output_filename)
+        candidate_dates = _read_date_column(candidate_data_dir / asset.output_filename)
+        missing_dates = sorted(
+            record_date
+            for record_date in previous_dates - candidate_dates
+            if (asset.asset_id, record_date) not in reviewed_removals
+        )
+        if missing_dates:
+            preview = ", ".join(missing_dates[:5])
+            suffix = "..." if len(missing_dates) > 5 else ""
+            raise MarketDataValidationError(
+                f"{asset.asset_id} refresh would delete previously committed trading dates: "
+                f"{preview}{suffix}"
+            )
+
+
+def _read_date_column(path: Path) -> set[str]:
+    try:
+        with path.open(encoding="utf-8", newline="") as file:
+            reader = csv.DictReader(file)
+            if reader.fieldnames != ["date", "close", "dividend"]:
+                raise MarketDataValidationError(f"{path.name} has an invalid header")
+            return {row["date"] for row in reader}
+    except FileNotFoundError as error:
+        raise MarketDataValidationError(f"Missing {path}") from error
+
+
+def _validate_daily_gap(
+    asset: AssetDefinition,
+    filename: str,
+    previous_date: str,
+    next_date: str,
+) -> None:
+    gap_days = (date.fromisoformat(next_date) - date.fromisoformat(previous_date)).days
+    if gap_days <= MAX_UNREVIEWED_DAILY_GAP_DAYS:
+        return
+    reviewed = any(
+        allowance.asset_id == asset.asset_id
+        and allowance.previous_date == previous_date
+        and allowance.next_date == next_date
+        for allowance in REVIEWED_DAILY_GAP_ALLOWANCES
+    )
+    if not reviewed:
+        raise MarketDataValidationError(
+            f"{filename} has an unreviewed daily data gap from {previous_date} to {next_date} "
+            f"({gap_days} calendar days)"
+        )
+
+
+def _validate_weekly_endpoint(
+    asset: AssetDefinition,
+    records: list[MarketRecord],
+    *,
+    as_of: date,
+) -> None:
+    if asset.exchange_calendar is None:
+        raise MarketDataValidationError(
+            f"{asset.output_filename} weekly benchmark has no exchange calendar"
+        )
+    current_week_start = as_of - timedelta(days=as_of.weekday())
+    calendar = exchange_calendars.get_calendar(
+        asset.exchange_calendar,
+        start=current_week_start - timedelta(days=14),
+        end=current_week_start - timedelta(days=1),
+    )
+    expected_end_date = calendar.last_session.date().isoformat()
+    actual_end_date = records[-1].date
+    if actual_end_date != expected_end_date:
+        raise MarketDataValidationError(
+            f"{asset.output_filename} ends on {actual_end_date}; static calendar "
+            f"{asset.exchange_calendar} expects {expected_end_date} as the final trading day "
+            "of the latest completed week"
+        )
+
+
 def _validate_reviewed_weekly_close_overrides(
     asset: AssetDefinition,
     records: list[MarketRecord],
@@ -540,6 +792,26 @@ def _validate_reviewed_weekly_close_overrides(
             raise MarketDataValidationError(
                 f"reviewed weekly close override {asset.asset_id} does not match {override.date}"
             )
+
+
+def _validate_reviewed_daily_backfills(
+    asset: AssetDefinition,
+    records: list[MarketRecord],
+) -> None:
+    records_by_date = {record.date: record for record in records}
+    for backfill in REVIEWED_DAILY_BACKFILLS:
+        if backfill.asset_id != asset.asset_id:
+            continue
+        for expected in backfill.records:
+            actual = records_by_date.get(expected.date)
+            if actual is None:
+                raise MarketDataValidationError(
+                    f"reviewed daily backfill {asset.asset_id} is missing {expected.date}"
+                )
+            if actual != expected:
+                raise MarketDataValidationError(
+                    f"reviewed daily backfill {asset.asset_id} does not match {expected.date}"
+                )
 
 
 def _atomic_write_json(path: Path, content: dict[str, object]) -> None:
@@ -593,7 +865,7 @@ def _validate_date(filename: str, line_number: int, value: str) -> None:
         raise MarketDataValidationError(f"{filename}:{line_number} must be a trading day")
 
 
-def _validate_generated_at(value: object) -> None:
+def _validate_generated_at(value: object) -> datetime:
     if not isinstance(value, str):
         raise MarketDataValidationError("manifest generatedAt must be a timezone-aware UTC ISO-8601 timestamp")
     normalized = f"{value[:-1]}+00:00" if value.endswith("Z") else value
@@ -607,6 +879,7 @@ def _validate_generated_at(value: object) -> None:
         raise MarketDataValidationError(
             "manifest generatedAt must be a timezone-aware UTC ISO-8601 timestamp"
         )
+    return parsed
 
 
 def _raise_manifest_difference(

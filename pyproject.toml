@@ -5,6 +5,7 @@ description = "Manual static market-data generation for Stock Snowball"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "exchange-calendars==4.13.2",
     "yfinance>=1.6.0",
 ]
 

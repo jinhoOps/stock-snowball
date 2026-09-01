@@ -1,8 +1,12 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "source": {
     "provider": "Yahoo Finance",
     "client": "yfinance",
+    "staticCalendar": {
+      "provider": "exchange_calendars",
+      "version": "4.13.2"
+    },
     "reviewedWeeklyCloseOverrides": [
       {
         "assetId": "NASDAQ100",
@@ -31,9 +35,172 @@
         "retrievedAt": "2026-09-01T05:26:33Z",
         "reason": "yfinance daily history omitted this completed-week final trading-day close"
       }
+    ],
+    "reviewedHistoricalDateRemovals": [],
+    "reviewedDailyGapAllowances": [],
+    "reviewedDailyBackfills": [
+      {
+        "assetId": "KOSPI",
+        "ticker": "^KS200",
+        "records": [
+          {
+            "date": "2026-07-20",
+            "close": 1032.52,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-21",
+            "close": 1073.39,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-22",
+            "close": 1080.22,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-23",
+            "close": 1126.33,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-24",
+            "close": 1055.58,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-27",
+            "close": 1069.22,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-28",
+            "close": 945.69,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-29",
+            "close": 887.2,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-30",
+            "close": 872.49,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-31",
+            "close": 1046.81,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-03",
+            "close": 986.72,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-04",
+            "close": 1000.03,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-05",
+            "close": 1038.59,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-06",
+            "close": 982.92,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-07",
+            "close": 974.73,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-10",
+            "close": 977.84,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-11",
+            "close": 987.4,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-12",
+            "close": 1029.43,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-13",
+            "close": 1071.24,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-14",
+            "close": 1098.18,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-18",
+            "close": 1082.0,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-19",
+            "close": 1012.61,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-20",
+            "close": 1080.98,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-21",
+            "close": 1096.25,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-24",
+            "close": 1054.01,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-25",
+            "close": 1060.68,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-26",
+            "close": 1071.16,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-27",
+            "close": 1088.61,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-28",
+            "close": 1065.7,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-31",
+            "close": 1071.85,
+            "dividend": 0
+          }
+        ],
+        "sourceUrl": "https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day&count=100&requestType=0",
+        "retrievedAt": "2026-09-01T06:57:29Z",
+        "reason": "Yahoo Finance ^KS200 history omitted valid KOSPI 200 trading dates"
+      }
     ]
   },
-  "generatedAt": "2026-09-01T05:42:57Z",
+  "generatedAt": "2026-09-01T06:59:06Z",
   "assets": {
     "QQQ": {
       "assetId": "QQQ",
@@ -165,7 +332,7 @@
       "frequency": "daily",
       "startDate": "1996-03-20",
       "endDate": "2026-09-01",
-      "rowCount": 7421
+      "rowCount": 7451
     },
     "KOSDAQ": {
       "assetId": "KOSDAQ",
@@ -198,7 +365,9 @@
       "frequency": "weekly",
       "startDate": "1985-10-04",
       "endDate": "2026-08-28",
-      "rowCount": 2135
+      "rowCount": 2135,
+      "calendar": "XNYS",
+      "expectedEndDate": "2026-08-28"
     },
     "SP500": {
       "assetId": "SP500",
@@ -209,7 +378,9 @@
       "frequency": "weekly",
       "startDate": "1927-12-30",
       "endDate": "2026-08-28",
-      "rowCount": 5148
+      "rowCount": 5148,
+      "calendar": "XNYS",
+      "expectedEndDate": "2026-08-28"
     },
     "KOSPI_INDEX": {
       "assetId": "KOSPI_INDEX",
@@ -220,7 +391,9 @@
       "frequency": "weekly",
       "startDate": "1996-12-13",
       "endDate": "2026-08-28",
-      "rowCount": 1549
+      "rowCount": 1549,
+      "calendar": "XKRX",
+      "expectedEndDate": "2026-08-28"
     }
   }
 }

@@ -22,19 +22,7 @@ export interface MarketBenchmarkDataset {
   points: BenchmarkPoint[];
 }
 
-interface ManifestBenchmark {
-  assetId: MarketBenchmarkId;
-  ticker: string;
-  displayName: string;
-  currency: string;
-  kind: 'benchmark';
-  frequency: 'weekly';
-  startDate: string;
-  endDate: string;
-  rowCount: number;
-}
-
-const manifestAssets = manifest.assets as Record<string, ManifestBenchmark>;
+const manifestAssets = manifest.assets;
 
 const REVIEWED_WEEKLY_CLOSE_OVERRIDES = [
   {
@@ -66,19 +54,70 @@ const REVIEWED_WEEKLY_CLOSE_OVERRIDES = [
   },
 ] as const;
 
+const REVIEWED_HISTORICAL_DATE_REMOVALS = [] as const;
+const REVIEWED_DAILY_GAP_ALLOWANCES = [] as const;
+const REVIEWED_DAILY_BACKFILLS = [
+  {
+    assetId: 'KOSPI',
+    ticker: '^KS200',
+    records: [
+      { date: '2026-07-20', close: 1032.52, dividend: 0 },
+      { date: '2026-07-21', close: 1073.39, dividend: 0 },
+      { date: '2026-07-22', close: 1080.22, dividend: 0 },
+      { date: '2026-07-23', close: 1126.33, dividend: 0 },
+      { date: '2026-07-24', close: 1055.58, dividend: 0 },
+      { date: '2026-07-27', close: 1069.22, dividend: 0 },
+      { date: '2026-07-28', close: 945.69, dividend: 0 },
+      { date: '2026-07-29', close: 887.2, dividend: 0 },
+      { date: '2026-07-30', close: 872.49, dividend: 0 },
+      { date: '2026-07-31', close: 1046.81, dividend: 0 },
+      { date: '2026-08-03', close: 986.72, dividend: 0 },
+      { date: '2026-08-04', close: 1000.03, dividend: 0 },
+      { date: '2026-08-05', close: 1038.59, dividend: 0 },
+      { date: '2026-08-06', close: 982.92, dividend: 0 },
+      { date: '2026-08-07', close: 974.73, dividend: 0 },
+      { date: '2026-08-10', close: 977.84, dividend: 0 },
+      { date: '2026-08-11', close: 987.4, dividend: 0 },
+      { date: '2026-08-12', close: 1029.43, dividend: 0 },
+      { date: '2026-08-13', close: 1071.24, dividend: 0 },
+      { date: '2026-08-14', close: 1098.18, dividend: 0 },
+      { date: '2026-08-18', close: 1082, dividend: 0 },
+      { date: '2026-08-19', close: 1012.61, dividend: 0 },
+      { date: '2026-08-20', close: 1080.98, dividend: 0 },
+      { date: '2026-08-21', close: 1096.25, dividend: 0 },
+      { date: '2026-08-24', close: 1054.01, dividend: 0 },
+      { date: '2026-08-25', close: 1060.68, dividend: 0 },
+      { date: '2026-08-26', close: 1071.16, dividend: 0 },
+      { date: '2026-08-27', close: 1088.61, dividend: 0 },
+      { date: '2026-08-28', close: 1065.7, dividend: 0 },
+      { date: '2026-08-31', close: 1071.85, dividend: 0 },
+    ],
+    sourceUrl: 'https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day&count=100&requestType=0',
+    retrievedAt: '2026-09-01T06:57:29Z',
+    reason: 'Yahoo Finance ^KS200 history omitted valid KOSPI 200 trading dates',
+  },
+] as const;
+
 const MARKET_DATA_SOURCE = {
   provider: 'Yahoo Finance',
   client: 'yfinance',
+  staticCalendar: {
+    provider: 'exchange_calendars',
+    version: '4.13.2',
+  },
   reviewedWeeklyCloseOverrides: REVIEWED_WEEKLY_CLOSE_OVERRIDES,
+  reviewedHistoricalDateRemovals: REVIEWED_HISTORICAL_DATE_REMOVALS,
+  reviewedDailyGapAllowances: REVIEWED_DAILY_GAP_ALLOWANCES,
+  reviewedDailyBackfills: REVIEWED_DAILY_BACKFILLS,
 };
 
 export const validateMarketDataManifest = (candidate: unknown): void => {
   if (
     typeof candidate !== 'object' ||
     candidate === null ||
-    (candidate as { schemaVersion?: unknown }).schemaVersion !== 3
+    (candidate as { schemaVersion?: unknown }).schemaVersion !== 4
   ) {
-    throw new Error('manifest.json must use market-data schema version 3');
+    throw new Error('manifest.json must use market-data schema version 4');
   }
   if (
     JSON.stringify((candidate as { source?: unknown }).source) !== JSON.stringify(MARKET_DATA_SOURCE)
@@ -114,6 +153,7 @@ const isoWeekStart = (date: string): string => {
 export const validateCompletedWeeklyPoints = (
   points: BenchmarkPoint[],
   filename: string,
+  expectedEndDate?: string,
 ): BenchmarkPoint[] => {
   let previousWeekStart = '';
   let previousDate = '';
@@ -126,6 +166,11 @@ export const validateCompletedWeeklyPoints = (
     }
     previousWeekStart = weekStart;
     previousDate = point.date;
+  }
+  if (expectedEndDate !== undefined && points.at(-1)?.date !== expectedEndDate) {
+    throw new Error(
+      `${filename} must end on static-calendar final trading day ${expectedEndDate}`,
+    );
   }
   return points;
 };
@@ -150,6 +195,8 @@ const createDataset = (
     coverage.currency !== currency ||
     coverage.kind !== 'benchmark' ||
     coverage.frequency !== 'weekly' ||
+    coverage.calendar !== (id === 'KOSPI_INDEX' ? 'XKRX' : 'XNYS') ||
+    coverage.expectedEndDate !== parsed.at(-1)?.date ||
     coverage.startDate !== parsed[0].date ||
     coverage.endDate !== parsed.at(-1)?.date ||
     coverage.rowCount !== parsed.length
@@ -163,7 +210,7 @@ const createDataset = (
       throw new Error(`${filename} must contain weekday completed-week closes with zero dividends`);
     }
     return { date, close: price };
-  }), filename);
+  }), filename, coverage.expectedEndDate);
   validateReviewedWeeklyCloseValues(id, points, filename);
 
   return {

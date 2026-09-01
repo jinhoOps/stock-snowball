@@ -35,19 +35,20 @@ Keep the existing 14 investable/backtest assets unchanged. Add three non-investa
 | `SP500` | `^GSPC` | `S&P 500` | USD | `sp500.csv` | weekly |
 | `KOSPI_INDEX` | `^KS11` | `코스피` | KRW | `kospi-index.csv` | weekly |
 
-The CSV header remains `date,close,dividend`; benchmark dividends are always `0`. Manifest schema version 3 retains `kind` (`asset` or `benchmark`) and `frequency` (`daily` or `weekly`) on every entry, and declares the Yahoo Finance/yfinance provider plus any reviewed weekly-close overrides with the source URL and retrieval timestamp. The Python validator requires exactly the 14 existing daily asset files, the three weekly benchmark files, and `manifest.json`, including matching reviewed-override provenance and values.
+The CSV header remains `date,close,dividend`; benchmark dividends are always `0`. Manifest schema version 4 retains `kind` (`asset` or `benchmark`) and `frequency` (`daily` or `weekly`) on every entry, identifies each benchmark's pinned `exchange_calendars` calendar and expected completed-week endpoint, and declares the Yahoo Finance/yfinance provider plus reviewed weekly-close overrides and daily backfills with source URLs and retrieval timestamps. The Python validator requires exactly the 14 existing daily asset files, the three weekly benchmark files, and `manifest.json`, including matching reviewed provenance and values.
 
-`npm run data:refresh` remains the only networked path. It downloads and validates all 17 series in a sibling staging directory, then replaces the catalog as one unit. `npm run data:check`, the browser, tests, and deployment never import or call yfinance.
+`npm run data:refresh` remains the only networked path. It downloads and validates all 17 series in a sibling staging directory, replays any reviewed static backfill, rejects unreviewed long daily gaps or removal of previously committed daily trading dates, then replaces the catalog as one unit. `npm run data:check`, the browser, tests, and deployment never import or call yfinance or another market API.
 
 ## Completed-Week and Anti-Lookahead Rules
 
 1. Fetch daily unadjusted closes using the existing provider arguments.
 2. Group daily observations by ISO week and select that week's last actual trading-day close.
 3. Include a week only after the next ISO week has begun in UTC. The current ISO week is excluded even if its latest observation happens to be a Friday, so refresh timing cannot create a partial-week ambiguity.
-4. Calculate SMA values from all prior committed weekly closes, not merely the visible backtest range.
-5. The 20-week SMA is absent until 20 completed observations exist; the 60-week SMA is absent until 60 exist.
-6. At the left edge of a selected range, carry the most recent completed observation on or before the start date to an anchor at the start date. Never use a later week's close.
-7. Render weekly values with a step-after curve so a Friday value is not visually interpolated into Monday through Thursday.
+4. Validate the latest completed weekly close against the final session from the benchmark's pinned exchange calendar. A reviewed close override may supply a provider-omitted expected session, while actual exchange holidays remain valid.
+5. Calculate SMA values from all prior committed weekly closes, not merely the visible backtest range.
+6. The 20-week SMA is absent until 20 completed observations exist; the 60-week SMA is absent until 60 exist.
+7. At the left edge of a selected range, carry the most recent completed observation on or before the start date to an anchor at the start date. Never use a later week's close.
+8. Render weekly values with a step-after curve so a Friday value is not visually interpolated into Monday through Thursday.
 
 ## Browser Modules and Interfaces
 
@@ -65,7 +66,7 @@ The existing backtest result lines remain unchanged.
 - In `투자 결과`, the investment values keep the left currency axis while market-trend values use a labeled right axis with base 100. This allows a true overlay without distorting portfolio amounts.
 - Use dedicated Apple-style tokens and distinct line patterns so meaning does not depend on color alone:
   - benchmark close: neutral solid line;
-  - 20-week SMA: orange medium-dash line;
+  - 20-week SMA: dark orange medium-dash line with at least 3:1 contrast on the `#fafafc` chart surface;
   - 60-week SMA: purple long-dash line.
 - The legend spells out the selected index and both periods, and a short disclosure says these are completed-week price-index indicators rather than return comparison lines.
 - Mouse, touch, and keyboard scrubbing expose the latest completed benchmark close and available SMA values for the selected date. Tooltip values use raw index levels, while the plotted right/shared scale uses indexed values.
@@ -75,14 +76,14 @@ No overlay toggle is added. A mapped primary asset always shows its benchmark; a
 
 ## Error Handling
 
-- Generator and offline validation reject missing/extra benchmark files, wrong kind or frequency, unsorted or duplicate dates, weekend dates, non-positive/non-finite closes, nonzero benchmark dividends, malformed manifest metadata, missing or changed reviewed override values, and incomplete current-week output.
+- Generator and offline validation reject missing/extra benchmark files, wrong kind or frequency, unsorted or duplicate dates, unreviewed long daily gaps, silently removed committed daily dates, weekend dates, non-positive/non-finite closes, nonzero benchmark dividends, malformed manifest metadata, missing or changed reviewed override/backfill values, calendar-incomplete completed-week endpoints, and current-week output.
 - TypeScript loading rejects CSV/header/manifest mismatches during tests and build, matching the existing fail-fast static-data behavior.
 - If a valid benchmark has no completed point on or before the requested range, omit the overlay rather than failing the backtest.
 - Missing 20-week or 60-week warm-up values omit only that line segment.
 
 ## Verification
 
-- Python unit tests cover the exact 14+3 registries, daily-to-weekly reduction, holidays, current-week exclusion, schema-3 manifest provenance and reviewed override values, atomic rollback, and network-free `--check`.
+- Python unit tests cover the exact 14+3 registries, daily-to-weekly reduction, static-calendar endpoints and holidays, current-week exclusion, schema-4 manifest provenance, reviewed override/backfill values, historical-date preservation, atomic rollback, and network-free `--check`.
 - TypeScript unit tests cover exact asset mapping, rolling SMA windows, range anchoring, shared-base normalization, and unsupported assets.
 - Chart tests cover both result views, right-axis isolation, legend labels and line patterns, closest-prior tooltip resolution, keyboard announcements, and absent warm-up values.
 - Component/App tests prove the primary asset and selected dates control the overlay and that projection mode never renders it.
