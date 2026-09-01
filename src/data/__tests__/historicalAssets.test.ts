@@ -23,7 +23,14 @@ describe('historical CSV data', () => {
   });
 
   it('loads exactly the approved historical asset catalog', () => {
+    expect(HISTORICAL_ASSET_IDS).toEqual([
+      'QQQ', 'QLD', 'TQQQ', 'AMD', 'AMDL', 'TSLA', 'TSLL',
+      'SOXX', 'SOXL', 'SPY', 'SCHD', 'KOSPI', 'KOSDAQ', 'GOLD',
+    ]);
     expect(HISTORICAL_ASSET_IDS).toHaveLength(14);
+    expect(HISTORICAL_ASSET_IDS).not.toContain('NASDAQ100');
+    expect(HISTORICAL_ASSET_IDS).not.toContain('SP500');
+    expect(HISTORICAL_ASSET_IDS).not.toContain('KOSPI_INDEX');
     for (const assetId of HISTORICAL_ASSET_IDS) {
       const coverage = getHistoricalCoverage(assetId);
       const data = getHistoricalData(assetId);

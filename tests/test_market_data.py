@@ -2,22 +2,30 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date, datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
 from tools.market_data import (
     ASSETS,
+    HISTORICAL_ASSETS,
+    MARKET_BENCHMARKS,
+    REVIEWED_DAILY_BACKFILLS,
+    REVIEWED_WEEKLY_CLOSE_OVERRIDES,
     AssetManifestEntry,
     MarketDataError,
     MarketDataProviderError,
     MarketDataValidationError,
     MarketRecord,
     build_manifest,
+    completed_weekly_records,
     fetch_history,
     normalize_history,
     refresh_all,
@@ -30,6 +38,12 @@ from tools.market_data import (
 EXPECTED_ASSET_IDS = {
     "QQQ", "QLD", "TQQQ", "AMD", "AMDL", "TSLA", "TSLL",
     "SOXX", "SOXL", "SPY", "SCHD", "KOSPI", "KOSDAQ", "GOLD",
+}
+
+EXPECTED_BENCHMARKS = {
+    "NASDAQ100": ("^NDX", "nasdaq100.csv"),
+    "SP500": ("^GSPC", "sp500.csv"),
+    "KOSPI_INDEX": ("^KS11", "kospi-index.csv"),
 }
 
 
@@ -48,9 +62,153 @@ class FakeTicker:
 
 
 class MarketDataNormalizationTests(unittest.TestCase):
+    def test_registry_separates_backtest_assets_from_market_benchmarks(self) -> None:
+        self.assertEqual({asset.asset_id for asset in HISTORICAL_ASSETS}, EXPECTED_ASSET_IDS)
+        self.assertEqual(
+            {asset.asset_id: (asset.ticker, asset.output_filename) for asset in MARKET_BENCHMARKS},
+            EXPECTED_BENCHMARKS,
+        )
+        self.assertTrue(
+            all(asset.kind == "asset" and asset.frequency == "daily" for asset in HISTORICAL_ASSETS)
+        )
+        self.assertTrue(
+            all(asset.kind == "benchmark" and asset.frequency == "weekly" for asset in MARKET_BENCHMARKS)
+        )
+
+    def test_completed_weekly_records_uses_last_trading_day_and_excludes_current_week(self) -> None:
+        records = [
+            MarketRecord("2026-08-24", 100, 0),
+            MarketRecord("2026-08-28", 104, 0),
+            MarketRecord("2026-08-31", 106, 0),
+        ]
+        self.assertEqual(
+            completed_weekly_records(records, as_of=date(2026, 9, 1)),
+            [MarketRecord("2026-08-28", 104, 0)],
+        )
+
+    def test_completed_weekly_records_accepts_holiday_shortened_completed_week(self) -> None:
+        records = [MarketRecord("2026-08-24", 100, 0), MarketRecord("2026-08-27", 103, 0)]
+        self.assertEqual(
+            completed_weekly_records(records, as_of=date(2026, 8, 31)),
+            [MarketRecord("2026-08-27", 103, 0)],
+        )
+
+    def test_refresh_all_applies_reviewed_weekly_close_overrides(self) -> None:
+        history = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0, 102.0],
+                "Dividends": [0.0, 0.0, 0.0],
+                "Stock Splits": [0.0, 0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-08-24", "2026-08-27", "2026-08-31"]),
+        )
+        expected = {
+            "nasdaq100.csv": "2026-08-28,29433.43,0\n",
+            "sp500.csv": "2026-08-28,7711.76,0\n",
+            "kospi-index.csv": "2026-08-28,6788.88,0\n",
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            refresh_all(
+                data_dir,
+                lambda _: FakeTicker(history),
+                as_of=date(2026, 9, 1),
+            )
+
+            for filename, expected_row in expected.items():
+                with self.subTest(filename=filename):
+                    self.assertIn(expected_row, (data_dir / filename).read_text(encoding="utf-8"))
+
+            manifest = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["schemaVersion"], 4)
+            self.assertEqual(manifest["source"]["provider"], "Yahoo Finance")
+            self.assertEqual(manifest["source"]["client"], "yfinance")
+            self.assertEqual(len(manifest["source"]["reviewedWeeklyCloseOverrides"]), 3)
+
+    def test_refresh_all_explicit_as_of_is_stable_under_future_wall_clock(self) -> None:
+        history = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0, 102.0],
+                "Dividends": [0.0, 0.0, 0.0],
+                "Stock Splits": [0.0, 0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-08-24", "2026-08-27", "2026-08-31"]),
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            with patch("tools.market_data.datetime", wraps=datetime) as clock:
+                clock.now.return_value = datetime(2030, 1, 1, 12, 34, tzinfo=timezone.utc)
+                refresh_all(
+                    data_dir,
+                    lambda _: FakeTicker(history),
+                    as_of=date(2026, 9, 1),
+                )
+
+            manifest = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["generatedAt"], "2026-09-01T00:00:00Z")
+            benchmark_end_dates = {
+                entry["endDate"]
+                for entry in manifest["assets"].values()
+                if entry["kind"] == "benchmark"
+            }
+            self.assertEqual(benchmark_end_dates, {"2026-08-28"})
+            validate_generated_data(data_dir)
+
+    def test_refresh_all_replays_the_reviewed_kospi_daily_backfill(self) -> None:
+        ordinary_history = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0],
+                "Dividends": [0.0, 0.0],
+                "Stock Splits": [0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-08-31", "2026-09-01"]),
+        )
+        kospi_history_with_hole = pd.DataFrame(
+            {
+                "Close": [1080.35998535, 1075.3],
+                "Dividends": [0.0, 0.0],
+                "Stock Splits": [0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-07-16", "2026-09-01"]),
+        )
+        weekly_history = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0],
+                "Dividends": [0.0, 0.0],
+                "Stock Splits": [0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-08-27", "2026-08-31"]),
+        )
+        benchmark_tickers = {asset.ticker for asset in MARKET_BENCHMARKS}
+
+        def provider(ticker: str) -> FakeTicker:
+            if ticker == "^KS200":
+                return FakeTicker(kospi_history_with_hole)
+            if ticker in benchmark_tickers:
+                return FakeTicker(weekly_history)
+            return FakeTicker(ordinary_history)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            try:
+                refresh_all(data_dir, provider, as_of=date(2026, 9, 1))
+            except MarketDataValidationError as error:
+                self.fail(f"reviewed KOSPI backfill should close the provider hole: {error}")
+
+            kospi_csv = (data_dir / "kospi.csv").read_text(encoding="utf-8")
+            self.assertIn("2026-07-20,1032.52,0\n", kospi_csv)
+            self.assertIn("2026-08-31,1071.85,0\n", kospi_csv)
+            manifest = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                manifest["source"]["reviewedDailyBackfills"][0]["sourceUrl"],
+                "https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day&count=100&requestType=0",
+            )
+
     def test_asset_registry_is_the_complete_approved_catalog(self) -> None:
-        self.assertEqual({asset.asset_id for asset in ASSETS}, EXPECTED_ASSET_IDS)
-        self.assertNotIn("QQQM", {asset.asset_id for asset in ASSETS})
+        self.assertEqual({asset.asset_id for asset in HISTORICAL_ASSETS}, EXPECTED_ASSET_IDS)
+        self.assertNotIn("QQQM", {asset.asset_id for asset in HISTORICAL_ASSETS})
 
     def test_swap_catalog_restores_backup_when_install_rename_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -194,17 +352,31 @@ class MarketDataNormalizationTests(unittest.TestCase):
 
 class MarketDataArtifactValidationTests(unittest.TestCase):
     def _write_valid_data_dir(self, data_dir: Path) -> dict[str, AssetManifestEntry]:
-        records = [
+        daily_records = [
             MarketRecord(date="2024-01-02", close=100.0, dividend=0.0),
             MarketRecord(date="2024-01-03", close=99.0, dividend=1.0),
         ]
+        weekly_records = [
+            MarketRecord(date="2026-08-21", close=100.0, dividend=0.0),
+        ]
+        overrides = {override.asset_id: override for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES}
+        daily_backfills = {
+            backfill.asset_id: list(backfill.records)
+            for backfill in REVIEWED_DAILY_BACKFILLS
+        }
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
+            records = daily_backfills.get(asset.asset_id, daily_records)
+            if asset.frequency == "weekly":
+                override = overrides[asset.asset_id]
+                records = weekly_records + [
+                    MarketRecord(override.date, override.close, 0.0),
+                ]
             write_dataset(data_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
 
         (data_dir / "manifest.json").write_text(
-            json.dumps(build_manifest(entries, generated_at="2026-08-14T00:00:00Z")),
+            json.dumps(build_manifest(entries, generated_at="2026-09-01T00:00:00Z")),
             encoding="utf-8",
         )
         return entries
@@ -230,7 +402,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             data_dir = Path(temp_dir)
             entries = self._write_valid_data_dir(data_dir)
 
-            validated = validate_generated_data(data_dir)
+            validated = validate_generated_data(data_dir, as_of=date(2026, 9, 1))
 
             self.assertEqual(validated, entries)
 
@@ -247,7 +419,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             (data_dir / ".indices.backup-stale").mkdir()
 
             with self.assertRaises(MarketDataValidationError) as caught:
-                validate_generated_data(data_dir)
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
             message = str(caught.exception)
             for unexpected in (
                 "qqqm.csv",
@@ -273,7 +445,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                 manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
                 with self.assertRaisesRegex(MarketDataValidationError, "generatedAt"):
-                    validate_generated_data(data_dir)
+                    validate_generated_data(data_dir, as_of=date(2024, 1, 15))
 
     def test_validate_generated_data_rejects_unsorted_or_duplicate_dates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -285,7 +457,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(MarketDataValidationError, "spy.csv"):
-                validate_generated_data(data_dir)
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
 
     def test_validate_generated_data_rejects_manifest_coverage_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -297,7 +469,276 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(MarketDataValidationError, "rowCount"):
-                validate_generated_data(data_dir)
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+
+    def test_validate_generated_data_rejects_an_unreviewed_long_daily_data_hole(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            records = [
+                MarketRecord("2024-01-02", 100, 0),
+                MarketRecord("2024-02-01", 101, 0),
+            ]
+            asset = next(asset for asset in HISTORICAL_ASSETS if asset.asset_id == "KOSPI")
+            write_dataset(data_dir / asset.output_filename, records)
+            manifest_path = data_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["assets"][asset.asset_id] = AssetManifestEntry.from_records(
+                asset,
+                records,
+            ).to_dict()
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                MarketDataValidationError,
+                r"kospi\.csv.*unreviewed daily data gap",
+            ):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+
+    def test_validate_generated_data_rejects_missing_reviewed_override_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            manifest_path = data_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["source"] = "Yahoo Finance via yfinance"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override provenance"):
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+
+    def test_validate_generated_data_rejects_a_mismatched_reviewed_override_value(self) -> None:
+        source_data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            shutil.copytree(source_data_dir, data_dir)
+            benchmark_path = data_dir / "nasdaq100.csv"
+            benchmark_path.write_text(
+                benchmark_path.read_text(encoding="utf-8").replace(
+                    "2026-08-28,29433.43,0\n",
+                    "2026-08-28,29433.44,0\n",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override NASDAQ100"):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+
+    def test_validate_generated_data_rejects_a_missing_reviewed_override_value(self) -> None:
+        source_data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            shutil.copytree(source_data_dir, data_dir)
+            benchmark_path = data_dir / "nasdaq100.csv"
+            benchmark_path.write_text(
+                benchmark_path.read_text(encoding="utf-8").replace(
+                    "2026-08-28,29433.43,0\n",
+                    "",
+                ),
+                encoding="utf-8",
+            )
+            manifest_path = data_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["assets"]["NASDAQ100"]["endDate"] = "2026-08-21"
+            manifest["assets"]["NASDAQ100"]["rowCount"] -= 1
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override NASDAQ100"):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+
+    def test_validate_generated_data_rejects_a_missing_reviewed_daily_backfill_value(self) -> None:
+        source_data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            shutil.copytree(source_data_dir, data_dir)
+            kospi_path = data_dir / "kospi.csv"
+            kospi_path.write_text(
+                kospi_path.read_text(encoding="utf-8").replace(
+                    "2026-08-14,1098.18,0\n",
+                    "",
+                ),
+                encoding="utf-8",
+            )
+            manifest_path = data_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["assets"]["KOSPI"]["rowCount"] -= 1
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                MarketDataValidationError,
+                "reviewed daily backfill KOSPI is missing 2026-08-14",
+            ):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+
+    def test_validate_generated_data_rejects_benchmark_specific_csv_corruption(self) -> None:
+        bad_cases = {
+            "nonzero dividend": "date,close,dividend\n2026-08-21,100,1\n",
+            "weekend date": "date,close,dividend\n2026-08-22,100,0\n",
+        }
+        for description, content in bad_cases.items():
+            with self.subTest(description=description), tempfile.TemporaryDirectory() as temp_dir:
+                data_dir = Path(temp_dir)
+                self._write_valid_data_dir(data_dir)
+                benchmark_path = data_dir / "nasdaq100.csv"
+                benchmark_path.write_text(content, encoding="utf-8")
+
+                with self.assertRaisesRegex(MarketDataValidationError, "nasdaq100.csv"):
+                    validate_generated_data(data_dir, as_of=date(2026, 8, 24))
+
+    def test_validate_generated_data_rejects_multiple_completed_week_rows_for_a_benchmark(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            records = [
+                MarketRecord("2026-08-24", 100, 0),
+                MarketRecord("2026-08-25", 101, 0),
+            ]
+            (data_dir / "nasdaq100.csv").write_text(
+                "date,close,dividend\n2026-08-24,100,0\n2026-08-25,101,0\n",
+                encoding="utf-8",
+            )
+            self._replace_benchmark_manifest_entry(data_dir, records)
+
+            with self.assertRaisesRegex(MarketDataValidationError, "one completed-week close"):
+                validate_generated_data(data_dir, as_of=date(2026, 8, 31))
+
+    def test_validate_generated_data_rejects_non_final_benchmark_weekday_when_a_later_day_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            records = [
+                MarketRecord("2026-08-27", 100, 0),
+                MarketRecord("2026-08-28", 101, 0),
+            ]
+            (data_dir / "nasdaq100.csv").write_text(
+                "date,close,dividend\n2026-08-27,100,0\n2026-08-28,101,0\n",
+                encoding="utf-8",
+            )
+            self._replace_benchmark_manifest_entry(data_dir, records)
+
+            with self.assertRaisesRegex(MarketDataValidationError, "non-final"):
+                validate_generated_data(data_dir, as_of=date(2026, 8, 31))
+
+    def test_validate_generated_data_rejects_isolated_thursday_when_friday_was_a_session(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            self._replace_all_benchmark_endpoints(data_dir, "2026-09-03")
+
+            with self.assertRaisesRegex(
+                MarketDataValidationError,
+                r"nasdaq100\.csv.*2026-09-04.*final trading day",
+            ):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 7))
+
+    def test_validate_generated_data_accepts_thursday_when_friday_was_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            expected = self._write_valid_data_dir(data_dir)
+            expected.update(self._replace_all_benchmark_endpoints(data_dir, "2026-12-24"))
+
+            self.assertEqual(
+                validate_generated_data(data_dir, as_of=date(2026, 12, 28)),
+                expected,
+            )
+
+    def test_committed_benchmark_catalog_contains_the_august_28_final_trading_day(self) -> None:
+        data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        for filename in ("nasdaq100.csv", "sp500.csv", "kospi-index.csv"):
+            with self.subTest(filename=filename):
+                dates = {line.split(",", 1)[0] for line in (data_dir / filename).read_text().splitlines()[1:]}
+                self.assertTrue(
+                    "2026-08-28" in dates,
+                    f"{filename} is missing the 2026-08-28 final trading-day close",
+                )
+
+    @staticmethod
+    def _replace_benchmark_manifest_entry(data_dir: Path, records: list[MarketRecord]) -> None:
+        manifest_path = data_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        benchmark = next(asset for asset in MARKET_BENCHMARKS if asset.asset_id == "NASDAQ100")
+        manifest["assets"][benchmark.asset_id] = AssetManifestEntry.from_records(
+            benchmark,
+            records,
+        ).to_dict()
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    @staticmethod
+    def _replace_all_benchmark_endpoints(
+        data_dir: Path,
+        endpoint: str,
+    ) -> dict[str, AssetManifestEntry]:
+        manifest_path = data_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        overrides = {override.asset_id: override for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES}
+        entries: dict[str, AssetManifestEntry] = {}
+        for asset in MARKET_BENCHMARKS:
+            override = overrides[asset.asset_id]
+            records = [
+                MarketRecord(override.date, override.close, 0),
+                MarketRecord(endpoint, 100, 0),
+            ]
+            write_dataset(data_dir / asset.output_filename, records)
+            entry = AssetManifestEntry.from_records(asset, records)
+            manifest["assets"][asset.asset_id] = entry.to_dict()
+            entries[asset.asset_id] = entry
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        return entries
+
+    def test_validate_generated_data_rejects_current_week_benchmark_record(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            benchmark_path = data_dir / "nasdaq100.csv"
+            benchmark_path.write_text(
+                "date,close,dividend\n2026-08-28,29433.43,0\n2026-08-31,101,0\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(MarketDataValidationError, "nasdaq100.csv"):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+
+    def test_validate_generated_data_rejects_schema_v1_and_wrong_manifest_series_metadata(self) -> None:
+        mutations = {
+            "schema version 1": ("schemaVersion", 1),
+            "asset kind": ("kind", "asset"),
+            "daily frequency": ("frequency", "daily"),
+        }
+        for description, (field, value) in mutations.items():
+            with self.subTest(description=description), tempfile.TemporaryDirectory() as temp_dir:
+                data_dir = Path(temp_dir)
+                self._write_valid_data_dir(data_dir)
+                manifest_path = data_dir / "manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if field == "schemaVersion":
+                    manifest[field] = value
+                else:
+                    manifest["assets"]["NASDAQ100"][field] = value
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+                with self.assertRaises(MarketDataValidationError) as caught:
+                    validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+                self.assertIn("NASDAQ100" if field != "schemaVersion" else "schemaVersion", str(caught.exception))
+
+    def test_validate_generated_data_rejects_extra_or_missing_benchmark_files(self) -> None:
+        mutations = {
+            "extra": lambda path: (path / "unexpected-benchmark.csv").write_text(
+                "stale", encoding="utf-8"
+            ),
+            "missing": lambda path: (path / "sp500.csv").unlink(),
+        }
+        for description, mutate in mutations.items():
+            with self.subTest(description=description), tempfile.TemporaryDirectory() as temp_dir:
+                data_dir = Path(temp_dir)
+                self._write_valid_data_dir(data_dir)
+                mutate(data_dir)
+
+                with self.assertRaises(MarketDataValidationError) as caught:
+                    validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+                self.assertIn(
+                    "unexpected-benchmark.csv" if description == "extra" else "sp500.csv",
+                    str(caught.exception),
+                )
 
     def test_refresh_fetch_failure_keeps_published_catalog_byte_identical_and_cleans_staging(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -340,6 +781,65 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             self.assertEqual(after, before)
             self.assertEqual(list(root.glob(".indices.staging-*")), [])
             self.assertEqual(list(root.glob(".indices.backup-*")), [])
+
+    def test_refresh_rejects_deleting_a_previously_committed_daily_trading_date(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            data_dir = root / "indices"
+            self._write_valid_data_dir(data_dir)
+            before = {
+                path.relative_to(data_dir): path.read_bytes()
+                for path in data_dir.rglob("*")
+                if path.is_file()
+            }
+            daily_history = pd.DataFrame(
+                {
+                    "Close": [99.0],
+                    "Dividends": [1.0],
+                    "Stock Splits": [0.0],
+                },
+                index=pd.to_datetime(["2024-01-03"]),
+            )
+            weekly_history = pd.DataFrame(
+                {
+                    "Close": [100.0, 101.0, 102.0],
+                    "Dividends": [0.0, 0.0, 0.0],
+                    "Stock Splits": [0.0, 0.0, 0.0],
+                },
+                index=pd.to_datetime(["2026-08-24", "2026-08-27", "2026-08-31"]),
+            )
+            benchmark_tickers = {asset.ticker for asset in MARKET_BENCHMARKS}
+            kospi_history = pd.DataFrame(
+                {
+                    "Close": [1080.35998535, 1075.3],
+                    "Dividends": [0.0, 0.0],
+                    "Stock Splits": [0.0, 0.0],
+                },
+                index=pd.to_datetime(["2026-07-16", "2026-09-01"]),
+            )
+
+            with self.assertRaisesRegex(
+                MarketDataValidationError,
+                r"QQQ refresh would delete previously committed trading dates: 2024-01-02",
+            ):
+                refresh_all(
+                    data_dir,
+                    lambda ticker: FakeTicker(
+                        weekly_history
+                        if ticker in benchmark_tickers
+                        else kospi_history
+                        if ticker == "^KS200"
+                        else daily_history
+                    ),
+                    as_of=date(2026, 9, 1),
+                )
+
+            after = {
+                path.relative_to(data_dir): path.read_bytes()
+                for path in data_dir.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(after, before)
 
     def test_check_cli_runs_as_the_documented_script_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

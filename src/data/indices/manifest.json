@@ -1,133 +1,399 @@
 {
-  "schemaVersion": 1,
-  "source": "Yahoo Finance via yfinance",
-  "generatedAt": "2026-08-14T04:52:16Z",
+  "schemaVersion": 4,
+  "source": {
+    "provider": "Yahoo Finance",
+    "client": "yfinance",
+    "staticCalendar": {
+      "provider": "exchange_calendars",
+      "version": "4.13.2"
+    },
+    "reviewedWeeklyCloseOverrides": [
+      {
+        "assetId": "NASDAQ100",
+        "ticker": "^NDX",
+        "date": "2026-08-28",
+        "close": 29433.43,
+        "sourceUrl": "https://finance.yahoo.com/quote/%5ENDX/history/",
+        "retrievedAt": "2026-09-01T05:26:33Z",
+        "reason": "yfinance daily history omitted this completed-week final trading-day close"
+      },
+      {
+        "assetId": "SP500",
+        "ticker": "^GSPC",
+        "date": "2026-08-28",
+        "close": 7711.76,
+        "sourceUrl": "https://finance.yahoo.com/quote/%5EGSPC/history/",
+        "retrievedAt": "2026-09-01T05:26:33Z",
+        "reason": "yfinance daily history omitted this completed-week final trading-day close"
+      },
+      {
+        "assetId": "KOSPI_INDEX",
+        "ticker": "^KS11",
+        "date": "2026-08-28",
+        "close": 6788.88,
+        "sourceUrl": "https://finance.yahoo.com/quote/%5EKS11/history/",
+        "retrievedAt": "2026-09-01T05:26:33Z",
+        "reason": "yfinance daily history omitted this completed-week final trading-day close"
+      }
+    ],
+    "reviewedHistoricalDateRemovals": [],
+    "reviewedDailyGapAllowances": [],
+    "reviewedDailyBackfills": [
+      {
+        "assetId": "KOSPI",
+        "ticker": "^KS200",
+        "records": [
+          {
+            "date": "2026-07-20",
+            "close": 1032.52,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-21",
+            "close": 1073.39,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-22",
+            "close": 1080.22,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-23",
+            "close": 1126.33,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-24",
+            "close": 1055.58,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-27",
+            "close": 1069.22,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-28",
+            "close": 945.69,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-29",
+            "close": 887.2,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-30",
+            "close": 872.49,
+            "dividend": 0
+          },
+          {
+            "date": "2026-07-31",
+            "close": 1046.81,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-03",
+            "close": 986.72,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-04",
+            "close": 1000.03,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-05",
+            "close": 1038.59,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-06",
+            "close": 982.92,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-07",
+            "close": 974.73,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-10",
+            "close": 977.84,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-11",
+            "close": 987.4,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-12",
+            "close": 1029.43,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-13",
+            "close": 1071.24,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-14",
+            "close": 1098.18,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-18",
+            "close": 1082.0,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-19",
+            "close": 1012.61,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-20",
+            "close": 1080.98,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-21",
+            "close": 1096.25,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-24",
+            "close": 1054.01,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-25",
+            "close": 1060.68,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-26",
+            "close": 1071.16,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-27",
+            "close": 1088.61,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-28",
+            "close": 1065.7,
+            "dividend": 0
+          },
+          {
+            "date": "2026-08-31",
+            "close": 1071.85,
+            "dividend": 0
+          }
+        ],
+        "sourceUrl": "https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day&count=100&requestType=0",
+        "retrievedAt": "2026-09-01T06:57:29Z",
+        "reason": "Yahoo Finance ^KS200 history omitted valid KOSPI 200 trading dates"
+      }
+    ]
+  },
+  "generatedAt": "2026-09-01T06:59:06Z",
   "assets": {
     "QQQ": {
       "assetId": "QQQ",
       "ticker": "QQQ",
       "displayName": "Invesco QQQ",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "1999-03-10",
-      "endDate": "2026-08-13",
-      "rowCount": 6900
+      "endDate": "2026-08-31",
+      "rowCount": 6912
     },
     "QLD": {
       "assetId": "QLD",
       "ticker": "QLD",
       "displayName": "ProShares Ultra QQQ",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2006-06-21",
-      "endDate": "2026-08-13",
-      "rowCount": 5068
+      "endDate": "2026-08-31",
+      "rowCount": 5080
     },
     "TQQQ": {
       "assetId": "TQQQ",
       "ticker": "TQQQ",
       "displayName": "ProShares UltraPro QQQ",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2010-02-11",
-      "endDate": "2026-08-13",
-      "rowCount": 4151
+      "endDate": "2026-08-31",
+      "rowCount": 4163
     },
     "AMD": {
       "assetId": "AMD",
       "ticker": "AMD",
       "displayName": "Advanced Micro Devices",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "1980-03-17",
-      "endDate": "2026-08-13",
-      "rowCount": 11697
+      "endDate": "2026-08-31",
+      "rowCount": 11709
     },
     "AMDL": {
       "assetId": "AMDL",
       "ticker": "AMDL",
       "displayName": "GraniteShares 2x Long AMD Daily ETF",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2024-03-18",
-      "endDate": "2026-08-13",
-      "rowCount": 604
+      "endDate": "2026-08-31",
+      "rowCount": 616
     },
     "TSLA": {
       "assetId": "TSLA",
       "ticker": "TSLA",
       "displayName": "Tesla",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2010-06-29",
-      "endDate": "2026-08-13",
-      "rowCount": 4056
+      "endDate": "2026-08-31",
+      "rowCount": 4068
     },
     "TSLL": {
       "assetId": "TSLL",
       "ticker": "TSLL",
       "displayName": "Direxion Daily TSLA Bull 2X Shares",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2022-08-09",
-      "endDate": "2026-08-13",
-      "rowCount": 1007
+      "endDate": "2026-08-31",
+      "rowCount": 1019
     },
     "SOXX": {
       "assetId": "SOXX",
       "ticker": "SOXX",
       "displayName": "iShares Semiconductor ETF",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2001-07-13",
-      "endDate": "2026-08-13",
-      "rowCount": 6308
+      "endDate": "2026-08-31",
+      "rowCount": 6320
     },
     "SOXL": {
       "assetId": "SOXL",
       "ticker": "SOXL",
       "displayName": "Direxion Daily Semiconductor Bull 3X Shares",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2010-03-11",
-      "endDate": "2026-08-13",
-      "rowCount": 4132
+      "endDate": "2026-08-31",
+      "rowCount": 4144
     },
     "SPY": {
       "assetId": "SPY",
       "ticker": "SPY",
       "displayName": "SPDR S&P 500 ETF Trust",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "1993-01-29",
-      "endDate": "2026-08-13",
-      "rowCount": 8442
+      "endDate": "2026-08-31",
+      "rowCount": 8454
     },
     "SCHD": {
       "assetId": "SCHD",
       "ticker": "SCHD",
       "displayName": "Schwab U.S. Dividend Equity ETF",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2011-10-20",
-      "endDate": "2026-08-13",
-      "rowCount": 3724
+      "endDate": "2026-08-31",
+      "rowCount": 3736
     },
     "KOSPI": {
       "assetId": "KOSPI",
       "ticker": "^KS200",
       "displayName": "KOSPI 200",
       "currency": "KRW",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "1996-03-20",
-      "endDate": "2026-08-14",
-      "rowCount": 7421
+      "endDate": "2026-09-01",
+      "rowCount": 7451
     },
     "KOSDAQ": {
       "assetId": "KOSDAQ",
       "ticker": "^KQ11",
       "displayName": "KOSDAQ",
       "currency": "KRW",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2000-10-16",
-      "endDate": "2026-08-14",
-      "rowCount": 6366
+      "endDate": "2026-09-01",
+      "rowCount": 6376
     },
     "GOLD": {
       "assetId": "GOLD",
       "ticker": "GC=F",
       "displayName": "Gold Futures",
       "currency": "USD",
+      "kind": "asset",
+      "frequency": "daily",
       "startDate": "2000-08-30",
-      "endDate": "2026-08-14",
-      "rowCount": 6513
+      "endDate": "2026-09-01",
+      "rowCount": 6525
+    },
+    "NASDAQ100": {
+      "assetId": "NASDAQ100",
+      "ticker": "^NDX",
+      "displayName": "나스닥100",
+      "currency": "USD",
+      "kind": "benchmark",
+      "frequency": "weekly",
+      "startDate": "1985-10-04",
+      "endDate": "2026-08-28",
+      "rowCount": 2135,
+      "calendar": "XNYS",
+      "expectedEndDate": "2026-08-28"
+    },
+    "SP500": {
+      "assetId": "SP500",
+      "ticker": "^GSPC",
+      "displayName": "S&P 500",
+      "currency": "USD",
+      "kind": "benchmark",
+      "frequency": "weekly",
+      "startDate": "1927-12-30",
+      "endDate": "2026-08-28",
+      "rowCount": 5148,
+      "calendar": "XNYS",
+      "expectedEndDate": "2026-08-28"
+    },
+    "KOSPI_INDEX": {
+      "assetId": "KOSPI_INDEX",
+      "ticker": "^KS11",
+      "displayName": "코스피",
+      "currency": "KRW",
+      "kind": "benchmark",
+      "frequency": "weekly",
+      "startDate": "1996-12-13",
+      "endDate": "2026-08-28",
+      "rowCount": 1549,
+      "calendar": "XKRX",
+      "expectedEndDate": "2026-08-28"
     }
   }
 }

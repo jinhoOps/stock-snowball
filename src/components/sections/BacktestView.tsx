@@ -3,6 +3,8 @@ import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFami
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
 import { LEVERAGE_FAMILIES, type LeverageFamily } from '../../data/leverageFamilies';
+import { getMarketBenchmarkData, getMarketBenchmarkForAsset } from '../../data/marketBenchmarks';
+import { buildMarketTrendOverlay } from '../../core/MarketTrend';
 import { prepareBacktestDisplayResult, type PreparedBacktestDisplayResult } from '../../core/ValueBasis';
 import BacktestChart, { BacktestDisplaySeries } from '../charts/BacktestChart';
 import SegmentedControl from '../common/SegmentedControl';
@@ -19,6 +21,8 @@ export type ComparisonAssetResult = ComparisonAssetBase & (
 
 export interface BacktestViewProps {
   primaryAsset: HistoricalAssetType;
+  startDate: string;
+  endDate: string;
   comparisonAssets: HistoricalAssetType[];
   results: ComparisonAssetResult[];
   leverageInsights: LeverageInsight[];
@@ -64,6 +68,8 @@ const MetricBadge = ({ multiple }: { multiple: 1 | 2 | 3 }) => (
 
 const BacktestView: React.FC<BacktestViewProps> = ({
   primaryAsset,
+  startDate,
+  endDate,
   comparisonAssets,
   results,
   leverageInsights,
@@ -79,6 +85,12 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   onResultViewChange,
 }) => {
   const displayBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
+  const marketTrend = useMemo(() => {
+    const benchmarkId = getMarketBenchmarkForAsset(primaryAsset);
+    return benchmarkId
+      ? buildMarketTrendOverlay(getMarketBenchmarkData(benchmarkId), startDate, endDate)
+      : null;
+  }, [primaryAsset, startDate, endDate]);
   const selectedAssets = useMemo(() => [primaryAsset, ...comparisonAssets], [primaryAsset, comparisonAssets]);
   const completeFamily = completeFamilyFor(selectedAssets);
   const successfulResults = useMemo(() => results.filter(
@@ -286,8 +298,16 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         <div className="pointer-events-none absolute left-6 top-5 z-10 sm:left-8">
           <h3 className="text-body-strong font-semibold text-apple-ink">자산별 과거 성과 비교</h3>
           <p className="mt-1 text-fine-print text-apple-ink-muted-48">{resultView === 'PORTFOLIO' ? '거치식과 적립식이 섞인 투자 결과' : '기여금 없는 실제 상품 총수익'}</p>
+          {marketTrend && (
+            <p className="mt-1 text-fine-print text-apple-ink-muted-48">주 자산 {primaryAsset} 대응 · {marketTrend.label} 시장 추세</p>
+          )}
         </div>
-        <BacktestChart series={chartSeries} currency={currency} resultView={resultView} />
+        <BacktestChart
+          series={chartSeries}
+          currency={currency}
+          resultView={resultView}
+          marketTrend={marketTrend ?? undefined}
+        />
       </div>
     </section>
   );

@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
-import { findPointOnOrBefore, getHistoricalData } from '../data/historicalAssets';
+import { findPointOnOrBefore, getHistoricalCoverage, getHistoricalData } from '../data/historicalAssets';
 
 const backtestRun = vi.hoisted(() => vi.fn());
 const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[] }));
@@ -123,8 +123,12 @@ vi.mock('../components/sections/BacktestView', () => ({
     resultView,
     onComparisonAssetsChange,
     goldBasisError,
+    startDate,
+    endDate,
   }: {
     primaryAsset: string;
+    startDate: string;
+    endDate: string;
     comparisonAssets: string[];
     onFamilySelect: (familyId: 'NASDAQ' | 'AMD') => void;
     results: Array<{
@@ -141,6 +145,9 @@ vi.mock('../components/sections/BacktestView', () => ({
     <>
       <output data-testid="backtest-selection">
         {primaryAsset}|{comparisonAssets.join(',')}
+      </output>
+      <output data-testid="backtest-boundary">
+        {primaryAsset}|{startDate}|{endDate}
       </output>
       <button onClick={() => onFamilySelect('NASDAQ')}>select NASDAQ family</button>
       <button onClick={() => onFamilySelect('AMD')}>select AMD family</button>
@@ -241,6 +248,22 @@ afterEach(() => {
 });
 
 describe('App backtest selection', () => {
+  it('mounts the backtest view only in backtest mode with the active clamped primary range', async () => {
+    render(<App />);
+
+    expect(screen.queryByTestId('backtest-boundary')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'select NASDAQ family' }));
+
+    const coverage = getHistoricalCoverage('TQQQ');
+    await waitFor(() => {
+      expect(screen.getByTestId('backtest-boundary').textContent).toContain(
+        `QQQ|${coverage.startDate}|${coverage.endDate}`,
+      );
+    });
+  });
+
   it('mounts and rewrites a legacy QQQM projection cache as QQQ', async () => {
     testStorage.setItem('projection_params', JSON.stringify({
       principal: 100,
@@ -314,7 +337,9 @@ describe('App backtest selection', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
-      expect(screen.getByTestId('control-dates').textContent).toBe('2024-03-18|2026-08-13');
+      expect(screen.getByTestId('control-dates').textContent).toBe(
+        `2024-03-18|${getHistoricalCoverage('AMDL').endDate}`,
+      );
     });
   });
 
@@ -350,7 +375,9 @@ describe('App backtest selection', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
-      expect(screen.getByTestId('control-dates').textContent).toBe('2024-03-18|2026-08-13');
+      expect(screen.getByTestId('control-dates').textContent).toBe(
+        `2024-03-18|${getHistoricalCoverage('AMDL').endDate}`,
+      );
       expect(screen.getByTestId('presentation-state').textContent).toBe('NOMINAL|PORTFOLIO');
     });
   });

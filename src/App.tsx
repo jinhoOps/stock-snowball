@@ -697,6 +697,8 @@ function App() {
                     <div className="w-full max-w-[1200px] mt-12">
                       <BacktestView
                         primaryAsset={backtestParams.assetType as HistoricalAssetType}
+                        startDate={backtestParams.startDate!}
+                        endDate={backtestParams.endDate!}
                         comparisonAssets={comparisonAssets}
                         results={preparedComparisonResults}
                         leverageInsights={leverageInsights}
