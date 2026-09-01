@@ -35,7 +35,7 @@ Keep the existing 14 investable/backtest assets unchanged. Add three non-investa
 | `SP500` | `^GSPC` | `S&P 500` | USD | `sp500.csv` | weekly |
 | `KOSPI_INDEX` | `^KS11` | `코스피` | KRW | `kospi-index.csv` | weekly |
 
-The CSV header remains `date,close,dividend`; benchmark dividends are always `0`. Manifest schema version 2 adds `kind` (`asset` or `benchmark`) and `frequency` (`daily` or `weekly`) to every entry. The Python validator requires exactly the 14 existing daily asset files, the three weekly benchmark files, and `manifest.json`.
+The CSV header remains `date,close,dividend`; benchmark dividends are always `0`. Manifest schema version 3 retains `kind` (`asset` or `benchmark`) and `frequency` (`daily` or `weekly`) on every entry, and declares the Yahoo Finance/yfinance provider plus any reviewed weekly-close overrides with the source URL and retrieval timestamp. The Python validator requires exactly the 14 existing daily asset files, the three weekly benchmark files, and `manifest.json`, including matching reviewed-override provenance and values.
 
 `npm run data:refresh` remains the only networked path. It downloads and validates all 17 series in a sibling staging directory, then replaces the catalog as one unit. `npm run data:check`, the browser, tests, and deployment never import or call yfinance.
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -88,6 +89,35 @@ class MarketDataNormalizationTests(unittest.TestCase):
             completed_weekly_records(records, as_of=date(2026, 8, 31)),
             [MarketRecord("2026-08-27", 103, 0)],
         )
+
+    def test_refresh_all_applies_reviewed_weekly_close_overrides(self) -> None:
+        history = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0, 102.0],
+                "Dividends": [0.0, 0.0, 0.0],
+                "Stock Splits": [0.0, 0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-08-24", "2026-08-27", "2026-08-31"]),
+        )
+        expected = {
+            "nasdaq100.csv": "2026-08-28,29433.43,0\n",
+            "sp500.csv": "2026-08-28,7711.76,0\n",
+            "kospi-index.csv": "2026-08-28,6788.88,0\n",
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            refresh_all(data_dir, lambda _: FakeTicker(history))
+
+            for filename, expected_row in expected.items():
+                with self.subTest(filename=filename):
+                    self.assertIn(expected_row, (data_dir / filename).read_text(encoding="utf-8"))
+
+            manifest = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["schemaVersion"], 3)
+            self.assertEqual(manifest["source"]["provider"], "Yahoo Finance")
+            self.assertEqual(manifest["source"]["client"], "yfinance")
+            self.assertEqual(len(manifest["source"]["reviewedWeeklyCloseOverrides"]), 3)
 
     def test_asset_registry_is_the_complete_approved_catalog(self) -> None:
         self.assertEqual({asset.asset_id for asset in HISTORICAL_ASSETS}, EXPECTED_ASSET_IDS)
@@ -344,6 +374,56 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(MarketDataValidationError, "rowCount"):
                 validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+
+    def test_validate_generated_data_rejects_missing_reviewed_override_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            manifest_path = data_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["source"] = "Yahoo Finance via yfinance"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override provenance"):
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+
+    def test_validate_generated_data_rejects_a_mismatched_reviewed_override_value(self) -> None:
+        source_data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            shutil.copytree(source_data_dir, data_dir)
+            benchmark_path = data_dir / "nasdaq100.csv"
+            benchmark_path.write_text(
+                benchmark_path.read_text(encoding="utf-8").replace(
+                    "2026-08-28,29433.43,0\n",
+                    "2026-08-28,29433.44,0\n",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override NASDAQ100"):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+
+    def test_validate_generated_data_rejects_a_missing_reviewed_override_value(self) -> None:
+        source_data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            shutil.copytree(source_data_dir, data_dir)
+            benchmark_path = data_dir / "nasdaq100.csv"
+            benchmark_path.write_text(
+                benchmark_path.read_text(encoding="utf-8").replace(
+                    "2026-08-28,29433.43,0\n",
+                    "2026-08-27,29641.5605469,0\n",
+                ),
+                encoding="utf-8",
+            )
+            manifest_path = data_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["assets"]["NASDAQ100"]["endDate"] = "2026-08-27"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override NASDAQ100"):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
 
     def test_validate_generated_data_rejects_benchmark_specific_csv_corruption(self) -> None:
         bad_cases = {

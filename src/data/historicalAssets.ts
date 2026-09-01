@@ -43,8 +43,8 @@ export interface HistoricalCoverage extends ManifestAsset {}
 
 const manifestAssets = manifest.assets as Record<HistoricalAssetType, ManifestAsset>;
 
-if (manifest.schemaVersion !== 2) {
-  throw new Error('manifest.json must use market-data schema version 2');
+if (manifest.schemaVersion !== 3) {
+  throw new Error('manifest.json must use market-data schema version 3');
 }
 
 export const parseHistoricalCsv = (csv: string, filename: string): IndexPoint[] => {

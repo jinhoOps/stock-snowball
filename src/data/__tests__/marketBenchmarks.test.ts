@@ -3,6 +3,8 @@ import manifest from '../indices/manifest.json';
 import {
   getMarketBenchmarkData,
   getMarketBenchmarkForAsset,
+  validateMarketDataManifest,
+  validateReviewedWeeklyCloseValues,
   validateCompletedWeeklyPoints,
   type MarketBenchmarkId,
 } from '../marketBenchmarks';
@@ -43,8 +45,32 @@ describe('market benchmark data', () => {
     ], 'fixture.csv')).toThrow('non-final');
   });
 
+  it('rejects missing or mismatched reviewed weekly-close provenance', () => {
+    const missingOverrides: unknown = {
+      ...structuredClone(manifest),
+      source: {
+        provider: 'Yahoo Finance',
+        client: 'yfinance',
+      },
+    };
+    expect(() => validateMarketDataManifest(missingOverrides)).toThrow('reviewed weekly close override provenance');
+
+    const mismatchedClose = structuredClone(manifest);
+    mismatchedClose.source.reviewedWeeklyCloseOverrides[0].close = 0;
+    expect(() => validateMarketDataManifest(mismatchedClose)).toThrow('reviewed weekly close override provenance');
+  });
+
+  it('rejects missing or mismatched reviewed weekly-close values', () => {
+    expect(() => validateReviewedWeeklyCloseValues('NASDAQ100', [], 'fixture.csv')).toThrow('is missing');
+    expect(() => validateReviewedWeeklyCloseValues(
+      'NASDAQ100',
+      [{ date: '2026-08-28', close: 1 }],
+      'fixture.csv',
+    )).toThrow('does not match');
+  });
+
   it('loads nonempty validated completed-week datasets that agree with the manifest', () => {
-    expect(manifest.schemaVersion).toBe(2);
+    expect(manifest.schemaVersion).toBe(3);
     for (const id of BENCHMARK_IDS) {
       const dataset = getMarketBenchmarkData(id);
       const coverage = manifest.assets[id as keyof typeof manifest.assets];

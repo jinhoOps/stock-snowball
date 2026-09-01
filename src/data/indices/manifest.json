@@ -1,7 +1,39 @@
 {
-  "schemaVersion": 2,
-  "source": "Yahoo Finance via yfinance",
-  "generatedAt": "2026-09-01T05:31:58Z",
+  "schemaVersion": 3,
+  "source": {
+    "provider": "Yahoo Finance",
+    "client": "yfinance",
+    "reviewedWeeklyCloseOverrides": [
+      {
+        "assetId": "NASDAQ100",
+        "ticker": "^NDX",
+        "date": "2026-08-28",
+        "close": 29433.43,
+        "sourceUrl": "https://finance.yahoo.com/quote/%5ENDX/history/",
+        "retrievedAt": "2026-09-01T05:26:33Z",
+        "reason": "yfinance daily history omitted this completed-week final trading-day close"
+      },
+      {
+        "assetId": "SP500",
+        "ticker": "^GSPC",
+        "date": "2026-08-28",
+        "close": 7711.76,
+        "sourceUrl": "https://finance.yahoo.com/quote/%5EGSPC/history/",
+        "retrievedAt": "2026-09-01T05:26:33Z",
+        "reason": "yfinance daily history omitted this completed-week final trading-day close"
+      },
+      {
+        "assetId": "KOSPI_INDEX",
+        "ticker": "^KS11",
+        "date": "2026-08-28",
+        "close": 6788.88,
+        "sourceUrl": "https://finance.yahoo.com/quote/%5EKS11/history/",
+        "retrievedAt": "2026-09-01T05:26:33Z",
+        "reason": "yfinance daily history omitted this completed-week final trading-day close"
+      }
+    ]
+  },
+  "generatedAt": "2026-09-01T05:42:57Z",
   "assets": {
     "QQQ": {
       "assetId": "QQQ",

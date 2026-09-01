@@ -15,8 +15,7 @@ from time import sleep as default_sleep
 from typing import Any, Literal
 
 
-SCHEMA_VERSION = 2
-SOURCE_NAME = "Yahoo Finance via yfinance"
+SCHEMA_VERSION = 3
 
 
 class MarketDataError(RuntimeError):
@@ -47,6 +46,28 @@ class MarketRecord:
     date: str
     close: float
     dividend: float
+
+
+@dataclass(frozen=True)
+class ReviewedWeeklyCloseOverride:
+    asset_id: str
+    ticker: str
+    date: str
+    close: float
+    source_url: str
+    retrieved_at: str
+    reason: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "assetId": self.asset_id,
+            "ticker": self.ticker,
+            "date": self.date,
+            "close": self.close,
+            "sourceUrl": self.source_url,
+            "retrievedAt": self.retrieved_at,
+            "reason": self.reason,
+        }
 
 
 @dataclass(frozen=True)
@@ -119,6 +140,32 @@ MARKET_BENCHMARKS = (
 )
 
 ASSETS = HISTORICAL_ASSETS + MARKET_BENCHMARKS
+
+REVIEWED_WEEKLY_CLOSE_OVERRIDES = (
+    ReviewedWeeklyCloseOverride(
+        "NASDAQ100", "^NDX", "2026-08-28", 29433.43,
+        "https://finance.yahoo.com/quote/%5ENDX/history/", "2026-09-01T05:26:33Z",
+        "yfinance daily history omitted this completed-week final trading-day close",
+    ),
+    ReviewedWeeklyCloseOverride(
+        "SP500", "^GSPC", "2026-08-28", 7711.76,
+        "https://finance.yahoo.com/quote/%5EGSPC/history/", "2026-09-01T05:26:33Z",
+        "yfinance daily history omitted this completed-week final trading-day close",
+    ),
+    ReviewedWeeklyCloseOverride(
+        "KOSPI_INDEX", "^KS11", "2026-08-28", 6788.88,
+        "https://finance.yahoo.com/quote/%5EKS11/history/", "2026-09-01T05:26:33Z",
+        "yfinance daily history omitted this completed-week final trading-day close",
+    ),
+)
+
+SOURCE_PROVENANCE = {
+    "provider": "Yahoo Finance",
+    "client": "yfinance",
+    "reviewedWeeklyCloseOverrides": [
+        override.to_dict() for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES
+    ],
+}
 
 
 def fetch_history(
@@ -220,6 +267,28 @@ def completed_weekly_records(records: list[MarketRecord], as_of: date) -> list[M
     return result
 
 
+def apply_reviewed_weekly_close_overrides(
+    asset: AssetDefinition,
+    records: list[MarketRecord],
+) -> list[MarketRecord]:
+    """Replace completed-week closes that reviewed Yahoo history showed yfinance omitted."""
+    overrides = [
+        override for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES
+        if override.asset_id == asset.asset_id
+    ]
+    result = records
+    for override in overrides:
+        override_date = date.fromisoformat(override.date)
+        override_week_start = override_date - timedelta(days=override_date.weekday())
+        result = [
+            record for record in result
+            if date.fromisoformat(record.date)
+            - timedelta(days=date.fromisoformat(record.date).weekday()) != override_week_start
+        ]
+        result.append(MarketRecord(override.date, override.close, 0.0))
+    return sorted(result, key=lambda record: record.date)
+
+
 def write_dataset(path: Path, records: Iterable[MarketRecord]) -> None:
     """Write a compact CSV through an atomic replacement."""
     rows = list(records)
@@ -254,7 +323,7 @@ def build_manifest(
     """Build the small provenance document committed beside the CSV files."""
     return {
         "schemaVersion": SCHEMA_VERSION,
-        "source": SOURCE_NAME,
+        "source": SOURCE_PROVENANCE,
         "generatedAt": generated_at
         or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "assets": {asset_id: entry.to_dict() for asset_id, entry in entries.items()},
@@ -284,8 +353,10 @@ def validate_generated_data(
 
     if manifest.get("schemaVersion") != SCHEMA_VERSION:
         raise MarketDataValidationError("manifest schemaVersion does not match")
-    if manifest.get("source") != SOURCE_NAME:
-        raise MarketDataValidationError("manifest source does not match")
+    if manifest.get("source") != SOURCE_PROVENANCE:
+        raise MarketDataValidationError(
+            "manifest reviewed weekly close override provenance does not match"
+        )
     _validate_generated_at(manifest.get("generatedAt"))
     manifest_assets = manifest.get("assets")
     if not isinstance(manifest_assets, dict):
@@ -313,6 +384,7 @@ def validate_generated_data(
             asset,
             as_of=validation_date,
         )
+        _validate_reviewed_weekly_close_overrides(asset, records)
         expected_entry = AssetManifestEntry.from_records(asset, records)
         actual_entry = manifest_assets.get(asset.asset_id)
         if actual_entry != expected_entry.to_dict():
@@ -341,6 +413,7 @@ def refresh_all(
             records = normalize_history(asset.asset_id, fetch_history(asset, factory))
             if asset.frequency == "weekly":
                 records = completed_weekly_records(records, as_of=refresh_date)
+                records = apply_reviewed_weekly_close_overrides(asset, records)
             write_dataset(staging_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
         write_manifest(staging_dir / "manifest.json", entries)
@@ -448,6 +521,34 @@ def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date) -> list[Ma
                 f"{path.name} must not contain records from the current ISO week"
             )
     return records
+
+
+def _validate_reviewed_weekly_close_overrides(
+    asset: AssetDefinition,
+    records: list[MarketRecord],
+) -> None:
+    for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES:
+        if override.asset_id != asset.asset_id:
+            continue
+        override_date = date.fromisoformat(override.date)
+        override_week_start = override_date - timedelta(days=override_date.weekday())
+        reviewed_week_records = [
+            record for record in records
+            if (record_date := date.fromisoformat(record.date))
+            - timedelta(days=record_date.weekday()) == override_week_start
+        ]
+        if not reviewed_week_records:
+            continue
+        matching_records = [record for record in reviewed_week_records if record.date == override.date]
+        if len(matching_records) != 1:
+            raise MarketDataValidationError(
+                f"reviewed weekly close override {asset.asset_id} is missing {override.date}"
+            )
+        record = matching_records[0]
+        if record.close != override.close or record.dividend != 0:
+            raise MarketDataValidationError(
+                f"reviewed weekly close override {asset.asset_id} does not match {override.date}"
+            )
 
 
 def _atomic_write_json(path: Path, content: dict[str, object]) -> None:

@@ -36,6 +36,75 @@ interface ManifestBenchmark {
 
 const manifestAssets = manifest.assets as Record<string, ManifestBenchmark>;
 
+const REVIEWED_WEEKLY_CLOSE_OVERRIDES = [
+  {
+    assetId: 'NASDAQ100',
+    ticker: '^NDX',
+    date: '2026-08-28',
+    close: 29433.43,
+    sourceUrl: 'https://finance.yahoo.com/quote/%5ENDX/history/',
+    retrievedAt: '2026-09-01T05:26:33Z',
+    reason: 'yfinance daily history omitted this completed-week final trading-day close',
+  },
+  {
+    assetId: 'SP500',
+    ticker: '^GSPC',
+    date: '2026-08-28',
+    close: 7711.76,
+    sourceUrl: 'https://finance.yahoo.com/quote/%5EGSPC/history/',
+    retrievedAt: '2026-09-01T05:26:33Z',
+    reason: 'yfinance daily history omitted this completed-week final trading-day close',
+  },
+  {
+    assetId: 'KOSPI_INDEX',
+    ticker: '^KS11',
+    date: '2026-08-28',
+    close: 6788.88,
+    sourceUrl: 'https://finance.yahoo.com/quote/%5EKS11/history/',
+    retrievedAt: '2026-09-01T05:26:33Z',
+    reason: 'yfinance daily history omitted this completed-week final trading-day close',
+  },
+] as const;
+
+const MARKET_DATA_SOURCE = {
+  provider: 'Yahoo Finance',
+  client: 'yfinance',
+  reviewedWeeklyCloseOverrides: REVIEWED_WEEKLY_CLOSE_OVERRIDES,
+};
+
+export const validateMarketDataManifest = (candidate: unknown): void => {
+  if (
+    typeof candidate !== 'object' ||
+    candidate === null ||
+    (candidate as { schemaVersion?: unknown }).schemaVersion !== 3
+  ) {
+    throw new Error('manifest.json must use market-data schema version 3');
+  }
+  if (
+    JSON.stringify((candidate as { source?: unknown }).source) !== JSON.stringify(MARKET_DATA_SOURCE)
+  ) {
+    throw new Error('manifest.json reviewed weekly close override provenance does not match');
+  }
+};
+
+validateMarketDataManifest(manifest);
+
+export const validateReviewedWeeklyCloseValues = (
+  id: MarketBenchmarkId,
+  points: BenchmarkPoint[],
+  filename: string,
+): void => {
+  const override = REVIEWED_WEEKLY_CLOSE_OVERRIDES.find((candidate) => candidate.assetId === id);
+  if (!override) return;
+  const point = points.find((candidate) => candidate.date === override.date);
+  if (!point) {
+    throw new Error(`${filename} reviewed weekly close override ${id} is missing ${override.date}`);
+  }
+  if (point.close !== override.close) {
+    throw new Error(`${filename} reviewed weekly close override ${id} does not match ${override.date}`);
+  }
+};
+
 const isoWeekStart = (date: string): string => {
   const parsed = new Date(`${date}T00:00:00Z`);
   parsed.setUTCDate(parsed.getUTCDate() - ((parsed.getUTCDay() + 6) % 7));
@@ -69,10 +138,6 @@ const createDataset = (
   csv: string,
   filename: string,
 ): MarketBenchmarkDataset => {
-  if (manifest.schemaVersion !== 2) {
-    throw new Error('manifest.json must use market-data schema version 2');
-  }
-
   const parsed = parseHistoricalCsv(csv, filename);
   const coverage = manifestAssets[id];
   if (!coverage) {
@@ -99,6 +164,7 @@ const createDataset = (
     }
     return { date, close: price };
   }), filename);
+  validateReviewedWeeklyCloseValues(id, points, filename);
 
   return {
     id,
