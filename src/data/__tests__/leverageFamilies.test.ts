@@ -68,7 +68,7 @@ describe('leveraged asset families', () => {
       primaryAsset: 'QQQ',
       comparisonAssets: ['QLD', 'TQQQ'],
       startDate: '2010-02-11',
-      endDate: '2026-08-13',
+      endDate: '2099-12-31',
     }, 'AMDL', getHistoricalCoverage)).toEqual({
       primaryAsset: 'AMDL',
       comparisonAssets: [],
@@ -92,11 +92,11 @@ describe('leveraged asset families', () => {
   it('rejects histories without a shared coverage interval', () => {
     const coverages: Record<'QQQ' | 'TQQQ', HistoricalCoverage> = {
       QQQ: {
-        assetId: 'QQQ', ticker: 'QQQ', displayName: 'QQQ', currency: 'USD',
+        assetId: 'QQQ', ticker: 'QQQ', displayName: 'QQQ', currency: 'USD', kind: 'asset', frequency: 'daily',
         startDate: '2000-01-01', endDate: '2001-01-01', rowCount: 1,
       },
       TQQQ: {
-        assetId: 'TQQQ', ticker: 'TQQQ', displayName: 'TQQQ', currency: 'USD',
+        assetId: 'TQQQ', ticker: 'TQQQ', displayName: 'TQQQ', currency: 'USD', kind: 'asset', frequency: 'daily',
         startDate: '2002-01-01', endDate: '2003-01-01', rowCount: 1,
       },
     };

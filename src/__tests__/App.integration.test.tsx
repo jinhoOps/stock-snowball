@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
-import { findPointOnOrBefore, getHistoricalData } from '../data/historicalAssets';
+import { findPointOnOrBefore, getHistoricalCoverage, getHistoricalData } from '../data/historicalAssets';
 
 const backtestRun = vi.hoisted(() => vi.fn());
 const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[] }));
@@ -314,7 +314,9 @@ describe('App backtest selection', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
-      expect(screen.getByTestId('control-dates').textContent).toBe('2024-03-18|2026-08-13');
+      expect(screen.getByTestId('control-dates').textContent).toBe(
+        `2024-03-18|${getHistoricalCoverage('AMDL').endDate}`,
+      );
     });
   });
 
@@ -350,7 +352,9 @@ describe('App backtest selection', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
-      expect(screen.getByTestId('control-dates').textContent).toBe('2024-03-18|2026-08-13');
+      expect(screen.getByTestId('control-dates').textContent).toBe(
+        `2024-03-18|${getHistoricalCoverage('AMDL').endDate}`,
+      );
       expect(screen.getByTestId('presentation-state').textContent).toBe('NOMINAL|PORTFOLIO');
     });
   });

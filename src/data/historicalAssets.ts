@@ -32,6 +32,8 @@ interface ManifestAsset {
   ticker: string;
   displayName: string;
   currency: string;
+  kind: 'asset';
+  frequency: 'daily';
   startDate: string;
   endDate: string;
   rowCount: number;
@@ -40,6 +42,10 @@ interface ManifestAsset {
 export interface HistoricalCoverage extends ManifestAsset {}
 
 const manifestAssets = manifest.assets as Record<HistoricalAssetType, ManifestAsset>;
+
+if (manifest.schemaVersion !== 2) {
+  throw new Error('manifest.json must use market-data schema version 2');
+}
 
 export const parseHistoricalCsv = (csv: string, filename: string): IndexPoint[] => {
   const lines = csv.trim().split(/\r?\n/);
@@ -93,6 +99,8 @@ const createDataset = (
   }
   if (
     coverage.assetId !== asset ||
+    coverage.kind !== 'asset' ||
+    coverage.frequency !== 'daily' ||
     coverage.startDate !== data[0].date ||
     coverage.endDate !== data.at(-1)?.date ||
     coverage.rowCount !== data.length

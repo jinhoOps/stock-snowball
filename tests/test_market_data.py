@@ -6,18 +6,22 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
 from tools.market_data import (
     ASSETS,
+    HISTORICAL_ASSETS,
+    MARKET_BENCHMARKS,
     AssetManifestEntry,
     MarketDataError,
     MarketDataProviderError,
     MarketDataValidationError,
     MarketRecord,
     build_manifest,
+    completed_weekly_records,
     fetch_history,
     normalize_history,
     refresh_all,
@@ -30,6 +34,12 @@ from tools.market_data import (
 EXPECTED_ASSET_IDS = {
     "QQQ", "QLD", "TQQQ", "AMD", "AMDL", "TSLA", "TSLL",
     "SOXX", "SOXL", "SPY", "SCHD", "KOSPI", "KOSDAQ", "GOLD",
+}
+
+EXPECTED_BENCHMARKS = {
+    "NASDAQ100": ("^NDX", "nasdaq100.csv"),
+    "SP500": ("^GSPC", "sp500.csv"),
+    "KOSPI_INDEX": ("^KS11", "kospi-index.csv"),
 }
 
 
@@ -48,9 +58,40 @@ class FakeTicker:
 
 
 class MarketDataNormalizationTests(unittest.TestCase):
+    def test_registry_separates_backtest_assets_from_market_benchmarks(self) -> None:
+        self.assertEqual({asset.asset_id for asset in HISTORICAL_ASSETS}, EXPECTED_ASSET_IDS)
+        self.assertEqual(
+            {asset.asset_id: (asset.ticker, asset.output_filename) for asset in MARKET_BENCHMARKS},
+            EXPECTED_BENCHMARKS,
+        )
+        self.assertTrue(
+            all(asset.kind == "asset" and asset.frequency == "daily" for asset in HISTORICAL_ASSETS)
+        )
+        self.assertTrue(
+            all(asset.kind == "benchmark" and asset.frequency == "weekly" for asset in MARKET_BENCHMARKS)
+        )
+
+    def test_completed_weekly_records_uses_last_trading_day_and_excludes_current_week(self) -> None:
+        records = [
+            MarketRecord("2026-08-24", 100, 0),
+            MarketRecord("2026-08-28", 104, 0),
+            MarketRecord("2026-08-31", 106, 0),
+        ]
+        self.assertEqual(
+            completed_weekly_records(records, as_of=date(2026, 9, 1)),
+            [MarketRecord("2026-08-28", 104, 0)],
+        )
+
+    def test_completed_weekly_records_accepts_holiday_shortened_completed_week(self) -> None:
+        records = [MarketRecord("2026-08-24", 100, 0), MarketRecord("2026-08-27", 103, 0)]
+        self.assertEqual(
+            completed_weekly_records(records, as_of=date(2026, 8, 31)),
+            [MarketRecord("2026-08-27", 103, 0)],
+        )
+
     def test_asset_registry_is_the_complete_approved_catalog(self) -> None:
-        self.assertEqual({asset.asset_id for asset in ASSETS}, EXPECTED_ASSET_IDS)
-        self.assertNotIn("QQQM", {asset.asset_id for asset in ASSETS})
+        self.assertEqual({asset.asset_id for asset in HISTORICAL_ASSETS}, EXPECTED_ASSET_IDS)
+        self.assertNotIn("QQQM", {asset.asset_id for asset in HISTORICAL_ASSETS})
 
     def test_swap_catalog_restores_backup_when_install_rename_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -194,12 +235,17 @@ class MarketDataNormalizationTests(unittest.TestCase):
 
 class MarketDataArtifactValidationTests(unittest.TestCase):
     def _write_valid_data_dir(self, data_dir: Path) -> dict[str, AssetManifestEntry]:
-        records = [
+        daily_records = [
             MarketRecord(date="2024-01-02", close=100.0, dividend=0.0),
             MarketRecord(date="2024-01-03", close=99.0, dividend=1.0),
         ]
+        weekly_records = [
+            MarketRecord(date="2024-01-03", close=100.0, dividend=0.0),
+            MarketRecord(date="2024-01-12", close=99.0, dividend=0.0),
+        ]
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
+            records = weekly_records if asset.frequency == "weekly" else daily_records
             write_dataset(data_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
 
@@ -230,7 +276,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             data_dir = Path(temp_dir)
             entries = self._write_valid_data_dir(data_dir)
 
-            validated = validate_generated_data(data_dir)
+            validated = validate_generated_data(data_dir, as_of=date(2024, 1, 15))
 
             self.assertEqual(validated, entries)
 
@@ -247,7 +293,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             (data_dir / ".indices.backup-stale").mkdir()
 
             with self.assertRaises(MarketDataValidationError) as caught:
-                validate_generated_data(data_dir)
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
             message = str(caught.exception)
             for unexpected in (
                 "qqqm.csv",
@@ -273,7 +319,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                 manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
                 with self.assertRaisesRegex(MarketDataValidationError, "generatedAt"):
-                    validate_generated_data(data_dir)
+                    validate_generated_data(data_dir, as_of=date(2024, 1, 15))
 
     def test_validate_generated_data_rejects_unsorted_or_duplicate_dates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -285,7 +331,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(MarketDataValidationError, "spy.csv"):
-                validate_generated_data(data_dir)
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
 
     def test_validate_generated_data_rejects_manifest_coverage_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -297,7 +343,77 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(MarketDataValidationError, "rowCount"):
-                validate_generated_data(data_dir)
+                validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+
+    def test_validate_generated_data_rejects_benchmark_specific_csv_corruption(self) -> None:
+        bad_cases = {
+            "nonzero dividend": "date,close,dividend\n2026-08-21,100,1\n",
+            "weekend date": "date,close,dividend\n2026-08-22,100,0\n",
+        }
+        for description, content in bad_cases.items():
+            with self.subTest(description=description), tempfile.TemporaryDirectory() as temp_dir:
+                data_dir = Path(temp_dir)
+                self._write_valid_data_dir(data_dir)
+                benchmark_path = data_dir / "nasdaq100.csv"
+                benchmark_path.write_text(content, encoding="utf-8")
+
+                with self.assertRaisesRegex(MarketDataValidationError, "nasdaq100.csv"):
+                    validate_generated_data(data_dir, as_of=date(2026, 8, 24))
+
+    def test_validate_generated_data_rejects_current_week_benchmark_record(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir)
+            self._write_valid_data_dir(data_dir)
+            benchmark_path = data_dir / "nasdaq100.csv"
+            benchmark_path.write_text(
+                "date,close,dividend\n2026-08-28,100,0\n2026-08-31,101,0\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(MarketDataValidationError, "nasdaq100.csv"):
+                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+
+    def test_validate_generated_data_rejects_schema_v1_and_wrong_manifest_series_metadata(self) -> None:
+        mutations = {
+            "schema version 1": ("schemaVersion", 1),
+            "asset kind": ("kind", "asset"),
+            "daily frequency": ("frequency", "daily"),
+        }
+        for description, (field, value) in mutations.items():
+            with self.subTest(description=description), tempfile.TemporaryDirectory() as temp_dir:
+                data_dir = Path(temp_dir)
+                self._write_valid_data_dir(data_dir)
+                manifest_path = data_dir / "manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if field == "schemaVersion":
+                    manifest[field] = value
+                else:
+                    manifest["assets"]["NASDAQ100"][field] = value
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+                with self.assertRaises(MarketDataValidationError) as caught:
+                    validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+                self.assertIn("NASDAQ100" if field != "schemaVersion" else "schemaVersion", str(caught.exception))
+
+    def test_validate_generated_data_rejects_extra_or_missing_benchmark_files(self) -> None:
+        mutations = {
+            "extra": lambda path: (path / "unexpected-benchmark.csv").write_text(
+                "stale", encoding="utf-8"
+            ),
+            "missing": lambda path: (path / "sp500.csv").unlink(),
+        }
+        for description, mutate in mutations.items():
+            with self.subTest(description=description), tempfile.TemporaryDirectory() as temp_dir:
+                data_dir = Path(temp_dir)
+                self._write_valid_data_dir(data_dir)
+                mutate(data_dir)
+
+                with self.assertRaises(MarketDataValidationError) as caught:
+                    validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+                self.assertIn(
+                    "unexpected-benchmark.csv" if description == "extra" else "sp500.csv",
+                    str(caught.exception),
+                )
 
     def test_refresh_fetch_failure_keeps_published_catalog_byte_identical_and_cleans_staging(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
