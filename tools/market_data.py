@@ -530,16 +530,7 @@ def _validate_reviewed_weekly_close_overrides(
     for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES:
         if override.asset_id != asset.asset_id:
             continue
-        override_date = date.fromisoformat(override.date)
-        override_week_start = override_date - timedelta(days=override_date.weekday())
-        reviewed_week_records = [
-            record for record in records
-            if (record_date := date.fromisoformat(record.date))
-            - timedelta(days=record_date.weekday()) == override_week_start
-        ]
-        if not reviewed_week_records:
-            continue
-        matching_records = [record for record in reviewed_week_records if record.date == override.date]
+        matching_records = [record for record in records if record.date == override.date]
         if len(matching_records) != 1:
             raise MarketDataValidationError(
                 f"reviewed weekly close override {asset.asset_id} is missing {override.date}"

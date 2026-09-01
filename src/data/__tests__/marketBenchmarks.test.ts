@@ -61,7 +61,11 @@ describe('market benchmark data', () => {
   });
 
   it('rejects missing or mismatched reviewed weekly-close values', () => {
-    expect(() => validateReviewedWeeklyCloseValues('NASDAQ100', [], 'fixture.csv')).toThrow('is missing');
+    expect(() => validateReviewedWeeklyCloseValues(
+      'NASDAQ100',
+      [{ date: '2026-08-21', close: 29308.859375 }],
+      'fixture.csv',
+    )).toThrow('is missing');
     expect(() => validateReviewedWeeklyCloseValues(
       'NASDAQ100',
       [{ date: '2026-08-28', close: 1 }],

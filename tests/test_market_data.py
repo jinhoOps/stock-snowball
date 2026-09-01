@@ -16,6 +16,7 @@ from tools.market_data import (
     ASSETS,
     HISTORICAL_ASSETS,
     MARKET_BENCHMARKS,
+    REVIEWED_WEEKLY_CLOSE_OVERRIDES,
     AssetManifestEntry,
     MarketDataError,
     MarketDataProviderError,
@@ -270,12 +271,17 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             MarketRecord(date="2024-01-03", close=99.0, dividend=1.0),
         ]
         weekly_records = [
-            MarketRecord(date="2024-01-03", close=100.0, dividend=0.0),
-            MarketRecord(date="2024-01-12", close=99.0, dividend=0.0),
+            MarketRecord(date="2026-08-21", close=100.0, dividend=0.0),
         ]
+        overrides = {override.asset_id: override for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES}
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
-            records = weekly_records if asset.frequency == "weekly" else daily_records
+            records = daily_records
+            if asset.frequency == "weekly":
+                override = overrides[asset.asset_id]
+                records = weekly_records + [
+                    MarketRecord(override.date, override.close, 0.0),
+                ]
             write_dataset(data_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
 
@@ -306,7 +312,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             data_dir = Path(temp_dir)
             entries = self._write_valid_data_dir(data_dir)
 
-            validated = validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+            validated = validate_generated_data(data_dir, as_of=date(2026, 9, 1))
 
             self.assertEqual(validated, entries)
 
@@ -413,13 +419,14 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             benchmark_path.write_text(
                 benchmark_path.read_text(encoding="utf-8").replace(
                     "2026-08-28,29433.43,0\n",
-                    "2026-08-27,29641.5605469,0\n",
+                    "",
                 ),
                 encoding="utf-8",
             )
             manifest_path = data_dir / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["assets"]["NASDAQ100"]["endDate"] = "2026-08-27"
+            manifest["assets"]["NASDAQ100"]["endDate"] = "2026-08-21"
+            manifest["assets"]["NASDAQ100"]["rowCount"] -= 1
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override NASDAQ100"):
@@ -527,7 +534,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                 manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
                 with self.assertRaises(MarketDataValidationError) as caught:
-                    validate_generated_data(data_dir, as_of=date(2024, 1, 15))
+                    validate_generated_data(data_dir, as_of=date(2026, 9, 1))
                 self.assertIn("NASDAQ100" if field != "schemaVersion" else "schemaVersion", str(caught.exception))
 
     def test_validate_generated_data_rejects_extra_or_missing_benchmark_files(self) -> None:

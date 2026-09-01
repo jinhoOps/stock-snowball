@@ -75,14 +75,14 @@ No overlay toggle is added. A mapped primary asset always shows its benchmark; a
 
 ## Error Handling
 
-- Generator and offline validation reject missing/extra benchmark files, wrong kind or frequency, unsorted or duplicate dates, weekend dates, non-positive/non-finite closes, nonzero benchmark dividends, malformed manifest metadata, and incomplete current-week output.
+- Generator and offline validation reject missing/extra benchmark files, wrong kind or frequency, unsorted or duplicate dates, weekend dates, non-positive/non-finite closes, nonzero benchmark dividends, malformed manifest metadata, missing or changed reviewed override values, and incomplete current-week output.
 - TypeScript loading rejects CSV/header/manifest mismatches during tests and build, matching the existing fail-fast static-data behavior.
 - If a valid benchmark has no completed point on or before the requested range, omit the overlay rather than failing the backtest.
 - Missing 20-week or 60-week warm-up values omit only that line segment.
 
 ## Verification
 
-- Python unit tests cover the exact 14+3 registries, daily-to-weekly reduction, holidays, current-week exclusion, manifest version 2, atomic rollback, and network-free `--check`.
+- Python unit tests cover the exact 14+3 registries, daily-to-weekly reduction, holidays, current-week exclusion, schema-3 manifest provenance and reviewed override values, atomic rollback, and network-free `--check`.
 - TypeScript unit tests cover exact asset mapping, rolling SMA windows, range anchoring, shared-base normalization, and unsupported assets.
 - Chart tests cover both result views, right-axis isolation, legend labels and line patterns, closest-prior tooltip resolution, keyboard announcements, and absent warm-up values.
 - Component/App tests prove the primary asset and selected dates control the overlay and that projection mode never renders it.
