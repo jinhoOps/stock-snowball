@@ -7,8 +7,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -109,7 +110,11 @@ class MarketDataNormalizationTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             data_dir = Path(temp_dir) / "indices"
-            refresh_all(data_dir, lambda _: FakeTicker(history))
+            refresh_all(
+                data_dir,
+                lambda _: FakeTicker(history),
+                as_of=date(2026, 9, 1),
+            )
 
             for filename, expected_row in expected.items():
                 with self.subTest(filename=filename):
@@ -120,6 +125,36 @@ class MarketDataNormalizationTests(unittest.TestCase):
             self.assertEqual(manifest["source"]["provider"], "Yahoo Finance")
             self.assertEqual(manifest["source"]["client"], "yfinance")
             self.assertEqual(len(manifest["source"]["reviewedWeeklyCloseOverrides"]), 3)
+
+    def test_refresh_all_explicit_as_of_is_stable_under_future_wall_clock(self) -> None:
+        history = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0, 102.0],
+                "Dividends": [0.0, 0.0, 0.0],
+                "Stock Splits": [0.0, 0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-08-24", "2026-08-27", "2026-08-31"]),
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            with patch("tools.market_data.datetime", wraps=datetime) as clock:
+                clock.now.return_value = datetime(2030, 1, 1, 12, 34, tzinfo=timezone.utc)
+                refresh_all(
+                    data_dir,
+                    lambda _: FakeTicker(history),
+                    as_of=date(2026, 9, 1),
+                )
+
+            manifest = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["generatedAt"], "2026-09-01T00:00:00Z")
+            benchmark_end_dates = {
+                entry["endDate"]
+                for entry in manifest["assets"].values()
+                if entry["kind"] == "benchmark"
+            }
+            self.assertEqual(benchmark_end_dates, {"2026-08-28"})
+            validate_generated_data(data_dir)
 
     def test_refresh_all_replays_the_reviewed_kospi_daily_backfill(self) -> None:
         ordinary_history = pd.DataFrame(
@@ -158,7 +193,7 @@ class MarketDataNormalizationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             data_dir = Path(temp_dir) / "indices"
             try:
-                refresh_all(data_dir, provider)
+                refresh_all(data_dir, provider, as_of=date(2026, 9, 1))
             except MarketDataValidationError as error:
                 self.fail(f"reviewed KOSPI backfill should close the provider hole: {error}")
 
@@ -796,6 +831,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                         if ticker == "^KS200"
                         else daily_history
                     ),
+                    as_of=date(2026, 9, 1),
                 )
 
             after = {

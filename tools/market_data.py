@@ -487,8 +487,10 @@ def build_manifest(
 def write_manifest(
     path: Path,
     entries: dict[str, AssetManifestEntry],
+    *,
+    generated_at: str | None = None,
 ) -> None:
-    _atomic_write_json(path, build_manifest(entries))
+    _atomic_write_json(path, build_manifest(entries, generated_at=generated_at))
 
 
 def validate_generated_data(
@@ -556,10 +558,18 @@ def validate_generated_data(
 def refresh_all(
     data_dir: Path,
     client_factory: Callable[[str], Any] | None = None,
+    *,
+    as_of: date | None = None,
 ) -> dict[str, AssetManifestEntry]:
     """Fetch, validate, and atomically install every refreshed static dataset."""
     factory = client_factory or _default_client_factory
-    refresh_date = datetime.now(timezone.utc).date()
+    refresh_started_at = datetime.now(timezone.utc).replace(microsecond=0)
+    refresh_date = as_of or refresh_started_at.date()
+    generated_at = (
+        f"{refresh_date.isoformat()}T00:00:00Z"
+        if as_of is not None
+        else refresh_started_at.isoformat().replace("+00:00", "Z")
+    )
     data_dir.parent.mkdir(parents=True, exist_ok=True)
     staging_dir = Path(
         tempfile.mkdtemp(prefix=f".{data_dir.name}.staging-", dir=data_dir.parent)
@@ -574,7 +584,11 @@ def refresh_all(
                 records = apply_reviewed_weekly_close_overrides(asset, records)
             write_dataset(staging_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
-        write_manifest(staging_dir / "manifest.json", entries)
+        write_manifest(
+            staging_dir / "manifest.json",
+            entries,
+            generated_at=generated_at,
+        )
         validate_generated_data(staging_dir)
         if data_dir.exists():
             validate_historical_date_preservation(data_dir, staging_dir)
