@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -291,11 +291,11 @@ class MarketDataNormalizationTests(unittest.TestCase):
             with self.subTest(close=close):
                 history = pd.DataFrame(
                     {
-                        "Close": [100.0, close],
-                        "Dividends": [0.0, 0.0],
-                        "Stock Splits": [0.0, 0.0],
+                        "Close": [100.0, close, 98.0],
+                        "Dividends": [0.0, 0.0, 0.0],
+                        "Stock Splits": [0.0, 0.0, 0.0],
                     },
-                    index=self.history.index,
+                    index=pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]),
                 )
                 with self.assertRaises(MarketDataValidationError) as caught:
                     normalize_history("SPY", history)
@@ -303,6 +303,49 @@ class MarketDataNormalizationTests(unittest.TestCase):
                 self.assertIn("SPY", message)
                 self.assertIn("close", message)
                 self.assertIn("2024-01-03", message)
+
+    def test_normalize_history_drops_invalid_trailing_close_with_warning(self) -> None:
+        history = pd.DataFrame(
+            {
+                "Close": [100.0, 99.0, float("nan")],
+                "Dividends": [0.0, 1.0, 0.0],
+                "Stock Splits": [0.0, 0.0, 0.0],
+            },
+            index=pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]),
+        )
+
+        with self.assertWarnsRegex(
+            RuntimeWarning,
+            r"SPY Yahoo: dropped invalid tail row 2024-01-04 .* latest valid close is 2024-01-03",
+        ):
+            records = normalize_history("SPY", history)
+
+        self.assertEqual(
+            records,
+            [
+                MarketRecord(date="2024-01-02", close=100.0, dividend=0.0),
+                MarketRecord(date="2024-01-03", close=99.0, dividend=1.0),
+            ],
+        )
+
+    def test_normalize_history_uses_existing_endpoint_when_only_increment_is_invalid(self) -> None:
+        history = pd.DataFrame(
+            {
+                "Close": [float("nan")],
+                "Dividends": [0.0],
+                "Stock Splits": [0.0],
+            },
+            index=pd.to_datetime(["2024-01-04"]),
+        )
+
+        with self.assertWarnsRegex(RuntimeWarning, r"latest valid close is 2024-01-03"):
+            records = normalize_history(
+                "SPY",
+                history,
+                previous_record=MarketRecord("2024-01-03", 99.0, 1.0),
+            )
+
+        self.assertEqual(records, [])
 
     def test_normalize_history_rejects_malformed_or_non_finite_dividends_with_diagnostics(self) -> None:
         for dividend in (None, -1, float("nan"), float("inf"), "malformed"):
@@ -349,6 +392,28 @@ class MarketDataNormalizationTests(unittest.TestCase):
             },
         )
 
+    def test_fetch_history_requests_only_dates_after_the_existing_endpoint(self) -> None:
+        ticker = FakeTicker(self.history)
+
+        fetch_history(
+            ASSETS[0],
+            lambda _: ticker,
+            start=date(2024, 1, 4),
+            end=date(2024, 1, 6),
+        )
+
+        self.assertEqual(
+            ticker.calls[-1],
+            {
+                "start": "2024-01-04",
+                "end": "2024-01-06",
+                "interval": "1d",
+                "auto_adjust": False,
+                "actions": True,
+                "raise_errors": True,
+            },
+        )
+
 
 class MarketDataArtifactValidationTests(unittest.TestCase):
     def _write_valid_data_dir(self, data_dir: Path) -> dict[str, AssetManifestEntry]:
@@ -372,6 +437,28 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                 records = weekly_records + [
                     MarketRecord(override.date, override.close, 0.0),
                 ]
+            write_dataset(data_dir / asset.output_filename, records)
+            entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
+
+        (data_dir / "manifest.json").write_text(
+            json.dumps(build_manifest(entries, generated_at="2026-09-01T00:00:00Z")),
+            encoding="utf-8",
+        )
+        return entries
+
+    def _write_incremental_data_dir(self, data_dir: Path) -> dict[str, AssetManifestEntry]:
+        overrides = {override.asset_id: override for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES}
+        entries: dict[str, AssetManifestEntry] = {}
+        for asset in ASSETS:
+            if asset.frequency == "weekly":
+                override = overrides[asset.asset_id]
+                records = [MarketRecord(override.date, override.close, 0.0)]
+            elif asset.asset_id == "KOSPI":
+                records = list(REVIEWED_DAILY_BACKFILLS[0].records) + [
+                    MarketRecord("2026-09-01", 1075.3, 0.0),
+                ]
+            else:
+                records = [MarketRecord("2026-09-01", 100.0, 0.0)]
             write_dataset(data_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
 
@@ -753,11 +840,11 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             calls = 0
             valid_history = pd.DataFrame(
                 {
-                    "Close": [100.0, 101.0],
-                    "Dividends": [0.0, 0.0],
-                    "Stock Splits": [0.0, 0.0],
+                    "Close": [101.0],
+                    "Dividends": [0.0],
+                    "Stock Splits": [0.0],
                 },
-                index=pd.to_datetime(["2024-01-02", "2024-01-03"]),
+                index=pd.to_datetime(["2024-01-04"]),
             )
 
             def fail_during_second_fetch(_: str) -> FakeTicker:
@@ -782,64 +869,96 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             self.assertEqual(list(root.glob(".indices.staging-*")), [])
             self.assertEqual(list(root.glob(".indices.backup-*")), [])
 
-    def test_refresh_rejects_deleting_a_previously_committed_daily_trading_date(self) -> None:
+    def test_refresh_continues_after_invalid_qqq_tail_close(self) -> None:
+        valid_history = pd.DataFrame(
+            {
+                "Close": [100.0, 101.0, 102.0],
+                "Dividends": [0.0, 0.0, 0.0],
+                "Stock Splits": [0.0, 0.0, 0.0],
+            },
+            index=pd.to_datetime(["2026-08-28", "2026-09-02", "2026-09-03"]),
+        )
+        invalid_qqq_history = valid_history.copy()
+        invalid_qqq_history.loc[pd.Timestamp("2026-09-03"), "Close"] = float("nan")
+        requested_tickers: list[str] = []
+
+        def provider(ticker: str) -> FakeTicker:
+            requested_tickers.append(ticker)
+            return FakeTicker(invalid_qqq_history if ticker == "QQQ" else valid_history)
+
         with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            data_dir = root / "indices"
-            self._write_valid_data_dir(data_dir)
-            before = {
-                path.relative_to(data_dir): path.read_bytes()
-                for path in data_dir.rglob("*")
-                if path.is_file()
-            }
+            with self.assertWarnsRegex(RuntimeWarning, r"QQQ Yahoo: dropped invalid tail row"):
+                entries = refresh_all(
+                    Path(temp_dir) / "indices",
+                    provider,
+                    as_of=date(2026, 9, 4),
+                )
+
+        self.assertEqual(requested_tickers, [asset.ticker for asset in ASSETS])
+        self.assertEqual(entries["QQQ"].end_date, "2026-09-02")
+        self.assertEqual(entries["QLD"].end_date, "2026-09-03")
+
+    def test_refresh_reads_each_endpoint_and_appends_only_new_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            previous_entries = self._write_incremental_data_dir(data_dir)
             daily_history = pd.DataFrame(
                 {
-                    "Close": [99.0],
-                    "Dividends": [1.0],
+                    "Close": [101.0],
+                    "Dividends": [0.0],
                     "Stock Splits": [0.0],
                 },
-                index=pd.to_datetime(["2024-01-03"]),
+                index=pd.to_datetime(["2026-09-02"]),
             )
             weekly_history = pd.DataFrame(
                 {
-                    "Close": [100.0, 101.0, 102.0],
+                    "Close": [101.0, 102.0, 103.0],
                     "Dividends": [0.0, 0.0, 0.0],
                     "Stock Splits": [0.0, 0.0, 0.0],
                 },
-                index=pd.to_datetime(["2026-08-24", "2026-08-27", "2026-08-31"]),
+                index=pd.to_datetime(["2026-08-31", "2026-09-02", "2026-09-03"]),
             )
             benchmark_tickers = {asset.ticker for asset in MARKET_BENCHMARKS}
-            kospi_history = pd.DataFrame(
-                {
-                    "Close": [1080.35998535, 1075.3],
-                    "Dividends": [0.0, 0.0],
-                    "Stock Splits": [0.0, 0.0],
-                },
-                index=pd.to_datetime(["2026-07-16", "2026-09-01"]),
+            tickers: dict[str, FakeTicker] = {}
+
+            def provider(ticker: str) -> FakeTicker:
+                result = FakeTicker(weekly_history if ticker in benchmark_tickers else daily_history)
+                tickers[ticker] = result
+                return result
+
+            entries = refresh_all(data_dir, provider, as_of=date(2026, 9, 4))
+
+            for asset in ASSETS:
+                with self.subTest(asset=asset.asset_id):
+                    expected_start = (
+                        date.fromisoformat(previous_entries[asset.asset_id].end_date)
+                        + timedelta(days=1)
+                    ).isoformat()
+                    self.assertEqual(tickers[asset.ticker].calls[-1]["start"], expected_start)
+                    self.assertEqual(tickers[asset.ticker].calls[-1]["end"], "2026-09-05")
+                    self.assertNotIn("period", tickers[asset.ticker].calls[-1])
+
+            self.assertEqual(entries["QQQ"].end_date, "2026-09-02")
+            self.assertEqual(entries["QQQ"].row_count, previous_entries["QQQ"].row_count + 1)
+            self.assertEqual(entries["KOSPI"].end_date, "2026-09-02")
+            self.assertEqual(entries["NASDAQ100"], previous_entries["NASDAQ100"])
+            self.assertIn(
+                "2026-09-01,100,0\n2026-09-02,101,0\n",
+                (data_dir / "qqq.csv").read_text(encoding="utf-8"),
             )
 
-            with self.assertRaisesRegex(
-                MarketDataValidationError,
-                r"QQQ refresh would delete previously committed trading dates: 2024-01-02",
-            ):
-                refresh_all(
-                    data_dir,
-                    lambda ticker: FakeTicker(
-                        weekly_history
-                        if ticker in benchmark_tickers
-                        else kospi_history
-                        if ticker == "^KS200"
-                        else daily_history
-                    ),
-                    as_of=date(2026, 9, 1),
-                )
+    def test_incremental_refresh_keeps_existing_rows_when_no_new_dates_are_returned(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_dir = Path(temp_dir) / "indices"
+            previous_entries = self._write_incremental_data_dir(data_dir)
 
-            after = {
-                path.relative_to(data_dir): path.read_bytes()
-                for path in data_dir.rglob("*")
-                if path.is_file()
-            }
-            self.assertEqual(after, before)
+            entries = refresh_all(
+                data_dir,
+                lambda _: FakeTicker(pd.DataFrame()),
+                as_of=date(2026, 9, 4),
+            )
+
+            self.assertEqual(entries, previous_entries)
 
     def test_check_cli_runs_as_the_documented_script_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

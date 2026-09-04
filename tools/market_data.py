@@ -7,6 +7,7 @@ import os
 import shutil
 import tempfile
 import uuid
+import warnings
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -311,6 +312,8 @@ def fetch_history(
     asset: AssetDefinition,
     client_factory: Callable[[str], Any],
     *,
+    start: date | None = None,
+    end: date | None = None,
     attempts: int = 3,
     sleep: Callable[[float], None] = default_sleep,
 ) -> Any:
@@ -319,16 +322,22 @@ def fetch_history(
         raise ValueError("attempts must be at least 1")
 
     ticker = client_factory(asset.ticker)
+    request: dict[str, object] = {
+        "interval": "1d",
+        "auto_adjust": False,
+        "actions": True,
+        "raise_errors": True,
+    }
+    if start is None:
+        request["period"] = "max"
+    else:
+        request["start"] = start.isoformat()
+        if end is not None:
+            request["end"] = end.isoformat()
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            return ticker.history(
-                period="max",
-                interval="1d",
-                auto_adjust=False,
-                actions=True,
-                raise_errors=True,
-            )
+            return ticker.history(**request)
         except Exception as error:  # Provider exceptions are library-specific.
             last_error = error
             if attempt < attempts:
@@ -339,7 +348,12 @@ def fetch_history(
     ) from last_error
 
 
-def normalize_history(asset_id: str, history: Any) -> list[MarketRecord]:
+def normalize_history(
+    asset_id: str,
+    history: Any,
+    *,
+    previous_record: MarketRecord | None = None,
+) -> list[MarketRecord]:
     """Create compact market records from a yfinance history frame."""
     required_columns = {"Close", "Dividends", "Stock Splits"}
     missing_columns = required_columns.difference(history.columns)
@@ -350,7 +364,8 @@ def normalize_history(asset_id: str, history: Any) -> list[MarketRecord]:
 
     records: list[MarketRecord] = []
     previous_date: str | None = None
-    for index, row in history.iterrows():
+    final_row_position = len(history.index) - 1
+    for row_position, (index, row) in enumerate(history.iterrows()):
         try:
             record_date = _to_iso_date(index)
         except (TypeError, ValueError) as error:
@@ -369,6 +384,15 @@ def normalize_history(asset_id: str, history: Any) -> list[MarketRecord]:
 
         close = _finite_number(row["Close"])
         if close is None or close <= 0:
+            latest_valid_record = records[-1] if records else previous_record
+            if row_position == final_row_position and latest_valid_record is not None:
+                warnings.warn(
+                    f"{asset_id} Yahoo: dropped invalid tail row {record_date} "
+                    f"(Close={row['Close']!r}); latest valid close is {latest_valid_record.date}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                continue
             raise MarketDataValidationError(
                 f"{asset_id} close on {record_date} must be a finite positive number"
             )
@@ -385,7 +409,7 @@ def normalize_history(asset_id: str, history: Any) -> list[MarketRecord]:
             dividend=dividend,
         ))
 
-    if not records:
+    if not records and previous_record is None:
         raise MarketDataValidationError(f"{asset_id} has no trading-day records")
     return records
 
@@ -571,13 +595,41 @@ def refresh_all(
         else refresh_started_at.isoformat().replace("+00:00", "Z")
     )
     data_dir.parent.mkdir(parents=True, exist_ok=True)
+    incremental = data_dir.exists()
+    if incremental:
+        validate_generated_data(data_dir)
     staging_dir = Path(
         tempfile.mkdtemp(prefix=f".{data_dir.name}.staging-", dir=data_dir.parent)
     )
     try:
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
-            records = normalize_history(asset.asset_id, fetch_history(asset, factory))
+            existing_records = (
+                _read_dataset(data_dir / asset.output_filename, asset, as_of=refresh_date)
+                if incremental
+                else []
+            )
+            fetch_start = (
+                date.fromisoformat(existing_records[-1].date) + timedelta(days=1)
+                if existing_records
+                else None
+            )
+            history = fetch_history(
+                asset,
+                factory,
+                start=fetch_start,
+                end=refresh_date + timedelta(days=1) if fetch_start is not None else None,
+            )
+            new_records = (
+                []
+                if existing_records and getattr(history, "empty", False)
+                else normalize_history(
+                    asset.asset_id,
+                    history,
+                    previous_record=existing_records[-1] if existing_records else None,
+                )
+            )
+            records = existing_records + new_records
             records = apply_reviewed_daily_backfills(asset, records)
             if asset.frequency == "weekly":
                 records = completed_weekly_records(records, as_of=refresh_date)
