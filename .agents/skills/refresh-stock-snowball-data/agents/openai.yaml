@@ -1,0 +1,4 @@
+interface:
+  display_name: "Refresh Stock Snowball Data"
+  short_description: "Refresh and verify committed market datasets"
+  default_prompt: "Use $refresh-stock-snowball-data to update this repository’s static market data and report the verified diff."
