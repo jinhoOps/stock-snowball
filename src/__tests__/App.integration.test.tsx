@@ -2,7 +2,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
+import { SnowballEngine } from '../core/SnowballEngine';
 import { findPointOnOrBefore, getHistoricalCoverage, getHistoricalData } from '../data/historicalAssets';
+import { getCommonCoverage } from '../data/leverageFamilies';
+import type { HistoricalAssetType } from '../types/finance';
 
 const backtestRun = vi.hoisted(() => vi.fn());
 const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[] }));
@@ -84,13 +87,26 @@ vi.mock('../components/sections/SimulationControls', () => ({
   default: ({
     setMode,
     params,
+    rangeNotice,
+    selectedAssets,
+    onUpdate,
   }: {
     setMode: (mode: 'BACKTEST') => void;
     params: { startDate?: string; endDate?: string };
+    rangeNotice?: string | null;
+    selectedAssets: HistoricalAssetType[];
+    onUpdate: (params: { startDate: string; endDate: string }) => void;
   }) => (
     <>
       <button onClick={() => setMode('BACKTEST')}>open backtest</button>
+      <button onClick={() => {
+        const coverage = getCommonCoverage(selectedAssets, getHistoricalCoverage);
+        onUpdate({ startDate: coverage.startDate, endDate: coverage.endDate });
+      }}>
+        apply common range
+      </button>
       <output data-testid="control-dates">{params.startDate}|{params.endDate}</output>
+      <output data-testid="range-notice">{rangeNotice}</output>
     </>
   ),
 }));
@@ -154,6 +170,7 @@ vi.mock('../components/sections/BacktestView', () => ({
       <output data-testid="prepared-final-value">
         {results.find((result) => result.status === 'success')?.display?.portfolioHistory.at(-1)?.value}
       </output>
+      <output data-testid="backtest-results-count">{results.length}</output>
       <button onClick={() => onValueBasisChange('REAL')}>show real basis</button>
       <button onClick={() => onValueBasisChange('NOMINAL')}>show nominal basis</button>
       <button
@@ -248,7 +265,7 @@ afterEach(() => {
 });
 
 describe('App backtest selection', () => {
-  it('mounts the backtest view only in backtest mode with the active clamped primary range', async () => {
+  it('mounts the backtest view with only the unavailable start edge clamped after family selection', async () => {
     render(<App />);
 
     expect(screen.queryByTestId('backtest-boundary')).toBeNull();
@@ -256,11 +273,12 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     fireEvent.click(await screen.findByRole('button', { name: 'select NASDAQ family' }));
 
-    const coverage = getHistoricalCoverage('TQQQ');
     await waitFor(() => {
       expect(screen.getByTestId('backtest-boundary').textContent).toContain(
-        `QQQ|${coverage.startDate}|${coverage.endDate}`,
+        `QQQ|${getHistoricalCoverage('TQQQ').startDate}|2024-01-01`,
       );
+      expect(screen.getByTestId('range-notice').textContent).toContain('시작일');
+      expect(screen.getByTestId('range-notice').textContent).toContain(getHistoricalCoverage('TQQQ').startDate);
     });
   });
 
@@ -327,7 +345,7 @@ describe('App backtest selection', () => {
     });
   });
 
-  it('clears stale family comparisons and clamps coverage after an advanced primary change', async () => {
+  it('clears stale family comparisons without replacing a non-overlapping period', async () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     fireEvent.click(await screen.findByRole('button', { name: 'select NASDAQ family' }));
@@ -338,9 +356,43 @@ describe('App backtest selection', () => {
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
       expect(screen.getByTestId('control-dates').textContent).toBe(
-        `2024-03-18|${getHistoricalCoverage('AMDL').endDate}`,
+        `${getHistoricalCoverage('TQQQ').startDate}|2024-01-01`,
       );
+      expect(screen.getByTestId('range-notice').textContent).toContain('기존 기간은 유지');
     });
+  });
+
+  it('stops calculating and hides investment KPIs when selected assets have no common period', async () => {
+    const simulateRange = vi.spyOn(SnowballEngine, 'simulateRange');
+    scenarioState.scenarios = [
+      savedScenario({ name: 'saved backtest while unavailable' }),
+      savedScenario({ id: 'saved-projection', name: 'saved projection while unavailable', simulationMode: 'PROJECTION' }),
+    ];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    await screen.findByTestId('backtest-selection');
+    backtestRun.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'select AMD family' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('control-dates').textContent).toBe('2010-01-01|2024-01-01');
+      expect(screen.getByTestId('backtest-results-count').textContent).toBe('0');
+      expect(screen.queryByTestId('kpi-values')).toBeNull();
+    });
+    simulateRange.mockClear();
+
+    screen.getAllByRole('button', { name: '비교하기' }).forEach((button) => fireEvent.click(button));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '비교 중' })).toHaveLength(2));
+    expect(backtestRun).not.toHaveBeenCalled();
+    expect(simulateRange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'apply common range' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('backtest-results-count').textContent).toBe('2');
+      expect(screen.getByTestId('kpi-values')).toBeTruthy();
+    });
+    expect(backtestRun).toHaveBeenCalled();
   });
 
   it('normalizes comparison updates at the parent boundary', async () => {
@@ -465,6 +517,20 @@ describe('App backtest selection', () => {
       backtestStartDate: '1999-03-10',
       backtestEndDate: '2026-08-13',
     })];
+    testStorage.setItem('backtest_params', JSON.stringify({
+      principal: 100,
+      contribution: 0,
+      cycle: 'MONTHLY',
+      assetType: 'SPY',
+      years: 1,
+      rate: 0.08,
+      accountType: 'GENERAL',
+      inflationRate: 0.02,
+      strategyType: 'FIXED',
+      strategyIncreaseRate: 0.05,
+      startDate: '2024-03-18',
+      endDate: '2026-08-13',
+    }));
     backtestRun.mockImplementation((params: { startDate: string }) => {
       const startsBeforeGold = params.startDate === '1999-03-10';
       return {

@@ -73,6 +73,20 @@ export const normalizeBacktestSelection = (
     .filter((asset): asset is HistoricalAssetType => asset !== primaryAsset)
     .slice(0, 2);
   const coverage = getCommonCoverage([primaryAsset, ...comparisonAssets], getCoverage);
+  const requestedStart = typeof input.startDate === 'string' ? input.startDate : coverage.startDate;
+  const requestedEnd = typeof input.endDate === 'string' ? input.endDate : coverage.endDate;
+  const hasValidOrder = requestedStart <= requestedEnd;
+  const hasNoOverlap = requestedEnd < coverage.startDate || requestedStart > coverage.endDate;
+
+  if (hasValidOrder && hasNoOverlap) {
+    return {
+      primaryAsset,
+      comparisonAssets,
+      startDate: requestedStart,
+      endDate: requestedEnd,
+    };
+  }
+
   let startDate = clampDate(input.startDate, coverage.startDate, coverage.endDate, coverage.startDate);
   let endDate = clampDate(input.endDate, coverage.startDate, coverage.endDate, coverage.endDate);
   if (startDate > endDate) {
@@ -106,21 +120,16 @@ export const selectLeverageFamily = (familyId: LeverageFamilyId) => {
 };
 
 export const applyFamilySelection = (
-  _params: Pick<{ assetType: AssetType; startDate?: string; endDate?: string }, 'assetType' | 'startDate' | 'endDate'>,
+  params: Pick<{ assetType: AssetType; startDate?: string; endDate?: string }, 'assetType' | 'startDate' | 'endDate'>,
   familyId: LeverageFamilyId,
   getCoverage: HistoricalCoverageLookup,
 ): BacktestAssetSelection => {
   const selection = selectLeverageFamily(familyId);
-  const coverage = getCommonCoverage(
-    [selection.primaryAsset, ...selection.comparisonAssets],
-    getCoverage,
-  );
-
-  return {
+  return normalizeBacktestSelection({
     ...selection,
-    startDate: coverage.startDate,
-    endDate: coverage.endDate,
-  };
+    startDate: params.startDate,
+    endDate: params.endDate,
+  }, getCoverage);
 };
 
 export const getCommonCoverage = (

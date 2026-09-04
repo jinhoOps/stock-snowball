@@ -1,7 +1,14 @@
+// @vitest-environment jsdom
+
 import React from 'react';
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import SimulationControls from '../SimulationControls';
+import { getHistoricalCoverage } from '../../../data/historicalAssets';
+
+afterEach(cleanup);
 
 describe('SimulationControls', () => {
   const baseProjectionProps = {
@@ -73,5 +80,34 @@ describe('SimulationControls', () => {
     expect(markup).toContain('10년');
     expect(markup).toContain('전체');
     expect(markup).not.toContain('YTD');
+  });
+
+  it('explains an unavailable period and applies full common coverage only after confirmation', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    const coverage = getHistoricalCoverage('AMDL');
+
+    render(<SimulationControls {...baseProjectionProps}
+      mode="BACKTEST"
+      params={{
+        ...baseProjectionProps.params,
+        assetType: 'AMDL',
+        startDate: '2010-01-01',
+        endDate: '2011-01-01',
+      }}
+      selectedAssets={['AMDL']}
+      rangeNotice="종목은 변경했지만 기존 기간은 유지했습니다."
+      onUpdate={onUpdate}
+    />);
+
+    expect(screen.getByRole('alert').textContent).toContain('공통 데이터');
+    expect(screen.getByRole('status').textContent).toContain('기존 기간은 유지');
+
+    await user.click(screen.getByRole('button', { name: '가능한 전체 기간 적용' }));
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      startDate: coverage.startDate,
+      endDate: coverage.endDate,
+    });
   });
 });

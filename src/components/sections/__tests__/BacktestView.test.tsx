@@ -80,6 +80,7 @@ describe('BacktestView', () => {
       ...baseProps,
       primaryAsset: 'QQQ',
       comparisonAssets: ['SPY'],
+      results: [basisResult],
     };
     const { rerender } = render(<BacktestView {...props} />);
 
@@ -116,6 +117,11 @@ describe('BacktestView', () => {
       ...baseProps,
       primaryAsset: 'AMD',
       comparisonAssets: ['AMDL'],
+      results: [basisResult],
+      goldData: [
+        { date: '2024-01-01', price: 2_000, dividendYield: 0 },
+        { date: '2025-01-01', price: 2_100, dividendYield: 0 },
+      ],
       leverageInsights: [{
         assetId: 'AMDL',
         targetMultiple: 2,
@@ -140,7 +146,11 @@ describe('BacktestView', () => {
   });
 
   it('disables gold basis and exposes the coverage reason', () => {
-    render(<BacktestView {...baseProps} goldBasisError="GOLD 데이터는 2000-08-30부터 사용할 수 있습니다." />);
+    render(<BacktestView
+      {...baseProps}
+      results={[basisResult]}
+      goldBasisError="GOLD 데이터는 2000-08-30부터 사용할 수 있습니다."
+    />);
 
     const goldButton = screen.getByRole('button', { name: '금 기준' });
     expect(goldButton.hasAttribute('disabled')).toBe(true);
@@ -206,6 +216,47 @@ describe('BacktestView', () => {
     expect(screen.getByText(/ISA 만기 세금 추정치가 포함됩니다/)).toBeTruthy();
   });
 
+  it('foregrounds product return, CAGR, and MDD with the selected period context', () => {
+    render(<BacktestView {...baseProps} results={[basisResult]} />);
+
+    const summary = screen.getByTestId('product-performance-summary');
+    expect(summary.textContent).toContain('선택 기간 성과 비교');
+    expect(summary.textContent).toContain('2024-01-01 ~ 2025-01-01');
+    expect(summary.textContent).toContain('수익률·CAGR·MDD: 배당 재투자 포함 · 납입액 영향 제외');
+    expect(summary.textContent).toContain('최종 자산: 납입 포함');
+
+    const headings = screen.getAllByRole('columnheader').map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      '자산',
+      '누적수익률',
+      '연평균수익률 (CAGR)',
+      '최대낙폭 (MDD)',
+      '포트폴리오 최종 자산 (납입 포함)',
+      '변동성',
+    ]);
+  });
+
+  it('labels mobile product metrics independently from the contribution-inclusive portfolio value', () => {
+    render(<BacktestView {...baseProps} results={[basisResult]} />);
+
+    const mobileCard = screen.getByRole('article', { name: 'SPY 상품 성과' });
+    expect(mobileCard.textContent).toContain('누적수익률');
+    expect(mobileCard.textContent).toContain('CAGR');
+    expect(mobileCard.textContent).toContain('MDD');
+    expect(mobileCard.textContent).toContain('포트폴리오 최종 자산 (납입 포함)');
+  });
+
+  it('does not show an empty product-performance summary when calculation is unavailable', () => {
+    render(<BacktestView {...baseProps} results={[]} />);
+
+    expect(screen.queryByTestId('product-performance-summary')).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('button', { name: '투자 결과' })).toBeNull();
+    expect(screen.queryByText('자산별 과거 성과 비교')).toBeNull();
+    expect(screen.queryByLabelText(/차트 최종값/)).toBeNull();
+    expect(screen.queryByText(/투자 결과에는 매수 수수료/)).toBeNull();
+  });
+
   it('uses the same REAL portfolio series in the table, cards, and chart', () => {
     render(
       <BacktestView
@@ -263,6 +314,7 @@ describe('BacktestView', () => {
         {...baseProps}
         primaryAsset="QQQ"
         comparisonAssets={['QLD', 'TQQQ']}
+        results={[basisResult]}
         onComparisonAssetsChange={onComparisonAssetsChange}
       />,
     );
@@ -286,6 +338,7 @@ describe('BacktestView', () => {
         {...baseProps}
         primaryAsset="QQQ"
         comparisonAssets={['QLD', 'TQQQ']}
+        results={[basisResult]}
         onComparisonAssetsChange={onComparisonAssetsChange}
         onResultViewChange={onResultViewChange}
       />,

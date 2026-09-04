@@ -17,6 +17,7 @@ interface SimulationControlsProps {
   exchangeRate: number;
   onOpenAdvanced: () => void;
   selectedAssets: HistoricalAssetType[];
+  rangeNotice?: string | null;
 }
 
 const CONTROL_LABEL_ROW_CLASS = 'mb-3 flex h-6 w-full items-center px-2';
@@ -247,8 +248,25 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
                  />
                </div>
                {historicalRangeError && (
-                 <p className="text-caption text-apple-error px-2" role="alert">
-                   {historicalRangeError}
+                 <div className="flex flex-col items-start gap-2 px-2">
+                   <p className="text-caption text-apple-error" role="alert">
+                     {historicalRangeError}
+                   </p>
+                   <button
+                     type="button"
+                     onClick={() => props.onUpdate({
+                       startDate: historicalCoverage.startDate,
+                       endDate: historicalCoverage.endDate,
+                     })}
+                     className="rounded-pill border border-apple-primary/30 bg-white px-3 py-1.5 text-[11px] font-bold text-apple-primary transition-colors hover:bg-apple-primary/5"
+                   >
+                     가능한 전체 기간 적용
+                   </button>
+                 </div>
+               )}
+               {props.rangeNotice && (
+                 <p className="rounded-md bg-apple-primary/5 px-3 py-2 text-caption text-apple-ink-muted-64" role="status">
+                   {props.rangeNotice}
                  </p>
                )}
                <ScenarioPresetPicker 

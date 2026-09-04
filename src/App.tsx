@@ -29,6 +29,7 @@ import {
 import {
   applyFamilySelection,
   calculateLeverageInsights,
+  getCommonCoverage,
   LEVERAGE_FAMILIES,
   normalizeBacktestSelection,
   transitionBacktestPrimary,
@@ -53,6 +54,34 @@ export const resetBacktestSelection = () => ({
   params: { ...DEFAULT_BACKTEST_PARAMS },
   comparisonAssets: [] as HistoricalAssetType[],
 });
+
+const describeBacktestRangeAdjustment = (
+  previous: Pick<SimulationParams, 'startDate' | 'endDate'>,
+  selection: ReturnType<typeof normalizeBacktestSelection>,
+): string | null => {
+  const previousStart = previous.startDate;
+  const previousEnd = previous.endDate;
+  if (!previousStart || !previousEnd) return null;
+
+  if (selection.startDate !== previousStart && selection.endDate !== previousEnd) {
+    return `선택 종목의 데이터 범위에 맞춰 기간을 ${selection.startDate} ~ ${selection.endDate}로 조정했습니다.`;
+  }
+  if (selection.startDate !== previousStart) {
+    return `선택 종목의 데이터 범위에 맞춰 시작일을 ${selection.startDate}로 조정했습니다.`;
+  }
+  if (selection.endDate !== previousEnd) {
+    return `선택 종목의 데이터 범위에 맞춰 종료일을 ${selection.endDate}로 조정했습니다.`;
+  }
+
+  const coverage = getCommonCoverage(
+    [selection.primaryAsset, ...selection.comparisonAssets],
+    getHistoricalCoverage,
+  );
+  if (previousEnd < coverage.startDate || previousStart > coverage.endDate) {
+    return '종목은 변경했지만 기존 기간은 유지했습니다. 사용 가능한 기간을 적용해주세요.';
+  }
+  return null;
+};
 
 function App() {
   const { scenarios, addScenario, removeScenario, loading } = useScenarios();
@@ -89,6 +118,7 @@ function App() {
     );
   });
   const [comparisonAssets, setComparisonAssets] = useState<HistoricalAssetType[]>([]);
+  const [backtestRangeNotice, setBacktestRangeNotice] = useState<string | null>(null);
   const [valueBasis, setValueBasis] = useState<ValueBasis>('NOMINAL');
   const [backtestResultView, setBacktestResultView] = useState<'PORTFOLIO' | 'NORMALIZED'>('PORTFOLIO');
  
@@ -114,9 +144,21 @@ function App() {
     backtestParams.assetType as HistoricalAssetType,
     ...comparisonAssets,
   ], [backtestParams.assetType, comparisonAssets]);
+  const backtestCommonCoverage = useMemo(
+    () => getCommonCoverage(selectedBacktestAssets, getHistoricalCoverage),
+    [selectedBacktestAssets],
+  );
+  const selectedBacktestStart = backtestParams.startDate || backtestCommonCoverage.startDate;
+  const selectedBacktestEnd = backtestParams.endDate || backtestCommonCoverage.endDate;
+  const backtestRangeError = mode === 'BACKTEST' && (
+    selectedBacktestStart > selectedBacktestEnd
+    || selectedBacktestStart < backtestCommonCoverage.startDate
+    || selectedBacktestEnd > backtestCommonCoverage.endDate
+  );
 
   const handleFamilySelect = (familyId: LeverageFamilyId) => {
     const selection = applyFamilySelection(backtestParams, familyId, getHistoricalCoverage);
+    setBacktestRangeNotice(describeBacktestRangeAdjustment(backtestParams, selection));
     setBacktestParams((previous) => ({
       ...previous,
       assetType: selection.primaryAsset,
@@ -133,6 +175,7 @@ function App() {
       startDate: backtestParams.startDate,
       endDate: backtestParams.endDate,
     }, getHistoricalCoverage);
+    setBacktestRangeNotice(describeBacktestRangeAdjustment(backtestParams, selection));
     setBacktestParams((previous) => ({
       ...previous,
       assetType: selection.primaryAsset,
@@ -177,6 +220,9 @@ function App() {
           startDate: normalized.startDate,
           endDate: normalized.endDate,
         }, getHistoricalCoverage);
+      setBacktestRangeNotice(normalized.assetType !== backtestParams.assetType
+        ? describeBacktestRangeAdjustment(normalized, selection)
+        : null);
       setBacktestParams({
         ...normalized,
         assetType: selection.primaryAsset,
@@ -193,6 +239,7 @@ function App() {
       setProjectionParams(DEFAULT_PROJECTION_PARAMS);
       setBacktestParams(backtestSelection.params);
       setComparisonAssets(backtestSelection.comparisonAssets);
+      setBacktestRangeNotice(null);
       setValueBasis('NOMINAL');
       setBacktestResultView('PORTFOLIO');
       setExchangeRate(DEFAULT_EXCHANGE_RATE);
@@ -253,7 +300,7 @@ function App() {
   }, [projectionParams]);
 
   const comparisonResults = useMemo<ComparisonAssetResult[]>(() => {
-    if (mode !== 'BACKTEST') return [];
+    if (mode !== 'BACKTEST' || backtestRangeError) return [];
     const startDate = backtestParams.startDate || '2010-01-01';
     const endDate = backtestParams.endDate || '2024-01-01';
     const families: readonly LeverageFamily[] = Object.values(LEVERAGE_FAMILIES);
@@ -294,7 +341,7 @@ function App() {
         };
       }
     });
-  }, [mode, backtestParams, selectedBacktestAssets]);
+  }, [mode, backtestParams, selectedBacktestAssets, backtestRangeError]);
 
   const activeBacktest = comparisonResults?.find((result) =>
     result.status === 'success' && result.assetId === backtestParams.assetType)?.portfolio ?? null;
@@ -398,6 +445,8 @@ function App() {
   }, [activeResult.postTaxValue, mode]);
 
   const chartScenarios = useMemo(() => {
+    if (mode === 'BACKTEST' && backtestRangeError) return [];
+
     const main = {
       id: 'active-scenario',
       name: scenarioName || (mode === 'PROJECTION' ? '현재 스노우볼' : '현재 백테스트'),
@@ -488,7 +537,7 @@ function App() {
         }];
           });
     return [main, ...comparing];
-  }, [activeSimulation, activeDisplayHistory, scenarioName, selectedComparisonScenarios, mode, effectiveValueBasis, goldData]);
+  }, [activeSimulation, activeDisplayHistory, scenarioName, selectedComparisonScenarios, mode, effectiveValueBasis, goldData, backtestRangeError]);
 
   const handleSaveScenario = async () => {
     if (!scenarioName.trim()) {
@@ -599,6 +648,7 @@ function App() {
                 exchangeRate={exchangeRate}
                 onOpenAdvanced={() => setIsAdvancedOpen(true)}
                 selectedAssets={selectedBacktestAssets}
+                rangeNotice={mode === 'BACKTEST' ? backtestRangeNotice : null}
               />
 
               <AdvancedSettingsSheet 
@@ -617,7 +667,7 @@ function App() {
                   transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1.0] }}
                   className="w-full flex flex-col items-center"
                 >
-                  <div className="mb-10 text-center flex flex-col items-center">
+                  {!backtestRangeError && <div className="mb-10 text-center flex flex-col items-center">
                     <div className="flex items-center gap-3 mb-4">
                       <span className="text-caption-strong text-apple-ink-muted-48 tracking-tight uppercase font-display">
                         {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후)` : '백테스트 최종 자산'}
@@ -631,9 +681,16 @@ function App() {
                         {SnowballEngine.formatDualCurrency(mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true, true)}
                       </span>
                     </div>
-                  </div>
+                  </div>}
 
-                  <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-surface-pearl border border-white/60 rounded-lg p-2 sm:p-6 shadow-sm">
+                  {backtestRangeError && (
+                    <div className="mb-8 w-full max-w-[1000px] rounded-lg border border-apple-error/20 bg-red-50 px-5 py-4 text-center" role="status">
+                      <p className="text-body-strong text-apple-ink">선택 기간에는 공통 백테스트 결과를 표시할 수 없습니다.</p>
+                      <p className="mt-1 text-caption text-apple-ink-muted-64">기간 입력에서 사용 가능한 전체 기간을 적용하거나 날짜를 직접 조정해주세요.</p>
+                    </div>
+                  )}
+
+                  {!backtestRangeError && <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-surface-pearl border border-white/60 rounded-lg p-2 sm:p-6 shadow-sm">
                     <SnowballChart 
                       scenarios={chartScenarios} 
                       mode={mode}
@@ -643,9 +700,9 @@ function App() {
                       onPointHover={(d) => d && setSelectedPoint(d as any)}
                       onPointSelect={(d) => setSelectedPoint(d as any)}
                     />
-                  </div>
+                  </div>}
 
-                  <AnimatePresence>
+                  {!backtestRangeError && <AnimatePresence>
                     {selectedPoint && (
                       <motion.div 
                         initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
@@ -675,9 +732,9 @@ function App() {
                         </div>
                       </motion.div>
                     )}
-                  </AnimatePresence>
+                  </AnimatePresence>}
 
-                  <div className="w-full max-w-[1000px]">
+                  {!backtestRangeError && <div className="w-full max-w-[1000px]">
                     <KPIGrid 
                       totalAsset={activeResult.postTaxValue}
                       initialPrincipal={activeParams.principal}
@@ -691,7 +748,7 @@ function App() {
                       isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
                       onShare={handleShare}
                     />
-                  </div>
+                  </div>}
 
                   {mode === 'BACKTEST' && (
                     <div className="w-full max-w-[1200px] mt-12">
@@ -797,6 +854,7 @@ function App() {
                           startDate: normalized.startDate,
                           endDate: normalized.endDate,
                         }, normalized.assetType, getHistoricalCoverage);
+                        setBacktestRangeNotice(describeBacktestRangeAdjustment(normalized, selection));
                         setBacktestParams({
                           ...normalized,
                           assetType: selection.primaryAsset,

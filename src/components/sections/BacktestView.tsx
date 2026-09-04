@@ -85,17 +85,18 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   onResultViewChange,
 }) => {
   const displayBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
+  const successfulResults = useMemo(() => results.filter(
+    (result): result is Extract<ComparisonAssetResult, { status: 'success' }> => result.status === 'success',
+  ), [results]);
   const marketTrend = useMemo(() => {
+    if (successfulResults.length === 0) return null;
     const benchmarkId = getMarketBenchmarkForAsset(primaryAsset);
     return benchmarkId
       ? buildMarketTrendOverlay(getMarketBenchmarkData(benchmarkId), startDate, endDate)
       : null;
-  }, [primaryAsset, startDate, endDate]);
+  }, [primaryAsset, startDate, endDate, successfulResults.length]);
   const selectedAssets = useMemo(() => [primaryAsset, ...comparisonAssets], [primaryAsset, comparisonAssets]);
   const completeFamily = completeFamilyFor(selectedAssets);
-  const successfulResults = useMemo(() => results.filter(
-    (result): result is Extract<ComparisonAssetResult, { status: 'success' }> => result.status === 'success',
-  ), [results]);
   const preparedResults = useMemo(() => successfulResults.map((result) => {
     const display = result.display ?? prepareBacktestDisplayResult(
       result.portfolio,
@@ -186,7 +187,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         <p id="asset-selection-limit" className="text-fine-print text-apple-ink-muted-48">비교할 자산을 최대 3개까지 선택할 수 있습니다.</p>
       </div>
 
-      <div className="flex w-full max-w-[1200px] flex-col justify-between gap-3 px-4 sm:flex-row sm:items-start">
+      {successfulResults.length > 0 && <div className="flex w-full max-w-[1200px] flex-col justify-between gap-3 px-4 sm:flex-row sm:items-start">
         <SegmentedControl
           label="결과 보기"
           value={resultView}
@@ -203,9 +204,9 @@ const BacktestView: React.FC<BacktestViewProps> = ({
           ]}
           onChange={onValueBasisChange}
         />
-      </div>
+      </div>}
 
-      {displayBasis === 'GOLD' && !goldBasisError && (
+      {successfulResults.length > 0 && displayBasis === 'GOLD' && !goldBasisError && (
         <p className="-mt-5 w-full max-w-[1200px] px-4 text-right text-fine-print text-apple-ink-muted-48">시작일 금 가치 기준</p>
       )}
 
@@ -219,12 +220,23 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         </div>
       )}
 
-      <div className="hidden w-full max-w-[1200px] px-4 md:block">
+      {preparedResults.length > 0 && <div
+        data-testid="product-performance-summary"
+        className="w-full max-w-[1200px] px-4 text-center sm:text-left"
+      >
+        <h3 className="font-display text-body-strong text-apple-ink">선택 기간 성과 비교</h3>
+        <p className="mt-1 text-fine-print text-apple-ink-muted-48">
+          {startDate} ~ {endDate} · 수익률·CAGR·MDD: 배당 재투자 포함 · 납입액 영향 제외
+        </p>
+        <p className="mt-1 text-fine-print text-apple-ink-muted-48">최종 자산: 납입 포함</p>
+      </div>}
+
+      {preparedResults.length > 0 && <div className="hidden w-full max-w-[1200px] px-4 md:block">
         <div className="overflow-hidden rounded-2xl border border-white/60 bg-apple-surface-pearl shadow-sm">
           <table className="w-full border-collapse text-left">
             <thead><tr className="border-b border-apple-hairline bg-apple-canvas-parchment/50">
-              {['자산', '최종 자산', '상품 누적 수익률', '상품 CAGR', 'MDD', '변동성'].map((heading, index) => (
-                <th key={heading} className={`p-4 text-micro-legal font-bold uppercase tracking-widest text-apple-ink-muted-48 ${index > 1 ? 'text-center' : ''}`}>{heading}</th>
+              {['자산', '누적수익률', '연평균수익률 (CAGR)', '최대낙폭 (MDD)', '포트폴리오 최종 자산 (납입 포함)', '변동성'].map((heading, index) => (
+                <th key={heading} className={`p-4 text-micro-legal font-bold uppercase tracking-widest text-apple-ink-muted-48 ${index > 0 ? 'text-center' : ''}`}>{heading}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -240,41 +252,47 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                       <MetricBadge multiple={result.targetMultiple} />
                     </span>
                   </td>
-                  <td className="p-4 font-display font-bold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</td>
-                  <td className="p-4 text-center font-display font-semibold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</td>
-                  <td className="p-4 text-center font-display text-apple-ink">{percentage(result.productMetrics.cagr)}</td>
-                  <td className="p-4 text-center font-display text-apple-ink">-{percentage(result.productMetrics.mdd)}</td>
+                  <td className="p-4 text-center font-display font-bold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</td>
+                  <td className="p-4 text-center font-display font-bold text-apple-ink">{percentage(result.productMetrics.cagr)}</td>
+                  <td className="p-4 text-center font-display font-bold text-apple-ink">-{percentage(result.productMetrics.mdd)}</td>
+                  <td className="p-4 font-display font-semibold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</td>
                   <td className="p-4 text-center font-display text-apple-ink-muted-64">{percentage(result.productMetrics.volatility)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
-      <div className="grid w-full max-w-[1200px] grid-cols-1 gap-3 px-4 md:hidden">
+      {preparedResults.length > 0 && <div className="grid w-full max-w-[1200px] grid-cols-1 gap-3 px-4 md:hidden">
         {preparedResults.map((result) => (
-          <article key={result.assetId} className="rounded-lg border border-white/60 bg-apple-surface-pearl p-4 shadow-sm">
+          <article
+            key={result.assetId}
+            aria-label={`${result.assetId} 상품 성과`}
+            className="rounded-lg border border-white/60 bg-apple-surface-pearl p-4 shadow-sm"
+          >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="font-display text-body-strong text-apple-ink">{result.assetId}</h3>
               <MetricBadge multiple={result.targetMultiple} />
             </div>
-            <p className="font-display text-lead font-semibold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</p>
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-caption">
-              <div><dt className="text-apple-ink-muted-48">누적 수익률</dt><dd className="font-semibold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</dd></div>
-              <div><dt className="text-apple-ink-muted-48">CAGR</dt><dd className="font-semibold text-apple-ink">{percentage(result.productMetrics.cagr)}</dd></div>
-              <div><dt className="text-apple-ink-muted-48">MDD</dt><dd className="font-semibold text-apple-ink">-{percentage(result.productMetrics.mdd)}</dd></div>
-              <div><dt className="text-apple-ink-muted-48">변동성</dt><dd className="font-semibold text-apple-ink">{percentage(result.productMetrics.volatility)}</dd></div>
+            <dl className="grid grid-cols-3 gap-2 text-caption">
+              <div><dt className="text-apple-ink-muted-48">누적수익률</dt><dd className="font-display font-bold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">CAGR</dt><dd className="font-display font-bold text-apple-ink">{percentage(result.productMetrics.cagr)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">MDD</dt><dd className="font-display font-bold text-apple-ink">-{percentage(result.productMetrics.mdd)}</dd></div>
+            </dl>
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-apple-hairline pt-3 text-caption">
+              <div><dt className="text-apple-ink-muted-48">포트폴리오 최종 자산 (납입 포함)</dt><dd className="font-semibold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">변동성</dt><dd className="font-semibold text-apple-ink-muted-64">{percentage(result.productMetrics.volatility)}</dd></div>
             </dl>
           </article>
         ))}
-      </div>
+      </div>}
 
-      <p className="w-full max-w-[1200px] px-4 text-fine-print leading-relaxed text-apple-ink-muted-48">
+      {preparedResults.length > 0 && <p className="w-full max-w-[1200px] px-4 text-fine-print leading-relaxed text-apple-ink-muted-48">
         투자 결과에는 매수 수수료와 ISA 만기 세금 추정치가 포함됩니다. 매도 수수료, 배당소득세, 일반계좌 양도소득세는 포함되지 않습니다.
-      </p>
+      </p>}
 
-      {completeFamily && leverageInsights.length > 0 && (
+      {successfulResults.length > 0 && completeFamily && leverageInsights.length > 0 && (
         <aside data-testid="leverage-insight" className="w-full max-w-[1200px] rounded-2xl border border-apple-hairline bg-white/70 p-5 sm:p-6">
           <h3 className="text-body-strong text-apple-ink">명목 상품 성과</h3>
           <p className="mt-2 text-caption text-apple-ink-muted-80">2배·3배는 하루의 목표이며, 전체 기간 수익률의 약속이 아닙니다.</p>
@@ -294,7 +312,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         </aside>
       )}
 
-      <div className="relative h-[460px] w-full overflow-hidden rounded-2xl border border-white/60 bg-apple-surface-pearl p-3 shadow-sm sm:p-6">
+      {preparedResults.length > 0 && <div className="relative h-[460px] w-full overflow-hidden rounded-2xl border border-white/60 bg-apple-surface-pearl p-3 shadow-sm sm:p-6">
         <div className="pointer-events-none absolute left-6 top-5 z-10 sm:left-8">
           <h3 className="text-body-strong font-semibold text-apple-ink">자산별 과거 성과 비교</h3>
           <p className="mt-1 text-fine-print text-apple-ink-muted-48">{resultView === 'PORTFOLIO' ? '거치식과 적립식이 섞인 투자 결과' : '기여금 없는 실제 상품 총수익'}</p>
@@ -308,7 +326,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
           resultView={resultView}
           marketTrend={marketTrend ?? undefined}
         />
-      </div>
+      </div>}
     </section>
   );
 };

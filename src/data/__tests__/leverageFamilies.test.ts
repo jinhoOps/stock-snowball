@@ -26,19 +26,62 @@ describe('leveraged asset families', () => {
     });
   });
 
-  it('changes primary, comparisons, and dates as one family action', () => {
+  it('changes the family while preserving a compatible selected period', () => {
     const next = applyFamilySelection(
-      { assetType: 'SPY', startDate: '2000-01-01', endDate: '2026-08-13' },
+      { assetType: 'SPY', startDate: '2025-01-01', endDate: '2026-08-31' },
       'NASDAQ',
       getHistoricalCoverage,
     );
 
-    const common = getCommonCoverage(['QQQ', 'QLD', 'TQQQ'], getHistoricalCoverage);
     expect(next).toEqual({
       primaryAsset: 'QQQ',
       comparisonAssets: ['QLD', 'TQQQ'],
-      startDate: common.startDate,
-      endDate: common.endDate,
+      startDate: '2025-01-01',
+      endDate: '2026-08-31',
+    });
+  });
+
+  it('clamps only the unavailable edge when a selected period partially overlaps coverage', () => {
+    const next = applyFamilySelection(
+      { assetType: 'SPY', startDate: '2000-01-01', endDate: '2024-01-01' },
+      'NASDAQ',
+      getHistoricalCoverage,
+    );
+
+    expect(next).toEqual({
+      primaryAsset: 'QQQ',
+      comparisonAssets: ['QLD', 'TQQQ'],
+      startDate: getHistoricalCoverage('TQQQ').startDate,
+      endDate: '2024-01-01',
+    });
+  });
+
+  it('preserves the start date when only the selected end exceeds common coverage', () => {
+    const coverage = getCommonCoverage(['QQQ', 'QLD', 'TQQQ'], getHistoricalCoverage);
+    const next = applyFamilySelection(
+      { assetType: 'SPY', startDate: '2025-01-01', endDate: '2099-12-31' },
+      'NASDAQ',
+      getHistoricalCoverage,
+    );
+
+    expect(next).toEqual({
+      primaryAsset: 'QQQ',
+      comparisonAssets: ['QLD', 'TQQQ'],
+      startDate: '2025-01-01',
+      endDate: coverage.endDate,
+    });
+  });
+
+  it('preserves an unavailable period instead of silently expanding it to full coverage', () => {
+    expect(applyFamilySelection(
+      { assetType: 'SPY', startDate: '2010-01-01', endDate: '2011-01-01' },
+      'AMD',
+      getHistoricalCoverage,
+    )).toEqual({
+      primaryAsset: 'AMD',
+      comparisonAssets: ['AMDL'],
+      startDate: '2010-01-01',
+      endDate: '2011-01-01',
     });
   });
 
@@ -63,17 +106,17 @@ describe('leveraged asset families', () => {
     });
   });
 
-  it('clears stale family comparisons and clamps dates when the primary changes', () => {
+  it('clears stale family comparisons and preserves a non-overlapping period when the primary changes', () => {
     expect(transitionBacktestPrimary({
       primaryAsset: 'QQQ',
       comparisonAssets: ['QLD', 'TQQQ'],
       startDate: '2010-02-11',
-      endDate: '2099-12-31',
+      endDate: '2011-02-11',
     }, 'AMDL', getHistoricalCoverage)).toEqual({
       primaryAsset: 'AMDL',
       comparisonAssets: [],
-      startDate: getHistoricalCoverage('AMDL').startDate,
-      endDate: getHistoricalCoverage('AMDL').endDate,
+      startDate: '2010-02-11',
+      endDate: '2011-02-11',
     });
   });
 
