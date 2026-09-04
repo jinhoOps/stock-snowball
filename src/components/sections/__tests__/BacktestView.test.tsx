@@ -12,11 +12,12 @@ vi.mock('../../charts/BacktestChart', () => ({
     series,
     marketTrend,
   }: {
-    series: Array<{ assetId: string; points: Array<{ value: number }> }>;
+    series: Array<{ assetId: string; color: string; points: Array<{ value: number }> }>;
     marketTrend?: { benchmarkId: string; label: string };
   }) => (
     <>
       <output aria-label={`차트 최종값: ${series.map((item) => `${item.assetId} ${item.points.at(-1)?.value ?? 0}`).join(', ')}`} />
+      <output aria-label="차트 종목 색상" data-colors={series.map((item) => item.color).join(',')} />
       {marketTrend && (
         <output data-testid="market-trend-legend">
           {marketTrend.benchmarkId}|{marketTrend.label}
@@ -63,6 +64,16 @@ const basisResult: ComparisonAssetResult = {
     points: [{ date: '2024-01-01', value: 100 }, { date: '2025-01-01', value: 110 }],
     metrics: { cumulativeReturn: 0.1, cagr: 0.1, mdd: 0, volatility: 0 },
   },
+};
+
+const contrastRatio = (foreground: string, background: string): number => {
+  const luminance = (hex: string) => {
+    const [red, green, blue] = hex.match(/[\da-f]{2}/gi)!.map((channel) => Number.parseInt(channel, 16) / 255)
+      .map((channel) => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const [light, dark] = [luminance(foreground), luminance(background)].sort((left, right) => right - left);
+  return (light + 0.05) / (dark + 0.05);
 };
 
 afterEach(cleanup);
@@ -217,6 +228,37 @@ describe('BacktestView', () => {
     expect(screen.queryByText('$121')).toBeNull();
     expect(screen.getByLabelText('차트 최종값: SPY 110')).toBeTruthy();
     expect(screen.getByText(/ISA 만기 세금 추정치가 포함됩니다/)).toBeTruthy();
+  });
+
+  it('gives individually added assets distinct chart colors even when their leverage multiple matches', () => {
+    // Catches the production break where chart color is derived from leverage multiple instead of asset identity.
+    const oneTimesAssets: ComparisonAssetResult[] = (['SPY', 'SCHD', 'KOSPI'] as const).map((assetId) => ({
+      ...basisResult,
+      assetId,
+      targetMultiple: 1,
+    }));
+
+    render(<BacktestView
+      {...baseProps}
+      primaryAsset="SPY"
+      comparisonAssets={['SCHD', 'KOSPI']}
+      results={oneTimesAssets}
+    />);
+
+    const colors = screen.getByLabelText('차트 종목 색상').dataset.colors?.split(',') ?? [];
+    expect(new Set(colors)).toHaveLength(3);
+    expect(colors.every((color) => contrastRatio(color, '#fafafc') >= 3)).toBe(true);
+  });
+
+  it('uses the accessible AMD brand-red series color instead of a leverage style color', () => {
+    // Catches the production break where an asset's brand color is ignored in favour of its 1x/2x/3x style.
+    render(<BacktestView
+      {...baseProps}
+      primaryAsset="AMD"
+      results={[{ ...basisResult, assetId: 'AMD' }]}
+    />);
+
+    expect(screen.getByLabelText('차트 종목 색상').dataset.colors).toBe('#a61b1b');
   });
 
   it('foregrounds product return, CAGR, and MDD with the selected period context', () => {

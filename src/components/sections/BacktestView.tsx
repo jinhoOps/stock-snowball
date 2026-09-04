@@ -8,6 +8,7 @@ import { buildMarketTrendOverlay } from '../../core/MarketTrend';
 import { prepareBacktestDisplayResult, type PreparedBacktestDisplayResult } from '../../core/ValueBasis';
 import type { SnowballScenarioData } from '../charts/SnowballChart';
 import { type BacktestDisplaySeries } from '../charts/BacktestChart';
+import { resolveBacktestSeriesColors } from '../charts/backtestSeriesColors';
 import SegmentedControl from '../common/SegmentedControl';
 import BacktestPrimaryMetrics from './BacktestPrimaryMetrics';
 import BacktestAnalysisChart from './BacktestAnalysisChart';
@@ -45,10 +46,10 @@ export interface BacktestViewProps {
 }
 
 const ASSET_OPTIONS: HistoricalAssetType[] = [...HISTORICAL_ASSET_IDS];
-const SERIES_STYLE = {
-  1: { color: '#1d1d1f' },
-  2: { color: '#0066cc' },
-  3: { color: '#5ac8fa', strokeDasharray: '7,5' },
+const SERIES_LINE_STYLE = {
+  1: {},
+  2: {},
+  3: { strokeDasharray: '7,5' },
 } as const;
 
 const families: readonly LeverageFamily[] = Object.values(LEVERAGE_FAMILIES);
@@ -109,6 +110,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       : null;
   }, [primaryAsset, startDate, endDate, successfulResults.length]);
   const selectedAssets = useMemo(() => [primaryAsset, ...comparisonAssets], [primaryAsset, comparisonAssets]);
+  const chartColors = useMemo(() => resolveBacktestSeriesColors(selectedAssets), [selectedAssets]);
   const completeFamily = completeFamilyFor(selectedAssets);
   const preparedResults = useMemo(() => successfulResults.map((result) => {
     const display = result.display ?? prepareBacktestDisplayResult(
@@ -125,15 +127,15 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   const primaryPreparedResult = preparedResults.find((result) => result.assetId === primaryAsset);
   const primaryPortfolioPoint = primaryPreparedResult?.portfolioHistory.at(-1);
   const chartSeries: BacktestDisplaySeries[] = useMemo(() => preparedResults.map((result) => {
-    const style = SERIES_STYLE[result.targetMultiple];
+    const style = SERIES_LINE_STYLE[result.targetMultiple];
     return {
       assetId: result.assetId,
       targetMultiple: result.targetMultiple,
-      color: style.color,
+      color: chartColors.get(result.assetId) ?? '#1d1d1f',
       strokeDasharray: 'strokeDasharray' in style ? style.strokeDasharray : undefined,
       points: resultView === 'PORTFOLIO' ? result.portfolioHistory : result.productPoints,
     };
-  }), [preparedResults, resultView]);
+  }), [preparedResults, resultView, chartColors]);
 
   const formatCurrency = (value: number) => currency === 'KRW'
     ? SnowballEngine.formatKoreanWon(Math.floor(value / 10_000) * 10_000)
