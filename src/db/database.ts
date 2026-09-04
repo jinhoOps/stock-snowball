@@ -3,6 +3,7 @@ import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { wrappedKeyEncryptionCryptoJsStorage } from 'rxdb/plugins/encryption-crypto-js';
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 import { scenarioSchema, ScenarioDocument } from './schema';
 import { normalizePersistedScenario } from '../data/assetMigration';
 
@@ -56,11 +57,14 @@ export const scenarioMigrationStrategies = {
 };
 
 const createDatabase = async (): Promise<MyDatabase> => {
+  const encryptedStorage = wrappedKeyEncryptionCryptoJsStorage({
+    storage: getRxStorageDexie(),
+  });
   const db: MyDatabase = await createRxDatabase<MyDatabaseCollections>({
     name: 'stock_snowball_db',
-    storage: wrappedKeyEncryptionCryptoJsStorage({
-      storage: getRxStorageDexie(),
-    }),
+    storage: import.meta.env.MODE === 'development'
+      ? wrappedValidateAjvStorage({ storage: encryptedStorage })
+      : encryptedStorage,
     password: 'snowball-local-secret-key-2024', // TODO: Web Crypto API를 통한 동적 키 생성 또는 사용자 입력 고려
     ignoreDuplicate: import.meta.env.DEV,
   });

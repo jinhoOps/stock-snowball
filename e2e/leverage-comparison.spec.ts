@@ -54,6 +54,9 @@ test('AMD family explains unavailable long periods and supports gold basis', asy
   await expect(page.getByRole('button', { name: '10년' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '5년' })).toHaveAttribute('aria-describedby', 'family-preset-disabled-reason');
   await expect(page.getByText('AMDL 데이터는 2024-03-18부터 사용할 수 있습니다.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('선택한 자산의 공통 데이터는 2024-03-18부터');
+  await page.getByRole('button', { name: '가능한 전체 기간 적용' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
   await page.getByRole('button', { name: '금 기준' }).click();
   await expect(page.getByText('시작일 금 가치 기준')).toBeVisible();
   await expect.poll(() => page.evaluate(

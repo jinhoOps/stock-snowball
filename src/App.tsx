@@ -4,7 +4,7 @@ import { Github } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import GlobalNav from './components/layout/GlobalNav';
 import ProductHero from './components/sections/ProductHero';
-import SnowballChart from './components/charts/SnowballChart';
+import SnowballChart, { type SnowballChartSelection } from './components/charts/SnowballChart';
 import KPIGrid from './components/sections/KPIGrid';
 import BacktestView from './components/sections/BacktestView';
 import SimulationControls from './components/sections/SimulationControls';
@@ -266,7 +266,10 @@ function App() {
 
   // Comparison State
   const [comparingScenarioIds, setComparingScenarioIds] = useState<string[]>([]);
-  const [selectedPoint, setSelectedPoint] = useState<{ date: Date; points: { name: string; value: number; color: string; pessimistic?: number; optimistic?: number }[] } | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<SnowballChartSelection | null>(null);
+  useEffect(() => {
+    if (mode === 'BACKTEST') setSelectedPoint(null);
+  }, [mode]);
   const selectedComparisonScenarios = useMemo(() => scenarios.filter(
     (scenario) => comparingScenarioIds.includes(scenario.id),
   ), [scenarios, comparingScenarioIds]);
@@ -690,19 +693,19 @@ function App() {
                     </div>
                   )}
 
-                  {!backtestRangeError && <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-surface-pearl border border-white/60 rounded-lg p-2 sm:p-6 shadow-sm">
+                  {mode === 'PROJECTION' && !backtestRangeError && <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-surface-pearl border border-white/60 rounded-lg p-2 sm:p-6 shadow-sm">
                     <SnowballChart 
                       scenarios={chartScenarios} 
                       mode={mode}
                       comparisonMode={comparingScenarioIds.length > 0}
                       showRealValue={mode === 'PROJECTION' && showRealValue}
                       onShowRealValueChange={mode === 'PROJECTION' ? setShowRealValue : undefined}
-                      onPointHover={(d) => d && setSelectedPoint(d as any)}
-                      onPointSelect={(d) => setSelectedPoint(d as any)}
+                      onPointHover={(d) => d && setSelectedPoint(d)}
+                      onPointSelect={setSelectedPoint}
                     />
                   </div>}
 
-                  {!backtestRangeError && <AnimatePresence>
+                  {mode === 'PROJECTION' && !backtestRangeError && <AnimatePresence>
                     {selectedPoint && (
                       <motion.div 
                         initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
@@ -734,7 +737,7 @@ function App() {
                     )}
                   </AnimatePresence>}
 
-                  {!backtestRangeError && <div className="w-full max-w-[1000px]">
+                  {mode === 'PROJECTION' && !backtestRangeError && <div className="w-full max-w-[1000px]">
                     <KPIGrid 
                       totalAsset={activeResult.postTaxValue}
                       initialPrincipal={activeParams.principal}
@@ -751,7 +754,7 @@ function App() {
                   </div>}
 
                   {mode === 'BACKTEST' && (
-                    <div className="w-full max-w-[1200px] mt-12">
+                    <div className="w-full max-w-[1200px]">
                       <BacktestView
                         primaryAsset={backtestParams.assetType as HistoricalAssetType}
                         startDate={backtestParams.startDate!}
@@ -759,6 +762,8 @@ function App() {
                         comparisonAssets={comparisonAssets}
                         results={preparedComparisonResults}
                         leverageInsights={leverageInsights}
+                        scenarioSeries={chartScenarios}
+                        onShare={handleShare}
                         onComparisonAssetsChange={handleComparisonAssetsChange}
                         onFamilySelect={handleFamilySelect}
                         currency={currency}

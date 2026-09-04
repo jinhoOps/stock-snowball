@@ -13,7 +13,7 @@ import { Tooltip as CommonTooltip } from '../common/Tooltip';
 import { AnimatePresence } from 'framer-motion';
 import { SimulationMode } from '../../types/finance';
 
-interface DataPoint {
+export interface SnowballScenarioPoint {
   date: Date;
   value: number;
   realValue?: number;
@@ -22,25 +22,38 @@ interface DataPoint {
   contribution?: number;
 }
 
-interface ScenarioData {
+export interface SnowballScenarioData {
   id: string;
   name: string;
   color: string;
-  points: DataPoint[];
+  points: SnowballScenarioPoint[];
 }
 
-interface SnowballChartProps {
-  scenarios: ScenarioData[];
+export interface SnowballChartSelection {
+  date: Date;
+  points: Array<{
+    id: string;
+    name: string;
+    value: number;
+    realValue?: number;
+    color: string;
+    pessimistic?: number;
+    optimistic?: number;
+  }>;
+}
+
+export interface SnowballChartProps {
+  scenarios: SnowballScenarioData[];
   mode: SimulationMode;
   comparisonMode?: boolean;
   showRealValue?: boolean;
   onShowRealValueChange?: (show: boolean) => void;
-  onPointSelect?: (data: { date: Date; points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number }[] }) => void;
-  onPointHover?: (data: { date: Date; points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number }[] } | null) => void;
+  onPointSelect?: (data: SnowballChartSelection) => void;
+  onPointHover?: (data: SnowballChartSelection | null) => void;
 }
 
 // Simple bisector implementation
-const bisectDate = (points: DataPoint[], x0: number | Date, low: number = 0) => {
+const bisectDate = (points: SnowballScenarioPoint[], x0: number | Date, low: number = 0) => {
   let l = low;
   let h = points.length;
   const targetX = x0 instanceof Date ? x0.getTime() : x0;
@@ -72,7 +85,7 @@ const tooltipStyles = {
 };
 
 const SnowballChartInner: React.FC<{ 
-  scenarios: ScenarioData[]; 
+  scenarios: SnowballScenarioData[];
   width: number; 
   height: number;
   mode: SimulationMode;
@@ -98,7 +111,7 @@ const SnowballChartInner: React.FC<{
   } = useTooltip<{
     date: Date;
     xValue: number | Date;
-    points: { name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number; contribution?: number }[];
+    points: { id: string; name: string; value: number; realValue?: number; color: string; pessimistic?: number; optimistic?: number; contribution?: number }[];
   }>();
 
   // 1. Data Transformation for Comparison Mode
@@ -171,6 +184,7 @@ const SnowballChartInner: React.FC<{
       const tooltipPoints = processedScenarios.map(s => {
         const p = s.transformedPoints[index] || s.transformedPoints[mainPoints.length - 1];
         return {
+          id: s.id,
           name: s.name,
           value: p.value,
           realValue: p.realValue,

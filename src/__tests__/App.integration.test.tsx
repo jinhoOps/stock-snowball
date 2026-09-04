@@ -50,11 +50,13 @@ vi.mock('../components/charts/SnowballChart', () => ({
   default: ({
     scenarios,
     onShowRealValueChange,
+    onPointSelect,
   }: {
     scenarios: Array<{ name: string; color: string; points: Array<{ value: number; contribution?: number }> }>;
     onShowRealValueChange?: (show: boolean) => void;
+    onPointSelect?: (point: { date: Date; points: Array<{ name: string; value: number; color: string }> }) => void;
   }) => (
-    <>
+    <div data-testid="projection-chart">
       <output data-testid="chart-scenarios">
         {scenarios.map((scenario) => {
           const last = scenario.points.at(-1);
@@ -62,8 +64,9 @@ vi.mock('../components/charts/SnowballChart', () => ({
         }).join('|')}
       </output>
       <output data-testid="chart-colors">{scenarios.map((scenario) => scenario.color).join('|')}</output>
-      {onShowRealValueChange && <button onClick={() => onShowRealValueChange(true)}>legacy real toggle</button>}
-    </>
+      {onShowRealValueChange ? <button type="button" onClick={() => onShowRealValueChange(true)}>legacy real toggle</button> : null}
+      {onPointSelect ? <button type="button" onClick={() => onPointSelect({ date: new Date('2024-01-01T00:00:00Z'), points: [] })}>select projection point</button> : null}
+    </div>
   ),
 }));
 vi.mock('../components/sections/KPIGrid', () => ({
@@ -76,10 +79,10 @@ vi.mock('../components/sections/KPIGrid', () => ({
     cagr: number;
     cagrLabel?: string;
   }) => (
-    <>
+    <div data-testid="projection-kpis">
       <output data-testid="kpi-values">{totalAsset.toFixed(6)}|{cagr.toFixed(6)}</output>
       <output data-testid="kpi-rate-label">{cagrLabel}</output>
-    </>
+    </div>
   ),
 }));
 vi.mock('../components/common/ShareCard', () => ({ default: () => null }));
@@ -91,7 +94,7 @@ vi.mock('../components/sections/SimulationControls', () => ({
     selectedAssets,
     onUpdate,
   }: {
-    setMode: (mode: 'BACKTEST') => void;
+    setMode: (mode: 'BACKTEST' | 'PROJECTION') => void;
     params: { startDate?: string; endDate?: string };
     rangeNotice?: string | null;
     selectedAssets: HistoricalAssetType[];
@@ -99,6 +102,7 @@ vi.mock('../components/sections/SimulationControls', () => ({
   }) => (
     <>
       <button onClick={() => setMode('BACKTEST')}>open backtest</button>
+      <button onClick={() => setMode('PROJECTION')}>open projection</button>
       <button onClick={() => {
         const coverage = getCommonCoverage(selectedAssets, getHistoricalCoverage);
         onUpdate({ startDate: coverage.startDate, endDate: coverage.endDate });
@@ -141,6 +145,7 @@ vi.mock('../components/sections/BacktestView', () => ({
     goldBasisError,
     startDate,
     endDate,
+    scenarioSeries,
   }: {
     primaryAsset: string;
     startDate: string;
@@ -149,7 +154,10 @@ vi.mock('../components/sections/BacktestView', () => ({
     onFamilySelect: (familyId: 'NASDAQ' | 'AMD') => void;
     results: Array<{
       status: string;
-      display?: { portfolioHistory: Array<{ value: number }> };
+      display?: {
+        portfolioHistory: Array<{ value: number }>;
+        productMetrics: { cagr: number };
+      };
     }>;
     onValueBasisChange: (basis: 'NOMINAL' | 'REAL' | 'GOLD') => void;
     onResultViewChange: (view: 'NORMALIZED') => void;
@@ -157,8 +165,31 @@ vi.mock('../components/sections/BacktestView', () => ({
     resultView: string;
     onComparisonAssetsChange: (assets: string[]) => void;
     goldBasisError: string | null;
-  }) => (
+    scenarioSeries: Array<{
+      name: string;
+      color: string;
+      points: Array<{ value: number; contribution?: number }>;
+    }>;
+  }) => {
+    const primaryResult = results.find((result) => result.status === 'success');
+    const display = primaryResult?.display;
+
+    return (
     <>
+      {display ? (
+        <output data-testid="backtest-metric-values">
+          {display.portfolioHistory.at(-1)?.value.toFixed(6)}|{display.productMetrics.cagr.toFixed(6)}
+        </output>
+      ) : null}
+      <output data-testid="backtest-scenario-series">
+        {scenarioSeries.map((scenario) => {
+          const last = scenario.points.at(-1);
+          return `${scenario.name}:${last?.value.toFixed(6)}:${last?.contribution?.toFixed(6) ?? '-'}`;
+        }).join('|')}
+      </output>
+      <output data-testid="backtest-scenario-colors">
+        {scenarioSeries.map((scenario) => scenario.color).join('|')}
+      </output>
       <output data-testid="backtest-selection">
         {primaryAsset}|{comparisonAssets.join(',')}
       </output>
@@ -187,7 +218,8 @@ vi.mock('../components/sections/BacktestView', () => ({
       </button>
       <output data-testid="presentation-state">{valueBasis}|{resultView}</output>
     </>
-  ),
+    );
+  },
 }));
 
 let testStorage: Storage;
@@ -265,6 +297,35 @@ afterEach(() => {
 });
 
 describe('App backtest selection', () => {
+  it('moves chart, metrics, and saved scenarios to the backtest analysis surface', async () => {
+    render(<App />);
+
+    expect(screen.getByTestId('projection-chart')).toBeTruthy();
+    expect(screen.getByTestId('projection-kpis')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+
+    await waitFor(() => expect(screen.getByTestId('backtest-selection')).toBeTruthy());
+    expect(screen.queryByTestId('projection-chart')).toBeNull();
+    expect(screen.queryByTestId('projection-kpis')).toBeNull();
+    expect(screen.getByText('백테스트 최종 자산')).toBeTruthy();
+    expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('기본 시나리오');
+  });
+
+  it('clears the selected projection detail when the App ownership branch enters backtest', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'select projection point' }));
+    expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    await screen.findByTestId('backtest-selection');
+
+    fireEvent.click(screen.getByRole('button', { name: 'open projection' }));
+    await screen.findByTestId('projection-chart');
+    expect(screen.queryByRole('button', { name: '닫기' })).toBeNull();
+  });
+
   it('mounts the backtest view with only the unavailable start edge clamped after family selection', async () => {
     render(<App />);
 
@@ -378,7 +439,7 @@ describe('App backtest selection', () => {
     await waitFor(() => {
       expect(screen.getByTestId('control-dates').textContent).toBe('2010-01-01|2024-01-01');
       expect(screen.getByTestId('backtest-results-count').textContent).toBe('0');
-      expect(screen.queryByTestId('kpi-values')).toBeNull();
+      expect(screen.queryByTestId('backtest-metric-values')).toBeNull();
     });
     simulateRange.mockClear();
 
@@ -390,7 +451,7 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'apply common range' }));
     await waitFor(() => {
       expect(screen.getByTestId('backtest-results-count').textContent).toBe('2');
-      expect(screen.getByTestId('kpi-values')).toBeTruthy();
+      expect(screen.getByTestId('backtest-metric-values')).toBeTruthy();
     });
     expect(backtestRun).toHaveBeenCalled();
   });
@@ -434,19 +495,17 @@ describe('App backtest selection', () => {
     });
   });
 
-  it('uses portfolio IRR and normalized product CAGR in the headline rate card', async () => {
+  it('uses product CAGR in the backtest metric strip for both result views', async () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('kpi-rate-label').textContent).toBe('내부수익률 (IRR)');
-      expect(screen.getByTestId('kpi-values').textContent).toBe('110.000000|9.978518');
+      expect(screen.getByTestId('backtest-metric-values').textContent).toBe('110.000000|0.209527');
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'show normalized' }));
     await waitFor(() => {
-      expect(screen.getByTestId('kpi-rate-label').textContent).toBe('연복리 수익률 (CAGR)');
-      expect(screen.getByTestId('kpi-values').textContent).toBe('110.000000|20.952745');
+      expect(screen.getByTestId('backtest-metric-values').textContent).toBe('110.000000|0.209527');
     });
   });
 
@@ -470,14 +529,14 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     await waitFor(() => expect(screen.getByTestId('prepared-final-value').textContent).toBe('110'));
     expect(screen.getByText('110원')).toBeTruthy();
-    expect(screen.getByTestId('kpi-values').textContent).toContain('110.000000|');
-    expect(screen.getByTestId('chart-scenarios').textContent).toContain('기본 시나리오:110.000000:100.000000');
+    expect(screen.getByTestId('backtest-metric-values').textContent).toContain('110.000000|0.209527');
+    expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('기본 시나리오:110.000000:100.000000');
     expect(screen.queryByRole('button', { name: 'legacy real toggle' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'show real basis' }));
     await waitFor(() => {
-      expect(screen.getByTestId('kpi-values').textContent).toBe('99.980431|-0.019529');
-      expect(screen.getByTestId('chart-scenarios').textContent).toContain('기본 시나리오:99.980431:100.000000');
+      expect(screen.getByTestId('backtest-metric-values').textContent).toBe('99.980431|0.099570');
+      expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('기본 시나리오:99.980431:100.000000');
     });
 
     const gold = getHistoricalData('GOLD');
@@ -489,8 +548,8 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'show gold basis' }));
     await waitFor(() => {
       expect(Number(screen.getByTestId('prepared-final-value').textContent)).toBeCloseTo(expectedGoldValue, 8);
-      expect(screen.getByTestId('kpi-values').textContent).toContain(`${expectedGoldValue.toFixed(6)}|`);
-      expect(screen.getByTestId('chart-scenarios').textContent).toContain(
+      expect(screen.getByTestId('backtest-metric-values').textContent).toContain(`${expectedGoldValue.toFixed(6)}|`);
+      expect(screen.getByTestId('backtest-scenario-series').textContent).toContain(
         `기본 시나리오:${expectedGoldValue.toFixed(6)}:${expectedGoldPrincipal.toFixed(6)}`,
       );
     });
@@ -505,7 +564,7 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: '비교하기' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('chart-scenarios').textContent).toContain('saved ISA:99.980431:100.000000');
+      expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('saved ISA:99.980431:100.000000');
     });
   });
 
@@ -565,7 +624,7 @@ describe('App backtest selection', () => {
       expect(screen.getByTestId('presentation-state').textContent).toBe('NOMINAL|PORTFOLIO');
       expect((screen.getByRole('button', { name: 'show gold basis' }) as HTMLButtonElement).disabled).toBe(true);
       expect(screen.getByText(/저장된 시나리오.*pre-GOLD QQQ/).textContent).toContain('pre-GOLD QQQ');
-      expect(screen.getByTestId('chart-scenarios').textContent).toContain('pre-GOLD QQQ:110.000000:100.000000');
+      expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('pre-GOLD QQQ:110.000000:100.000000');
     });
     expect(preparePortfolioDisplayResultCalls.mock.calls).not.toContainEqual([
       expect.objectContaining({
@@ -589,8 +648,8 @@ describe('App backtest selection', () => {
     fireEvent.click(await screen.findByRole('button', { name: '비교하기' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('chart-colors').textContent).toBe('#0066cc|#1d1d1f');
+      expect(screen.getByTestId('backtest-scenario-colors').textContent).toBe('#0066cc|#1d1d1f');
     });
-    expect(screen.getByTestId('chart-colors').textContent).not.toMatch(/#FF9500|#34C759/i);
+    expect(screen.getByTestId('backtest-scenario-colors').textContent).not.toMatch(/#FF9500|#34C759/i);
   });
 });

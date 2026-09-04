@@ -4,6 +4,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import BacktestView, { type BacktestViewProps, type ComparisonAssetResult } from '../BacktestView';
+import { prepareBacktestDisplayResult } from '../../../core/ValueBasis';
+import { SnowballEngine } from '../../../core/SnowballEngine';
 
 vi.mock('../../charts/BacktestChart', () => ({
   default: ({
@@ -29,6 +31,7 @@ const baseProps: BacktestViewProps = {
   startDate: '2024-01-01',
   endDate: '2025-01-01',
   comparisonAssets: [],
+  scenarioSeries: [],
   results: [],
   leverageInsights: [],
   currency: 'USD',
@@ -75,7 +78,9 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 describe('BacktestView', () => {
-  it('derives the market trend solely from the active primary asset', () => {
+  it('derives the optional market trend solely from the active primary asset', async () => {
+    // Catches the production break where the market source ignores the active asset or bypasses the default-off toggle.
+    const user = userEvent.setup();
     const props: BacktestViewProps = {
       ...baseProps,
       primaryAsset: 'QQQ',
@@ -84,20 +89,18 @@ describe('BacktestView', () => {
     };
     const { rerender } = render(<BacktestView {...props} />);
 
+    expect(screen.queryByTestId('market-trend-legend')).toBeNull();
+    await user.click(screen.getByRole('button', { name: '시장 추세' }));
     expect(screen.getByTestId('market-trend-legend').textContent).toBe('NASDAQ100|나스닥100');
-    expect(screen.getByText('주 자산 QQQ 대응 · 나스닥100 시장 추세')).toBeTruthy();
-
     rerender(<BacktestView {...props} primaryAsset="SPY" comparisonAssets={['QQQ']} />);
     expect(screen.getByTestId('market-trend-legend').textContent).toBe('SP500|S&P 500');
-    expect(screen.getByText('주 자산 SPY 대응 · S&P 500 시장 추세')).toBeTruthy();
 
     rerender(<BacktestView {...props} primaryAsset="KOSPI" comparisonAssets={['SPY']} />);
     expect(screen.getByTestId('market-trend-legend').textContent).toBe('KOSPI_INDEX|코스피');
-    expect(screen.getByText('주 자산 KOSPI 대응 · 코스피 시장 추세')).toBeTruthy();
 
     rerender(<BacktestView {...props} primaryAsset="AMD" comparisonAssets={['SPY']} />);
     expect(screen.queryByTestId('market-trend-legend')).toBeNull();
-    expect(screen.queryByText(/주 자산 AMD 대응/)).toBeNull();
+    expect(screen.queryByRole('button', { name: '시장 추세' })).toBeNull();
   });
 
   it('selects the entire Nasdaq family from one accessible button', async () => {
@@ -236,6 +239,48 @@ describe('BacktestView', () => {
     ]);
   });
 
+  it('uses the prepared REAL product metrics and portfolio principal in the primary strip', () => {
+    const contributionResult: ComparisonAssetResult = {
+      ...basisResult,
+      portfolio: {
+        ...basisResult.portfolio,
+        history: [
+          { date: '2024-01-01', value: 100, principal: 100 },
+          { date: '2025-01-01', value: 133.1, principal: 121 },
+        ],
+        metrics: {
+          ...basisResult.portfolio.metrics,
+          finalValue: 121,
+          totalPrincipal: 121,
+        },
+      },
+    };
+    const prepared = prepareBacktestDisplayResult(
+      contributionResult.portfolio,
+      contributionResult.product,
+      'REAL',
+      { inflationRate: 0.1, gold: [] },
+    );
+    const expectedPrincipal = SnowballEngine.formatBigNumber(
+      prepared.portfolioHistory.at(-1)!.principal,
+      'USD',
+    );
+
+    render(
+      <BacktestView
+        {...baseProps}
+        results={[contributionResult]}
+        valueBasis="REAL"
+        inflationRate={0.1}
+      />,
+    );
+
+    const metrics = screen.getByRole('region', { name: 'SPY 핵심 지표 · 실질 기준' });
+    expect(metrics.textContent).toContain(expectedPrincipal);
+    expect(metrics.textContent).not.toContain('$121');
+    expect(metrics.textContent).toContain('-0.02%');
+  });
+
   it('labels mobile product metrics independently from the contribution-inclusive portfolio value', () => {
     render(<BacktestView {...baseProps} results={[basisResult]} />);
 
@@ -243,7 +288,9 @@ describe('BacktestView', () => {
     expect(mobileCard.textContent).toContain('누적수익률');
     expect(mobileCard.textContent).toContain('CAGR');
     expect(mobileCard.textContent).toContain('MDD');
+    expect(mobileCard.textContent).toContain('포트폴리오 IRR (납입 포함)');
     expect(mobileCard.textContent).toContain('포트폴리오 최종 자산 (납입 포함)');
+    expect(screen.getByRole('table').textContent).toContain('포트폴리오 IRR 9.98%');
   });
 
   it('does not show an empty product-performance summary when calculation is unavailable', () => {
@@ -268,7 +315,7 @@ describe('BacktestView', () => {
     );
 
     expect(screen.getByLabelText(/차트 최종값: SPY 99\.980431/)).toBeTruthy();
-    expect(screen.getAllByText('$100')).toHaveLength(2);
+    expect(screen.getAllByText('$100')).toHaveLength(3);
     expect(screen.getAllByText('-0.02%').length).toBeGreaterThanOrEqual(2);
   });
 
@@ -287,7 +334,7 @@ describe('BacktestView', () => {
     );
 
     expect(screen.getByLabelText(/차트 최종값: SPY (99\.999|100)/)).toBeTruthy();
-    expect(screen.getAllByText('$100')).toHaveLength(2);
+    expect(screen.getAllByText('$100')).toHaveLength(3);
     expect(screen.getAllByText('0.00%').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('시작일 금 가치 기준')).toBeTruthy();
   });
@@ -306,6 +353,28 @@ describe('BacktestView', () => {
     expect(screen.getByRole('alert').textContent).toContain('선택 기간에 데이터가 부족합니다.');
   });
 
+  it('keeps selected assets visible and collapses unselected individual assets', async () => {
+    const user = userEvent.setup();
+    render(
+      <BacktestView
+        {...baseProps}
+        comparisonAssets={['QLD']}
+        results={[basisResult]}
+      />,
+    );
+
+    const picker = screen.getByRole('group', { name: '선택 자산' });
+    expect(picker.textContent).toContain('SPY');
+    expect(picker.textContent).toContain('QLD');
+
+    const disclosure = screen.getByText('개별 종목 추가').closest('details');
+    expect(disclosure?.hasAttribute('open')).toBe(false);
+    expect(screen.queryByRole('button', { name: 'AMD 개별 자산 선택' })).toBeNull();
+
+    await user.click(screen.getByText('개별 종목 추가'));
+    expect(screen.getByRole('button', { name: 'AMD 개별 자산 선택' })).toBeTruthy();
+  });
+
   it('keeps individual selection to three total assets', async () => {
     const user = userEvent.setup();
     const onComparisonAssetsChange = vi.fn();
@@ -319,7 +388,8 @@ describe('BacktestView', () => {
       />,
     );
 
-    const unavailableAsset = screen.getByRole('button', { name: /AMD 개별 자산/ });
+    await user.click(screen.getByText('개별 종목 추가'));
+    const unavailableAsset = screen.getByRole('button', { name: 'AMD 개별 자산 선택' });
     expect(unavailableAsset.hasAttribute('disabled')).toBe(true);
     expect(unavailableAsset.getAttribute('title')).toContain('최대 3개');
     expect(unavailableAsset.getAttribute('aria-describedby')).toBe('asset-selection-limit');
@@ -344,10 +414,36 @@ describe('BacktestView', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'QLD 개별 자산 선택됨' }));
+    await user.click(screen.getByRole('button', { name: 'QLD 비교 자산 제거' }));
     await user.click(screen.getByRole('button', { name: '시작값 100' }));
 
     expect(onComparisonAssetsChange).toHaveBeenCalledWith(['TQQQ']);
     expect(onResultViewChange).toHaveBeenCalledWith('NORMALIZED');
+  });
+
+  it('orders summary metrics, controls, chart, detail, and sharing as one analysis flow', () => {
+    render(
+      <BacktestView
+        {...baseProps}
+        results={[basisResult]}
+        onShare={vi.fn()}
+      />,
+    );
+
+    const orderedNodes = [
+      screen.getByRole('region', { name: 'SPY 핵심 지표 · 명목 기준' }),
+      screen.getByRole('group', { name: '선택 자산' }),
+      screen.getByRole('group', { name: '결과 보기' }),
+      screen.getByRole('region', { name: '자산별 과거 성과 비교' }),
+      screen.getByTestId('product-performance-summary'),
+      screen.getByRole('button', { name: '공유(이미지)' }),
+    ];
+
+    for (let index = 0; index < orderedNodes.length - 1; index += 1) {
+      expect(
+        orderedNodes[index].compareDocumentPosition(orderedNodes[index + 1])
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
   });
 });

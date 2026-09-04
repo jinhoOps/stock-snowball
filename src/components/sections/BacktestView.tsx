@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFamilyId, LeverageInsight, ProductPerformanceResult, ValueBasis } from '../../types/finance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
@@ -6,8 +6,12 @@ import { LEVERAGE_FAMILIES, type LeverageFamily } from '../../data/leverageFamil
 import { getMarketBenchmarkData, getMarketBenchmarkForAsset } from '../../data/marketBenchmarks';
 import { buildMarketTrendOverlay } from '../../core/MarketTrend';
 import { prepareBacktestDisplayResult, type PreparedBacktestDisplayResult } from '../../core/ValueBasis';
-import BacktestChart, { BacktestDisplaySeries } from '../charts/BacktestChart';
+import type { SnowballScenarioData } from '../charts/SnowballChart';
+import { type BacktestDisplaySeries } from '../charts/BacktestChart';
 import SegmentedControl from '../common/SegmentedControl';
+import BacktestPrimaryMetrics from './BacktestPrimaryMetrics';
+import BacktestAnalysisChart from './BacktestAnalysisChart';
+import { Share2 } from 'lucide-react';
 
 interface ComparisonAssetBase {
   assetId: HistoricalAssetType;
@@ -25,6 +29,7 @@ export interface BacktestViewProps {
   endDate: string;
   comparisonAssets: HistoricalAssetType[];
   results: ComparisonAssetResult[];
+  scenarioSeries: SnowballScenarioData[];
   leverageInsights: LeverageInsight[];
   currency: 'KRW' | 'USD';
   valueBasis: ValueBasis;
@@ -36,6 +41,7 @@ export interface BacktestViewProps {
   onComparisonAssetsChange: (assets: HistoricalAssetType[]) => void;
   onValueBasisChange: (basis: ValueBasis) => void;
   onResultViewChange: (view: 'PORTFOLIO' | 'NORMALIZED') => void;
+  onShare?: () => void;
 }
 
 const ASSET_OPTIONS: HistoricalAssetType[] = [...HISTORICAL_ASSET_IDS];
@@ -59,6 +65,10 @@ const completeFamilyFor = (selectedAssets: readonly HistoricalAssetType[]) => fa
     && family.members.every((member) => selectedAssets.includes(member.assetId)));
 
 const percentage = (value: number) => `${(value * 100).toFixed(2)}%`;
+const drawdownPercentage = (value: number) => {
+  const magnitude = Math.abs(value);
+  return magnitude === 0 ? '0.00%' : `-${percentage(magnitude)}`;
+};
 
 const MetricBadge = ({ multiple }: { multiple: 1 | 2 | 3 }) => (
   <span className="rounded-sm bg-apple-canvas px-1.5 py-0.5 text-micro-legal font-bold text-apple-ink">
@@ -72,6 +82,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   endDate,
   comparisonAssets,
   results,
+  scenarioSeries,
   leverageInsights,
   currency,
   valueBasis,
@@ -83,7 +94,9 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   onComparisonAssetsChange,
   onValueBasisChange,
   onResultViewChange,
+  onShare,
 }) => {
+  const [isIndividualPickerOpen, setIsIndividualPickerOpen] = useState(false);
   const displayBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
   const successfulResults = useMemo(() => results.filter(
     (result): result is Extract<ComparisonAssetResult, { status: 'success' }> => result.status === 'success',
@@ -109,6 +122,8 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       ...display,
     };
   }), [successfulResults, inflationRate, goldData, displayBasis]);
+  const primaryPreparedResult = preparedResults.find((result) => result.assetId === primaryAsset);
+  const primaryPortfolioPoint = primaryPreparedResult?.portfolioHistory.at(-1);
   const chartSeries: BacktestDisplaySeries[] = useMemo(() => preparedResults.map((result) => {
     const style = SERIES_STYLE[result.targetMultiple];
     return {
@@ -133,7 +148,21 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   };
 
   return (
-    <section className="flex w-full flex-col items-center gap-8" aria-label="과거 자산 비교">
+    <section className="flex w-full flex-col items-center gap-6" aria-label="과거 자산 비교">
+      {primaryPreparedResult && primaryPortfolioPoint ? (
+        <div className="w-full max-w-[1200px] px-4">
+          <BacktestPrimaryMetrics
+            assetId={primaryAsset}
+            valueBasis={displayBasis}
+            cumulativeReturn={primaryPreparedResult.productMetrics.cumulativeReturn}
+            cagr={primaryPreparedResult.productMetrics.cagr}
+            mdd={primaryPreparedResult.productMetrics.mdd}
+            investedPrincipal={primaryPortfolioPoint.principal}
+            currency={currency}
+          />
+        </div>
+      ) : null}
+
       <div className="flex w-full max-w-[1200px] flex-col items-center gap-4 px-4">
         <div className="text-center">
           <p className="text-caption-strong text-apple-ink">레버리지 가족</p>
@@ -159,31 +188,50 @@ const BacktestView: React.FC<BacktestViewProps> = ({
             );
           })}
         </div>
-        <div className="flex flex-wrap justify-center gap-2" aria-label="개별 자산 선택">
-          {ASSET_OPTIONS.map((asset) => {
+        <div role="group" aria-label="선택 자산" className="flex flex-wrap justify-center gap-2">
+          {selectedAssets.map((asset) => {
             const isPrimary = asset === primaryAsset;
-            const isSelected = isPrimary || comparisonAssets.includes(asset);
-            const isUnavailableAtLimit = comparisonAssets.length >= 2 && !isSelected;
-            const multiple = targetMultipleOf(asset);
             return (
               <button
                 key={asset}
                 type="button"
-                aria-label={`${asset} 개별 자산 ${isSelected ? '선택됨' : '선택'}`}
-                aria-pressed={isSelected}
-                aria-describedby={isUnavailableAtLimit ? 'asset-selection-limit' : undefined}
-                title={isUnavailableAtLimit ? '최대 3개까지 선택할 수 있습니다.' : undefined}
+                disabled={isPrimary}
+                aria-label={`${asset} ${isPrimary ? '주 자산' : '비교 자산 제거'}`}
                 onClick={() => toggleAsset(asset)}
-                disabled={isPrimary || isUnavailableAtLimit}
-                className={`flex items-center gap-2 rounded-pill border px-3 py-2 text-caption-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2 ${isSelected
-                  ? 'border-apple-surface-black bg-apple-surface-black text-apple-on-dark'
-                  : 'border-white/60 bg-apple-surface-pearl text-apple-ink hover:border-apple-primary/40'} ${isPrimary ? 'cursor-default' : ''} ${isUnavailableAtLimit ? 'cursor-not-allowed opacity-50' : ''}`}
+                className="rounded-pill bg-apple-surface-black px-4 py-2 text-apple-on-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-100"
               >
-                {asset}<MetricBadge multiple={multiple} />
+                {asset} <MetricBadge multiple={targetMultipleOf(asset)} />
               </button>
             );
           })}
         </div>
+        <details
+          className="w-full rounded-xl border border-apple-hairline bg-apple-surface-pearl px-4 py-3"
+          onToggle={(event) => setIsIndividualPickerOpen(event.currentTarget.open)}
+        >
+          <summary className="cursor-pointer text-caption-strong text-apple-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary">
+            개별 종목 추가
+          </summary>
+          {isIndividualPickerOpen && <div className="mt-4 flex flex-wrap justify-center gap-2" aria-label="개별 자산 선택">
+            {ASSET_OPTIONS.filter((asset) => !selectedAssets.includes(asset)).map((asset) => {
+              const limitReached = selectedAssets.length >= 3;
+              return (
+                <button
+                  key={asset}
+                  type="button"
+                  aria-label={`${asset} 개별 자산 선택`}
+                  aria-describedby={limitReached ? 'asset-selection-limit' : undefined}
+                  disabled={limitReached}
+                  title={limitReached ? '비교 자산은 최대 3개까지 선택할 수 있습니다.' : undefined}
+                  onClick={() => toggleAsset(asset)}
+                  className="rounded-pill border border-apple-hairline bg-apple-surface-pearl px-4 py-2 text-caption-strong text-apple-ink transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {asset} <MetricBadge multiple={targetMultipleOf(asset)} />
+                </button>
+              );
+            })}
+          </div>}
+        </details>
         <p id="asset-selection-limit" className="text-fine-print text-apple-ink-muted-48">비교할 자산을 최대 3개까지 선택할 수 있습니다.</p>
       </div>
 
@@ -210,15 +258,17 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         <p className="-mt-5 w-full max-w-[1200px] px-4 text-right text-fine-print text-apple-ink-muted-48">시작일 금 가치 기준</p>
       )}
 
-      {results.some((result) => result.status === 'error') && (
-        <div className="w-full max-w-[1200px] space-y-2 px-4">
-          {results.filter((result): result is Extract<ComparisonAssetResult, { status: 'error' }> => result.status === 'error').map((result) => (
-            <p key={result.assetId} role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-caption text-red-700">
-              <strong>{result.assetId}</strong> 계산 실패: {result.error}
-            </p>
-          ))}
-        </div>
-      )}
+      {preparedResults.length > 0 ? (
+        <BacktestAnalysisChart
+          primaryAsset={primaryAsset}
+          assetSeries={chartSeries}
+          scenarioSeries={scenarioSeries}
+          currency={currency}
+          resultView={resultView}
+          valueBasis={displayBasis}
+          marketTrend={marketTrend}
+        />
+      ) : null}
 
       {preparedResults.length > 0 && <div
         data-testid="product-performance-summary"
@@ -254,8 +304,13 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                   </td>
                   <td className="p-4 text-center font-display font-bold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</td>
                   <td className="p-4 text-center font-display font-bold text-apple-ink">{percentage(result.productMetrics.cagr)}</td>
-                  <td className="p-4 text-center font-display font-bold text-apple-ink">-{percentage(result.productMetrics.mdd)}</td>
-                  <td className="p-4 font-display font-semibold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</td>
+                  <td className="p-4 text-center font-display font-bold text-apple-ink">{drawdownPercentage(result.productMetrics.mdd)}</td>
+                  <td className="p-4 font-display font-semibold text-apple-ink">
+                    <span className="block">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</span>
+                    <span className="mt-1 block text-fine-print font-normal text-apple-ink-muted-48">
+                      포트폴리오 IRR {percentage(result.portfolioIrr)}
+                    </span>
+                  </td>
                   <td className="p-4 text-center font-display text-apple-ink-muted-64">{percentage(result.productMetrics.volatility)}</td>
                 </tr>
               ))}
@@ -278,9 +333,10 @@ const BacktestView: React.FC<BacktestViewProps> = ({
             <dl className="grid grid-cols-3 gap-2 text-caption">
               <div><dt className="text-apple-ink-muted-48">누적수익률</dt><dd className="font-display font-bold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</dd></div>
               <div><dt className="text-apple-ink-muted-48">CAGR</dt><dd className="font-display font-bold text-apple-ink">{percentage(result.productMetrics.cagr)}</dd></div>
-              <div><dt className="text-apple-ink-muted-48">MDD</dt><dd className="font-display font-bold text-apple-ink">-{percentage(result.productMetrics.mdd)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">MDD</dt><dd className="font-display font-bold text-apple-ink">{drawdownPercentage(result.productMetrics.mdd)}</dd></div>
             </dl>
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-apple-hairline pt-3 text-caption">
+              <div><dt className="text-apple-ink-muted-48">포트폴리오 IRR (납입 포함)</dt><dd className="font-semibold text-apple-ink">{percentage(result.portfolioIrr)}</dd></div>
               <div><dt className="text-apple-ink-muted-48">포트폴리오 최종 자산 (납입 포함)</dt><dd className="font-semibold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</dd></div>
               <div><dt className="text-apple-ink-muted-48">변동성</dt><dd className="font-semibold text-apple-ink-muted-64">{percentage(result.productMetrics.volatility)}</dd></div>
             </dl>
@@ -291,6 +347,16 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       {preparedResults.length > 0 && <p className="w-full max-w-[1200px] px-4 text-fine-print leading-relaxed text-apple-ink-muted-48">
         투자 결과에는 매수 수수료와 ISA 만기 세금 추정치가 포함됩니다. 매도 수수료, 배당소득세, 일반계좌 양도소득세는 포함되지 않습니다.
       </p>}
+
+      {results.some((result) => result.status === 'error') && (
+        <div className="w-full max-w-[1200px] space-y-2 px-4">
+          {results.filter((result): result is Extract<ComparisonAssetResult, { status: 'error' }> => result.status === 'error').map((result) => (
+            <p key={result.assetId} role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-caption text-red-700">
+              <strong>{result.assetId}</strong> 계산 실패: {result.error}
+            </p>
+          ))}
+        </div>
+      )}
 
       {successfulResults.length > 0 && completeFamily && leverageInsights.length > 0 && (
         <aside data-testid="leverage-insight" className="w-full max-w-[1200px] rounded-2xl border border-apple-hairline bg-white/70 p-5 sm:p-6">
@@ -312,21 +378,16 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         </aside>
       )}
 
-      {preparedResults.length > 0 && <div className="relative h-[460px] w-full overflow-hidden rounded-2xl border border-white/60 bg-apple-surface-pearl p-3 shadow-sm sm:p-6">
-        <div className="pointer-events-none absolute left-6 top-5 z-10 sm:left-8">
-          <h3 className="text-body-strong font-semibold text-apple-ink">자산별 과거 성과 비교</h3>
-          <p className="mt-1 text-fine-print text-apple-ink-muted-48">{resultView === 'PORTFOLIO' ? '거치식과 적립식이 섞인 투자 결과' : '기여금 없는 실제 상품 총수익'}</p>
-          {marketTrend && (
-            <p className="mt-1 text-fine-print text-apple-ink-muted-48">주 자산 {primaryAsset} 대응 · {marketTrend.label} 시장 추세</p>
-          )}
-        </div>
-        <BacktestChart
-          series={chartSeries}
-          currency={currency}
-          resultView={resultView}
-          marketTrend={marketTrend ?? undefined}
-        />
-      </div>}
+      {onShare ? (
+        <button
+          type="button"
+          onClick={onShare}
+          className="flex items-center gap-2 rounded-pill bg-apple-ink/90 px-8 py-3 text-button-utility font-semibold text-apple-on-dark shadow-lg transition-all hover:bg-apple-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2 active:scale-[0.98] motion-reduce:transition-none"
+        >
+          <Share2 className="h-4 w-4" aria-hidden="true" />
+          공유(이미지)
+        </button>
+      ) : null}
     </section>
   );
 };

@@ -47,6 +47,7 @@ test('Nasdaq family exposes completed-week market values in both result views', 
 
   await openBacktest(page);
   await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
+  await page.getByRole('button', { name: '시장 추세' }).click();
 
   await expect(page.getByText('주 자산 QQQ 대응 · 나스닥100 시장 추세')).toBeVisible();
   await expect(page.getByText('나스닥100 (^NDX)')).toBeVisible();
@@ -57,7 +58,7 @@ test('Nasdaq family exposes completed-week market values in both result views', 
 
   const slider = page.getByRole('slider', { name: '차트 날짜 탐색' });
   await slider.focus();
-  const tooltip = page.getByRole('status');
+  const tooltip = page.getByRole('status').filter({ hasText: '나스닥100' });
   await expect(tooltip).toContainText('나스닥100');
   await expect(tooltip).toContainText('완료 주봉');
   await expect(tooltip).toContainText('1,746.12');
@@ -78,6 +79,7 @@ test('Nasdaq family exposes completed-week market values in both result views', 
 test('S&P 500 primary asset shows its static market overlay', async ({ page }, testInfo) => {
   await openBacktest(page);
   await selectPrimaryAsset(page, 'SPY');
+  await page.getByRole('button', { name: '시장 추세' }).click();
 
   await expect(page.getByText('주 자산 SPY 대응 · S&P 500 시장 추세')).toBeVisible();
   await expect(page.getByText('S&P 500 (^GSPC)')).toBeVisible();
@@ -91,6 +93,7 @@ test('S&P 500 primary asset shows its static market overlay', async ({ page }, t
 test('KOSPI primary asset shows its static market overlay', async ({ page }, testInfo) => {
   await openBacktest(page);
   await selectPrimaryAsset(page, 'KOSPI');
+  await page.getByRole('button', { name: '시장 추세' }).click();
 
   await expect(page.getByText('주 자산 KOSPI 대응 · 코스피 시장 추세')).toBeVisible();
   await expect(page.getByText('코스피 (^KS11)')).toBeVisible();
@@ -105,6 +108,7 @@ test('unmapped AMD primary asset does not add a market overlay', async ({ page }
   await openBacktest(page);
   await selectPrimaryAsset(page, 'AMD');
 
+  await expect(page.getByRole('button', { name: '시장 추세' })).toHaveCount(0);
   await expect(page.getByText(/주 자산 AMD 대응 · .* 시장 추세/)).toHaveCount(0);
   await expect(page.getByRole('img', { name: '과거 백테스트 결과 다중 자산 비교 차트' })).toBeVisible();
   await expect(page.getByRole('group', { name: '시장 추세 (시작값 100)' })).toHaveCount(0);
