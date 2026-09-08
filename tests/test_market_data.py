@@ -609,7 +609,8 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override NASDAQ100"):
-                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+                generated_at = json.loads((data_dir / "manifest.json").read_text(encoding="utf-8"))["generatedAt"]
+                validate_generated_data(data_dir, as_of=date.fromisoformat(generated_at[:10]))
 
     def test_validate_generated_data_rejects_a_missing_reviewed_override_value(self) -> None:
         source_data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
@@ -631,7 +632,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
             with self.assertRaisesRegex(MarketDataValidationError, "reviewed weekly close override NASDAQ100"):
-                validate_generated_data(data_dir, as_of=date(2026, 9, 1))
+                validate_generated_data(data_dir, as_of=date.fromisoformat(manifest["generatedAt"][:10]))
 
     def test_validate_generated_data_rejects_a_missing_reviewed_daily_backfill_value(self) -> None:
         source_data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"

@@ -102,7 +102,7 @@ function App() {
   });
   const [exchangeRate, setExchangeRate] = useState(() => {
     const cached = localStorage.getItem('exchange_rate');
-    return cached ? Number(cached) : 1450;
+    return cached ? Number(cached) : DEFAULT_EXCHANGE_RATE;
   });
   const [scenarioName, setScenarioName] = useState('기본 시나리오');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
