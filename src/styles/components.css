@@ -51,3 +51,18 @@
   .ui-notice-info { @apply border-apple-primary/20 bg-apple-primary/5 text-apple-ink; }
   .ui-notice-error { @apply border-apple-error/20 bg-apple-error/5 text-apple-error; }
 }
+
+@layer components {
+  .date-range-calendar td { @apply p-0; }
+  .date-range-day {
+    @apply flex min-h-control w-full cursor-pointer items-center justify-center rounded-md text-caption tabular-nums outline-none;
+  }
+  .date-range-day[data-hovered] { @apply bg-apple-primary/10; }
+  .date-range-day[data-selected] { @apply rounded-none bg-apple-primary/10 text-apple-ink; }
+  .date-range-day[data-selection-start], .date-range-day[data-selection-end] {
+    @apply rounded-md bg-apple-primary text-apple-on-primary;
+  }
+  .date-range-day[data-focus-visible] { @apply relative z-10 ring-2 ring-apple-primary ring-offset-2; }
+  .date-range-day[data-disabled] { @apply cursor-not-allowed text-apple-secondary opacity-40; }
+  .date-range-day[data-outside-month] { @apply invisible; }
+}

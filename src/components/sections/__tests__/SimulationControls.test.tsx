@@ -118,8 +118,7 @@ describe('SimulationControls', () => {
 
     expect(screen.getByRole('alert').textContent).toContain('공통 데이터');
     expect(screen.getByRole('status').textContent).toContain('기존 기간은 유지');
-    expect(screen.getByLabelText('백테스트 시작일').getAttribute('aria-invalid')).toBe('true');
-    expect(screen.getByLabelText('백테스트 종료일').getAttribute('aria-describedby')).toContain('backtest-range-error');
+    expect(screen.getByRole('button', { name: '백테스트 기간 변경' }).getAttribute('aria-describedby')).toBe('backtest-range-error');
 
     await user.click(screen.getByRole('button', { name: '가능한 전체 기간 적용' }));
 

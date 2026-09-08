@@ -1,7 +1,9 @@
 import React from 'react';
 import { HistoricalAssetType, SimulationMode, SimulationParams } from '../../types/finance';
 import Button from '../common/Button';
-import { Field, Input } from '../common/Field';
+import { Field } from '../common/Field';
+import HistoricalScenarioPicker from '../common/HistoricalScenarioPicker';
+import DateRangeControl from '../common/DateRangeControl';
 import SegmentedControl from '../common/SegmentedControl';
 import Surface from '../common/Surface';
 import Notice from '../common/Notice';
@@ -46,7 +48,8 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     ? getFamilyDurationPresets(commonCoverage)
     : undefined;
   const presetScenarios = getPresetScenarios(historicalCoverage);
-  const selectablePresets = familyPresets ?? presetScenarios;
+  const quickPresets = getFamilyDurationPresets(commonCoverage);
+  const selectablePresets = [...(familyPresets ?? quickPresets), ...presetScenarios];
 
   const updateParam = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
     props.onUpdate({ [key]: value });
@@ -106,20 +109,10 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
             <fieldset className="min-w-0 md:col-span-2">
               <legend className="ui-field-label mb-2">백테스트 기간</legend>
               <div className="flex flex-col gap-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Input id="backtest-start-date" type="date" aria-label="백테스트 시작일"
-                    value={props.params.startDate || historicalCoverage.startDate}
-                    min={historicalCoverage.startDate} max={historicalCoverage.endDate}
-                    aria-invalid={!!historicalRangeError}
-                    aria-describedby={historicalRangeError ? 'backtest-range-error' : undefined}
-                    onChange={(event) => props.onUpdate({ startDate: event.target.value })} />
-                  <Input id="backtest-end-date" type="date" aria-label="백테스트 종료일"
-                    value={props.params.endDate || historicalCoverage.endDate}
-                    min={historicalCoverage.startDate} max={historicalCoverage.endDate}
-                    aria-invalid={!!historicalRangeError}
-                    aria-describedby={historicalRangeError ? 'backtest-range-error' : undefined}
-                    onChange={(event) => props.onUpdate({ endDate: event.target.value })} />
-                </div>
+                <DateRangeControl startDate={startDate} endDate={endDate}
+                  minDate={historicalCoverage.startDate} maxDate={historicalCoverage.endDate}
+                  errorId={historicalRangeError ? 'backtest-range-error' : undefined}
+                  onChange={(range) => props.onUpdate(range)} />
                 {historicalRangeError && (
                   <Notice tone="error" id="backtest-range-error">
                     <p>{historicalRangeError}</p>
@@ -132,11 +125,14 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
                 <ScenarioPresetPicker coverage={historicalCoverage}
                   onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })}
                   activePresetName={selectablePresets.find((preset) => preset.startDate === props.params.startDate && preset.endDate === props.params.endDate)?.name}
-                  familyPresets={familyPresets} />
+                  familyPresets={familyPresets} quickPresets={quickPresets} />
               </div>
             </fieldset>
           )}
         </div>
+        {props.mode === 'BACKTEST' && <HistoricalScenarioPicker coverage={historicalCoverage}
+          startDate={startDate} endDate={endDate}
+          onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })} />}
       </Surface>
     </div>
   );
