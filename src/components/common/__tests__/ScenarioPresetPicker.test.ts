@@ -55,3 +55,10 @@ describe('asset-aware backtest presets', () => {
     );
   });
 });
+
+it('uses calendar arithmetic for month-end and year-start shortcuts', () => {
+  const coverage = { ...getHistoricalCoverage('SPY'), endDate: '2026-03-31' };
+  const presets = getDurationPresets(coverage);
+  expect(presets.find((preset) => preset.name === 'YTD')?.startDate).toBe('2026-01-01');
+  expect(presets.find((preset) => preset.name === '1M')?.startDate).toBe('2026-02-28');
+});

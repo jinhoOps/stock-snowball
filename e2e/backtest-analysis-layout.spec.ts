@@ -26,10 +26,8 @@ test('backtest foregrounds four metrics and one chart while preserving dates', a
     await expect(page.getByRole('button', { name: new RegExp(`${family} 레버리지 가족 선택`) })).toBeVisible();
   }
 
-  const start = page.locator('input[type="date"]').first();
-  const end = page.locator('input[type="date"]').last();
-  await expect(start).toHaveValue('2010-01-01');
-  await expect(end).toHaveValue('2024-01-01');
+  const period = page.getByRole('button', { name: '백테스트 기간 변경' });
+  await expect(period).toContainText('2010-01-01 ~ 2024-01-01');
 
   const individualPicker = page.getByText('개별 종목 추가', { exact: true });
   await individualPicker.focus();
@@ -43,13 +41,11 @@ test('backtest foregrounds four metrics and one chart while preserving dates', a
   await page.keyboard.press('Space');
   await expect(qqqPickerButton).toBeVisible();
   await qqqPickerButton.click();
-  await expect(start).toHaveValue('2010-01-01');
-  await expect(end).toHaveValue('2024-01-01');
+  await expect(period).toContainText('2010-01-01 ~ 2024-01-01');
 
   await page.getByRole('button', { name: '실질' }).click();
   await expect(page.getByRole('heading', { name: /핵심 지표 · 실질 기준/ })).toBeVisible();
-  await expect(start).toHaveValue('2010-01-01');
-  await expect(end).toHaveValue('2024-01-01');
+  await expect(period).toContainText('2010-01-01 ~ 2024-01-01');
 
   await expect(page.getByText('S&P 500 (^GSPC)')).toHaveCount(0);
   await page.getByRole('button', { name: '시장 추세' }).click();

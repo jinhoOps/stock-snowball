@@ -85,8 +85,7 @@ test('backtest and long scenario names reflow without losing controls', async ({
   await expect(metrics.locator('.ui-metric')).toHaveCount(4);
   await expect(metrics.locator('.ui-metric-value').first()).toHaveCSS('font-size', '24px');
   await expectTouchTargets(page.getByRole('group', { name: '가치 기준' }).getByRole('button'));
-  await expect(page.getByLabel('백테스트 시작일')).toHaveValue('2010-01-01');
-  await expect(page.getByLabel('백테스트 종료일')).toHaveValue('2024-01-01');
+  await expect(page.getByRole('button', { name: '백테스트 기간 변경' })).toContainText('2010-01-01 ~ 2024-01-01');
   await page.getByLabel('초기 자산 (KRW)').fill('100000000000');
   await metrics.scrollIntoViewIfNeeded();
   await expectNoPageOverflow(page);
