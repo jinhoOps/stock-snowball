@@ -1,4 +1,5 @@
 import type { HistoricalAssetType, ValueBasis } from '../../types/finance';
+import MetricCard from '../common/MetricCard';
 import { SnowballEngine } from '../../core/SnowballEngine';
 
 export interface BacktestPrimaryMetricsProps {
@@ -41,15 +42,12 @@ const BacktestPrimaryMetrics = ({
 
   return (
     <section className="w-full" aria-labelledby="backtest-primary-metrics-heading">
-      <h2 id="backtest-primary-metrics-heading" className="mb-4 text-title-sm text-apple-ink font-display">
+      <h2 id="backtest-primary-metrics-heading" className="mb-4 text-left text-title-sm text-apple-ink font-display">
         {assetId} 핵심 지표 · {BASIS_LABEL[valueBasis]} 기준
       </h2>
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metrics.map((metric) => (
-          <div key={metric.label} className="rounded-xl border border-white/60 bg-apple-surface-pearl p-4 shadow-sm">
-            <dt className="text-fine-print text-apple-ink-muted-48">{metric.label}</dt>
-            <dd className="mt-2 text-title-md font-semibold text-apple-ink font-display">{metric.value}</dd>
-          </div>
+          <MetricCard key={metric.label} label={metric.label} value={metric.value} />
         ))}
       </dl>
     </section>

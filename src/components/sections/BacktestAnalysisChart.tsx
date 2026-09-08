@@ -7,7 +7,9 @@ import SnowballChart, {
   type SnowballChartSelection,
   type SnowballScenarioData,
 } from '../charts/SnowballChart';
+import Button from '../common/Button';
 import SegmentedControl from '../common/SegmentedControl';
+import Surface from '../common/Surface';
 
 export type BacktestAnalysisMode = 'ASSET' | 'SCENARIO';
 
@@ -50,7 +52,7 @@ const BacktestAnalysisChart = ({
   }, [mode, valueBasis, currency, scenarioSeries]);
 
   return (
-    <section className="w-full rounded-lg border border-white/60 bg-apple-surface-pearl p-4 shadow-sm" aria-labelledby="backtest-chart-heading">
+    <section className="ui-surface ui-surface-compact w-full max-w-analysis text-left" aria-labelledby="backtest-chart-heading">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h3 id="backtest-chart-heading" className="text-title-sm text-apple-ink font-display">
@@ -80,16 +82,14 @@ const BacktestAnalysisChart = ({
             />
           ) : null}
           {mode === 'ASSET' && marketTrend ? (
-            <button
-              type="button"
+            <Button
+              variant={showMarketTrend ? 'primary' : 'secondary'}
+              size="compact"
               aria-pressed={showMarketTrend}
               onClick={() => setShowMarketTrend((value) => !value)}
-              className={`rounded-pill border px-4 py-2 text-caption-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2 ${showMarketTrend
-                ? 'border-apple-surface-black bg-apple-surface-black text-apple-on-dark'
-                : 'border-apple-hairline bg-apple-canvas-parchment text-apple-ink hover:border-apple-primary/40'}`}
             >
               시장 추세
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
@@ -114,23 +114,23 @@ const BacktestAnalysisChart = ({
         )}
       </div>
       {mode === 'SCENARIO' && scenarioPoint ? (
-        <div className="mt-4 rounded-lg border border-white/60 bg-white/80 p-4 shadow-inner">
+        <Surface padding="compact" className="mt-4">
           <div className="mb-4 flex items-center justify-between border-b border-apple-hairline pb-2">
             <h4 className="text-body-strong text-apple-ink font-display">경과 개월수 기준 상세</h4>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="compact"
               onClick={() => setScenarioPoint(null)}
-              className="text-caption text-apple-ink-muted-48 transition-colors hover:text-apple-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary"
             >
               닫기
-            </button>
+            </Button>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
             {scenarioPoint.points.map((point) => (
-              <div key={point.id} className="rounded-xl border border-white/60 bg-white p-4 shadow-sm">
+              <Surface key={point.id} padding="compact" className="bg-apple-canvas">
                 <div className="mb-2 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: point.color }} aria-hidden="true" />
-                  <span className="truncate text-caption text-apple-gray">{point.name}</span>
+                  <span className="truncate text-caption text-apple-ink-muted-48">{point.name}</span>
                 </div>
                 <span className="text-body-strong font-bold text-apple-ink">
                   {SnowballEngine.formatBigNumber(point.value, currency)}
@@ -140,10 +140,10 @@ const BacktestAnalysisChart = ({
                     {SnowballEngine.formatBigNumber(point.pessimistic, currency)} ~ {SnowballEngine.formatBigNumber(point.optimistic, currency)}
                   </span>
                 ) : null}
-              </div>
+              </Surface>
             ))}
           </div>
-        </div>
+        </Surface>
       ) : null}
     </section>
   );

@@ -363,13 +363,13 @@ const SnowballChartInner: React.FC<{
                     </div>
                   )}
                   {p.contribution !== undefined && (
-                    <div className="flex justify-between pl-3 text-[10px] text-apple-ink-muted-48">
+                    <div className="flex justify-between gap-3 pl-3 text-fine-print leading-relaxed text-apple-ink-muted-48">
                       <span>누적 투입금</span>
                       <span>{formatCurrency(p.contribution)}</span>
                     </div>
                   )}
                   {p.optimistic && p.pessimistic && (
-                    <div className="flex justify-between pl-3 text-[10px] text-apple-ink-muted-48 italic">
+                    <div className="flex justify-between pl-3 text-fine-print leading-relaxed text-apple-ink-muted-48">
                       <span>최저 {formatCurrency(p.pessimistic)}</span>
                       <span className="mx-1">~</span>
                       <span>최고 {formatCurrency(p.optimistic)}</span>
@@ -410,12 +410,12 @@ const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparis
         ))}
         {onShowRealValueChange && (
           <div className="flex items-center gap-1.5 ml-auto">
-            <label className="flex items-center gap-2 cursor-pointer bg-apple-canvas-parchment/80 backdrop-blur-sm border border-apple-hairline rounded-pill px-3 py-1 shadow-sm hover:border-apple-primary/30 transition-all">
+            <label className="flex min-h-control items-center gap-2 cursor-pointer bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-3 py-2 text-caption-strong text-apple-ink hover:border-apple-primary/30 transition-colors">
               <input 
                 type="checkbox" checked={showRealValue} onChange={(e) => onShowRealValueChange(e.target.checked)}
-                className="w-3.5 h-3.5 rounded-sm border-apple-hairline text-apple-primary focus:ring-apple-primary/20 cursor-pointer"
+                className="w-3.5 h-3.5 rounded-sm border-apple-hairline text-apple-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2 cursor-pointer"
               />
-              <span className="text-[11px] font-semibold text-apple-ink tracking-tight">실질 가치로 보기</span>
+              <span>실질 가치로 보기</span>
             </label>
             <CommonTooltip content="설정된 물가상승률을 반영하여, 십수년 뒤 예상 자산이 현재 시점에서 어느 정도의 체감 가치(구매력)를 가지는지 환산하여 보여줍니다." />
           </div>

@@ -1,6 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
-import { Github } from 'lucide-react';
+import { Github, Trash2, ArrowUpRight } from 'lucide-react';
+import Button from './components/common/Button';
+import { Input } from './components/common/Field';
+import Surface from './components/common/Surface';
+import Notice from './components/common/Notice';
+import type { ScenarioDocument } from './db/schema';
 import confetti from 'canvas-confetti';
 import GlobalNav from './components/layout/GlobalNav';
 import ProductHero from './components/sections/ProductHero';
@@ -36,6 +41,7 @@ import {
   type LeverageFamily,
 } from './data/leverageFamilies';
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
+import { usePrefersReducedMotion } from './lib/animation/usePrefersReducedMotion';
 
 const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
@@ -84,6 +90,7 @@ const describeBacktestRangeAdjustment = (
 };
 
 function App() {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const { scenarios, addScenario, removeScenario, loading } = useScenarios();
   const lastCelebratedMilestone = useRef<number>(0);
 
@@ -582,7 +589,7 @@ function App() {
         setComparingScenarioIds(prev => [...prev, newId]);
       }
 
-      confetti({ particleCount: 100, spread: 70, origin: { y: 0.8 }, colors: ['#34C759', '#30B0C7', '#FFFFFF'] });
+      confetti({ disableForReducedMotion: true, particleCount: 100, spread: 70, origin: { y: 0.8 }, colors: ['#34C759', '#30B0C7', '#FFFFFF'] });
     } catch (e) {
       console.error('Failed to save scenario:', e);
       alert('시나리오 저장에 실패했습니다.');
@@ -591,6 +598,55 @@ function App() {
 
   const toggleComparison = (id: string) => {
     setComparingScenarioIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleLoadScenario = (s: ScenarioDocument) => {
+    const scenarioMode = s.simulationMode || 'PROJECTION';
+    setMode(scenarioMode);
+    const newParams: SimulationParams = {
+      principal: s.principal,
+      contribution: s.strategyBaseAmount,
+      cycle: s.contributionCycle || 'MONTHLY',
+      assetType: s.assetType || 'CUSTOM',
+      years: s.years,
+      rate: s.annualRate,
+      accountType: s.accountType,
+      inflationRate: s.inflationRate,
+      strategyType: s.strategyType,
+      strategyIncreaseRate: s.strategyIncreaseRate || 0.05,
+      startDate: s.backtestStartDate,
+      endDate: s.backtestEndDate,
+    };
+    if (scenarioMode === 'BACKTEST') {
+      const normalized = normalizePersistedSimulationParams(
+        newParams,
+        DEFAULT_BACKTEST_PARAMS,
+        'BACKTEST',
+      );
+      const selection = transitionBacktestPrimary({
+        primaryAsset: backtestParams.assetType,
+        comparisonAssets,
+        startDate: normalized.startDate,
+        endDate: normalized.endDate,
+      }, normalized.assetType, getHistoricalCoverage);
+      setBacktestRangeNotice(describeBacktestRangeAdjustment(normalized, selection));
+      setBacktestParams({
+        ...normalized,
+        assetType: selection.primaryAsset,
+        startDate: selection.startDate,
+        endDate: selection.endDate,
+      });
+      setComparisonAssets(selection.comparisonAssets);
+      setValueBasis('NOMINAL');
+      setBacktestResultView('PORTFOLIO');
+    } else {
+      setProjectionParams(normalizePersistedSimulationParams(
+        newParams,
+        DEFAULT_PROJECTION_PARAMS,
+        'PROJECTION',
+      ));
+    }
+    setScenarioName(s.name);
   };
 
   const shareCardRef = useRef<HTMLDivElement>(null);
@@ -607,7 +663,7 @@ function App() {
       link.download = `stock-snowball-${scenarioName}-${new Date().getTime()}.png`;
       link.href = dataUrl;
       link.click();
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.9 }, colors: ['#0066cc', '#FFFFFF'] });
+      confetti({ disableForReducedMotion: true, particleCount: 50, spread: 60, origin: { y: 0.9 }, colors: ['#0066cc', '#FFFFFF'] });
     } catch (err) {
       console.error('Sharing failed:', err);
       alert('이미지 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
@@ -666,8 +722,8 @@ function App() {
               <AnimatePresence mode="wait">
                 <motion.div 
                   key={mode}
-                  initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1.0] }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.25, 0.1, 0.25, 1.0] }}
                   className="w-full flex flex-col items-center"
                 >
                   {!backtestRangeError && <div className="mb-10 text-center flex flex-col items-center">
@@ -687,13 +743,13 @@ function App() {
                   </div>}
 
                   {backtestRangeError && (
-                    <div className="mb-8 w-full max-w-[1000px] rounded-lg border border-apple-error/20 bg-red-50 px-5 py-4 text-center" role="status">
+                    <Notice tone="error" role="status" className="mb-8 w-full max-w-content">
                       <p className="text-body-strong text-apple-ink">선택 기간에는 공통 백테스트 결과를 표시할 수 없습니다.</p>
                       <p className="mt-1 text-caption text-apple-ink-muted-64">기간 입력에서 사용 가능한 전체 기간을 적용하거나 날짜를 직접 조정해주세요.</p>
-                    </div>
+                    </Notice>
                   )}
 
-                  {mode === 'PROJECTION' && !backtestRangeError && <div className="w-full max-w-[1000px] mb-8 h-[360px] sm:h-[480px] bg-apple-surface-pearl border border-white/60 rounded-lg p-2 sm:p-6 shadow-sm">
+                  {mode === 'PROJECTION' && !backtestRangeError && <Surface className="w-full max-w-content mb-8 h-[360px] sm:h-[480px]">
                     <SnowballChart 
                       scenarios={chartScenarios} 
                       mode={mode}
@@ -703,31 +759,32 @@ function App() {
                       onPointHover={(d) => d && setSelectedPoint(d)}
                       onPointSelect={setSelectedPoint}
                     />
-                  </div>}
+                  </Surface>}
 
                   {mode === 'PROJECTION' && !backtestRangeError && <AnimatePresence>
                     {selectedPoint && (
                       <motion.div 
-                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                        className="w-full max-w-[1000px] mb-12 overflow-hidden"
+                        initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                        transition={prefersReducedMotion ? { duration: 0 } : undefined}
+                        className="w-full max-w-content mb-12 overflow-hidden"
                       >
-                        <div className="bg-apple-surface-pearl/80 backdrop-blur-sm border border-white/60 rounded-lg p-6 shadow-inner">
+                        <div className="ui-surface ui-surface-default">
                           <div className="flex items-center justify-between mb-4 border-b border-apple-hairline pb-2">
                             <span className="text-body-strong text-apple-ink font-display">
                               {comparingScenarioIds.length > 0 ? '경과 개월수 기준 상세' : selectedPoint.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) + ' 기준 상세'}
                             </span>
-                            <button onClick={() => setSelectedPoint(null)} className="text-caption text-apple-ink-muted-48 hover:text-apple-ink transition-colors">닫기</button>
+                            <Button variant="ghost" size="compact" onClick={() => setSelectedPoint(null)}>닫기</Button>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {selectedPoint.points.map((p, i) => (
-                              <div key={i} className="flex flex-col p-4 bg-white rounded-xl border border-white/60 shadow-sm">
+                              <div key={i} className="ui-surface ui-surface-compact flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
                                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                                  <span className="text-caption text-apple-gray truncate">{p.name}</span>
+                                  <span className="text-caption text-apple-ink-muted-48 truncate">{p.name}</span>
                                 </div>
                                 <span className="font-bold text-apple-ink text-body-strong mb-1">{SnowballEngine.formatBigNumber(p.value, currency)}</span>
                                 {p.optimistic && p.pessimistic && (
-                                  <span className="text-[10px] text-apple-ink-muted-48">범위: {SnowballEngine.formatBigNumber(p.pessimistic, currency)} ~ {SnowballEngine.formatBigNumber(p.optimistic, currency)}</span>
+                                  <span className="text-fine-print leading-relaxed text-apple-ink-muted-48">범위: {SnowballEngine.formatBigNumber(p.pessimistic, currency)} ~ {SnowballEngine.formatBigNumber(p.optimistic, currency)}</span>
                                 )}
                               </div>
                             ))}
@@ -737,7 +794,7 @@ function App() {
                     )}
                   </AnimatePresence>}
 
-                  {mode === 'PROJECTION' && !backtestRangeError && <div className="w-full max-w-[1000px]">
+                  {mode === 'PROJECTION' && !backtestRangeError && <div className="w-full max-w-content">
                     <KPIGrid 
                       totalAsset={activeResult.postTaxValue}
                       initialPrincipal={activeParams.principal}
@@ -754,7 +811,7 @@ function App() {
                   </div>}
 
                   {mode === 'BACKTEST' && (
-                    <div className="w-full max-w-[1200px]">
+                    <div className="w-full max-w-analysis">
                       <BacktestView
                         primaryAsset={backtestParams.assetType as HistoricalAssetType}
                         startDate={backtestParams.startDate!}
@@ -783,36 +840,24 @@ function App() {
           </ProductHero>
         </LayoutGroup>
 
-        <section className="bg-apple-canvas-parchment py-section px-4 flex flex-col items-center border-t border-apple-hairline">
-          <div className="w-full max-w-[1000px]">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 bg-apple-surface-pearl p-8 rounded-2xl border border-white/60 shadow-sm">
+        <section className="bg-apple-canvas-parchment py-12 sm:py-16 px-4 sm:px-6 flex flex-col items-center border-t border-apple-hairline">
+          <div className="w-full max-w-content">
+            <div className="ui-surface ui-surface-default mb-10 flex flex-col items-start justify-between gap-6 xl:flex-row xl:items-center">
               <div className="flex-1 w-full">
-                <h2 className="text-display-sm text-apple-ink mb-2 tracking-tight font-display">시나리오 저장 및 비교군 추가</h2>
-                <p className="text-caption text-apple-ink-muted-48 font-text">현재 설정을 저장하고 비교 차트에 즉시 추가하여 분석하세요.</p>
+                <h2 className="text-title-sm text-apple-ink mb-2 font-display">시나리오 저장 및 비교군 추가</h2>
+                <p className="break-keep text-caption text-apple-ink-muted-48 font-text">현재 설정을 저장하고 비교 차트에 즉시 추가하여 분석하세요.</p>
               </div>
-              <div className="flex w-full md:w-auto gap-2 md:gap-3">
-                <input 
-                  type="text"
-                  placeholder="시나리오 이름 (예: 나스닥 100 적립)"
-                  value={scenarioName}
-                  onChange={(e) => setScenarioName(e.target.value)}
-                  className="flex-1 min-w-0 md:w-64 h-10 md:h-12 bg-apple-canvas-parchment border border-apple-hairline rounded-pill px-4 md:px-6 text-[13px] md:text-body outline-none focus:border-apple-primary focus:ring-1 focus:ring-apple-primary transition-all font-text"
-                />
-                <button 
-                  onClick={handleSaveScenario}
-                  className="h-10 w-10 md:h-12 md:w-auto md:px-8 flex-shrink-0 flex items-center justify-center rounded-full md:rounded-pill bg-apple-primary text-apple-on-dark font-semibold text-[13px] md:text-button-utility hover:bg-apple-primary-focus transition-all shadow-md active:scale-95"
-                  title="저장 및 비교"
-                >
-                  <span className="hidden md:inline">저장 및 비교</span>
-                  <svg className="w-4 h-4 md:hidden ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 10 4 15 9 20" />
-                    <path d="M20 4v7a4 4 0 0 1-4 4H4" />
-                  </svg>
-                </button>
-              </div>
+              <form className="flex w-full items-end gap-3 xl:w-auto" onSubmit={(event) => { event.preventDefault(); void handleSaveScenario(); }}>
+                <div className="ui-field min-w-0 flex-1">
+                  <label htmlFor="scenario-name" className="ui-field-label">시나리오 이름</label>
+                  <Input id="scenario-name" type="text" placeholder="시나리오 이름 (예: 나스닥 100 적립)"
+                    value={scenarioName} onChange={(event) => setScenarioName(event.target.value)} className="xl:w-64" />
+                </div>
+                <Button type="submit" variant="primary" className="h-field shrink-0">저장 및 비교</Button>
+              </form>
             </div>
 
-            <h2 className="text-display-sm text-apple-ink mb-10 tracking-tight font-display">저장된 시나리오</h2>
+            <h2 className="text-title-sm text-apple-ink mb-6 font-display">저장된 시나리오</h2>
             {loading ? (
               <p className="font-text text-apple-ink-muted-48">불러오는 중...</p>
             ) : scenarios.length === 0 ? (
@@ -823,88 +868,35 @@ function App() {
                 {scenarios.map((s, index) => (
                   <motion.div 
                     key={s.id} 
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.5, delay: index * 0.05, type: 'spring', stiffness: 100 }}
-                    whileHover={{ y: -5 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`bg-apple-surface-pearl/80 backdrop-blur-md border rounded-xl p-6 transition-all cursor-pointer shadow-sm hover:shadow-md relative overflow-hidden group ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary ring-2 ring-apple-primary/20 bg-white' : 'border-white/60 hover:border-apple-primary/40'}`}
-                    onClick={() => {
-                      const scenarioMode = s.simulationMode || 'PROJECTION';
-                      setMode(scenarioMode);
-                      const newParams: SimulationParams = {
-                        principal: s.principal,
-                        contribution: s.strategyBaseAmount,
-                        cycle: s.contributionCycle || 'MONTHLY',
-                        assetType: s.assetType || 'CUSTOM',
-                        years: s.years,
-                        rate: s.annualRate,
-                        accountType: s.accountType,
-                        inflationRate: s.inflationRate,
-                        strategyType: s.strategyType,
-                        strategyIncreaseRate: s.strategyIncreaseRate || 0.05,
-                        startDate: s.backtestStartDate,
-                        endDate: s.backtestEndDate,
-                      };
-                      if (scenarioMode === 'BACKTEST') {
-                        const normalized = normalizePersistedSimulationParams(
-                          newParams,
-                          DEFAULT_BACKTEST_PARAMS,
-                          'BACKTEST',
-                        );
-                        const selection = transitionBacktestPrimary({
-                          primaryAsset: backtestParams.assetType,
-                          comparisonAssets,
-                          startDate: normalized.startDate,
-                          endDate: normalized.endDate,
-                        }, normalized.assetType, getHistoricalCoverage);
-                        setBacktestRangeNotice(describeBacktestRangeAdjustment(normalized, selection));
-                        setBacktestParams({
-                          ...normalized,
-                          assetType: selection.primaryAsset,
-                          startDate: selection.startDate,
-                          endDate: selection.endDate,
-                        });
-                        setComparisonAssets(selection.comparisonAssets);
-                        setValueBasis('NOMINAL');
-                        setBacktestResultView('PORTFOLIO');
-                      } else {
-                        setProjectionParams(normalizePersistedSimulationParams(
-                          newParams,
-                          DEFAULT_PROJECTION_PARAMS,
-                          'PROJECTION',
-                        ));
-                      }
-                      setScenarioName(s.name);
-                    }}
+                    transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.5, delay: index * 0.05, type: 'spring', stiffness: 100 }}
+                    className={`ui-surface ui-surface-default flex flex-col gap-4 ${comparingScenarioIds.includes(s.id) ? 'border-apple-primary/40 bg-apple-primary/5' : ''}`}
                   >
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-body-strong text-apple-ink tracking-tight font-display">{s.name}</h3>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); toggleComparison(s.id); }}
-                          className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-pill border transition-all ${comparingScenarioIds.includes(s.id) ? 'bg-apple-primary text-white border-apple-primary shadow-sm' : 'bg-apple-canvas-parchment text-apple-ink border-apple-hairline hover:bg-apple-canvas'}`}
-                        >
-                          {comparingScenarioIds.includes(s.id) ? '비교 중' : '비교하기'}
-                        </button>
-                        <button 
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (confirm('정말 삭제하시겠습니까?')) {
-                              try { await removeScenario(s.id); } catch (err) { alert('삭제에 실패했습니다.'); }
-                            }
-                          }}
-                          className="p-1.5 rounded-full hover:bg-apple-error/10 text-apple-ink-muted-48 hover:text-apple-error transition-colors"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
-                        </button>
-                      </div>
-                    </div>
+                    <h3 className="text-body-strong text-apple-ink font-display">
+                      <Button variant="ghost" onClick={() => handleLoadScenario(s)} aria-label={`${s.name} 불러오기`}
+                        className="w-full justify-between rounded-md px-0 text-left text-body-strong text-apple-ink">
+                        <span className="min-w-0 break-words">{s.name}</span><ArrowUpRight size={18} className="shrink-0" aria-hidden="true" />
+                      </Button>
+                    </h3>
                     <div className="space-y-1">
                       <p className="text-caption text-apple-ink-muted-48 font-text">초기 {SnowballEngine.formatKoreanWon(s.principal)}</p>
                       <p className="text-caption text-apple-ink-muted-48 font-text">월 {SnowballEngine.formatKoreanWon(s.strategyBaseAmount)} ({s.years}년)</p>
                       <p className="text-caption-strong text-apple-primary font-display mt-2">{s.assetType === 'CUSTOM' ? `수익률 ${(s.annualRate * 100).toFixed(1)}%` : s.assetType} | {s.accountType}</p>
+                    </div>
+                    <div className="mt-auto flex items-center justify-between gap-2 border-t border-apple-hairline pt-4">
+                      <Button size="compact" onClick={() => toggleComparison(s.id)} aria-pressed={comparingScenarioIds.includes(s.id)}
+                        aria-label={`${s.name} ${comparingScenarioIds.includes(s.id) ? '비교 중' : '비교하기'}`}
+                        variant={comparingScenarioIds.includes(s.id) ? 'primary' : 'secondary'}>
+                        {comparingScenarioIds.includes(s.id) ? '비교 중' : '비교하기'}
+                      </Button>
+                      <Button variant="ghost" size="icon" aria-label={`${s.name} 삭제`} className="text-apple-error"
+                        onClick={async () => {
+                          if (confirm('정말 삭제하시겠습니까?')) {
+                            try { await removeScenario(s.id); } catch { alert('삭제에 실패했습니다.'); }
+                          }
+                        }}><Trash2 size={18} aria-hidden="true" /></Button>
                     </div>
                   </motion.div>
                 ))}
@@ -915,16 +907,16 @@ function App() {
         </section>
       </main>
 
-      <footer className="bg-apple-canvas-parchment border-t border-apple-hairline py-16 px-4 text-center">
-        <div className="max-w-[1000px] mx-auto">
-          <p className="text-fine-print text-apple-ink-muted-48 tracking-tight font-text mb-2">본 시뮬레이션은 과거 데이터를 기반으로 하며, 미래의 수익을 보장하지 않습니다.</p>
+      <footer className="bg-apple-canvas-parchment border-t border-apple-hairline py-12 px-4 sm:px-6 text-center">
+        <div className="max-w-content mx-auto">
+          <p className="break-keep text-fine-print leading-relaxed text-apple-ink-muted-48 tracking-tight font-text mb-2">본 시뮬레이션은 과거 데이터를 기반으로 하며, 미래의 수익을 보장하지 않습니다.</p>
           <p className="text-fine-print text-apple-ink-muted-48 tracking-tight font-text mb-6">&copy; 2026 Stock Snowball. All rights reserved.</p>
           <div className="flex justify-center">
             <a 
               href="https://github.com/jinhoOps/stock-snowball" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-apple-ink-muted-48 hover:text-apple-ink transition-colors"
+              className="ui-button ui-button-ghost ui-button-icon"
               aria-label="GitHub Repository"
             >
               <Github size={20} />

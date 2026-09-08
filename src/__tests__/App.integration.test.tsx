@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { SnowballEngine } from '../core/SnowballEngine';
@@ -443,8 +444,8 @@ describe('App backtest selection', () => {
     });
     simulateRange.mockClear();
 
-    screen.getAllByRole('button', { name: '비교하기' }).forEach((button) => fireEvent.click(button));
-    await waitFor(() => expect(screen.getAllByRole('button', { name: '비교 중' })).toHaveLength(2));
+    screen.getAllByRole('button', { name: / 비교하기$/ }).forEach((button) => fireEvent.click(button));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: / 비교 중$/ })).toHaveLength(2));
     expect(backtestRun).not.toHaveBeenCalled();
     expect(simulateRange).not.toHaveBeenCalled();
 
@@ -484,7 +485,9 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'show normalized' }));
     await waitFor(() => expect(screen.getByTestId('presentation-state').textContent).toBe('REAL|NORMALIZED'));
 
-    fireEvent.click(screen.getByText('saved AMDL'));
+    const loadButton = screen.getByRole('button', { name: 'saved AMDL 불러오기' });
+    loadButton.focus();
+    await userEvent.setup().keyboard('{Enter}');
 
     await waitFor(() => {
       expect(screen.getByTestId('backtest-selection').textContent).toBe('AMDL|');
@@ -561,7 +564,7 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     await screen.findByTestId('backtest-selection');
     fireEvent.click(screen.getByRole('button', { name: 'show real basis' }));
-    fireEvent.click(screen.getByRole('button', { name: '비교하기' }));
+    fireEvent.click(screen.getByRole('button', { name: 'saved ISA 비교하기' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('saved ISA:99.980431:100.000000');
@@ -618,7 +621,7 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'show gold basis' }));
     await waitFor(() => expect(screen.getByTestId('presentation-state').textContent).toBe('GOLD|PORTFOLIO'));
 
-    fireEvent.click(screen.getByRole('button', { name: '비교하기' }));
+    fireEvent.click(screen.getByRole('button', { name: 'pre-GOLD QQQ 비교하기' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('presentation-state').textContent).toBe('NOMINAL|PORTFOLIO');
@@ -634,7 +637,7 @@ describe('App backtest selection', () => {
       expect.anything(),
     ]);
 
-    fireEvent.click(screen.getByRole('button', { name: '비교 중' }));
+    fireEvent.click(screen.getByRole('button', { name: 'pre-GOLD QQQ 비교 중' }));
     await waitFor(() => {
       expect(screen.queryByText(/저장된 시나리오.*pre-GOLD QQQ/)).toBeNull();
       expect((screen.getByRole('button', { name: 'show gold basis' }) as HTMLButtonElement).disabled).toBe(false);
@@ -645,7 +648,7 @@ describe('App backtest selection', () => {
     scenarioState.scenarios = [savedScenario({ name: 'saved comparison' })];
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
-    fireEvent.click(await screen.findByRole('button', { name: '비교하기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'saved comparison 비교하기' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('backtest-scenario-colors').textContent).toBe('#0066cc|#1d1d1f');

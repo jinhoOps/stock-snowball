@@ -1,0 +1,53 @@
+@layer components {
+  .ui-button {
+    @apply inline-flex min-h-control min-w-11 items-center justify-center gap-2 rounded-pill border px-5 py-2 text-caption-strong transition-colors;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none;
+  }
+  .ui-button-primary {
+    @apply border-apple-primary bg-apple-primary text-apple-on-primary hover:bg-apple-primary-focus;
+  }
+  .ui-button-secondary {
+    @apply border-apple-hairline bg-apple-surface-pearl text-apple-ink hover:border-apple-primary/40 hover:bg-apple-canvas;
+  }
+  .ui-button-ghost {
+    @apply border-transparent bg-transparent text-apple-ink-muted-48 hover:bg-apple-canvas hover:text-apple-ink;
+  }
+  .ui-button-danger {
+    @apply border-apple-error/20 bg-apple-error/5 text-apple-error hover:bg-apple-error/10;
+  }
+  .ui-button-compact { @apply px-3; }
+  .ui-button-icon { @apply h-11 w-11 shrink-0 p-0; }
+
+  .ui-input {
+    @apply h-field min-w-0 w-full rounded-pill border border-apple-hairline bg-apple-canvas px-4 text-body text-apple-ink font-text;
+    @apply outline-none transition-colors focus:border-apple-primary focus:ring-2 focus:ring-apple-primary/20;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .ui-input[aria-invalid='true'] { @apply border-apple-error focus:ring-apple-error/20; }
+  .ui-field { @apply flex min-w-0 flex-col gap-2 text-left; }
+  .ui-field-label { @apply flex min-h-6 items-center gap-2 px-1 text-caption-strong text-apple-ink; }
+  .ui-field-hint { @apply px-1 text-fine-print leading-relaxed text-apple-ink-muted-48; }
+
+  .ui-segmented { @apply inline-flex max-w-full flex-wrap gap-1 rounded-pill border border-apple-hairline bg-apple-canvas-parchment p-1; }
+  .ui-segment {
+    @apply min-h-control min-w-11 rounded-pill border border-transparent px-4 py-2 text-caption-strong text-apple-ink-muted-48 transition-colors;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2;
+    @apply disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none;
+  }
+  .ui-segment:hover:not(:disabled) { @apply bg-white text-apple-ink; }
+  .ui-segment[aria-pressed='true'], .ui-segment[aria-pressed='true']:hover { @apply bg-apple-primary text-apple-on-primary; }
+
+  .ui-surface { @apply min-w-0 rounded-card border border-apple-hairline bg-apple-surface-pearl; }
+  .ui-surface-default { @apply p-5 sm:p-6; }
+  .ui-surface-compact { @apply p-4; }
+  .ui-surface-none { @apply p-0; }
+  .ui-metric { @apply relative flex flex-col items-start overflow-hidden text-left; }
+  .ui-metric-highlighted { @apply border-apple-primary/40 bg-apple-primary/5; }
+  .ui-metric-label { @apply relative z-10 mb-3 text-caption-strong text-apple-ink-muted-48; }
+  .ui-metric-value { @apply relative z-10 font-display text-title-md tabular-nums; overflow-wrap: anywhere; }
+  .ui-metric-detail { @apply relative z-10 mt-2 text-fine-print text-apple-ink-muted-48; }
+  .ui-notice { @apply rounded-md border px-4 py-3 text-left text-caption; }
+  .ui-notice-info { @apply border-apple-primary/20 bg-apple-primary/5 text-apple-ink; }
+  .ui-notice-error { @apply border-apple-error/20 bg-apple-error/5 text-apple-error; }
+}

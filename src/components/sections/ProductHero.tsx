@@ -1,4 +1,5 @@
 import React from 'react';
+import Button from '../common/Button';
 
 interface ProductHeroProps {
   title: string;
@@ -9,25 +10,25 @@ interface ProductHeroProps {
 
 const ProductHero: React.FC<ProductHeroProps> = ({ title, subtitle, ctaText, children }) => {
   return (
-    <section className="relative w-full min-h-[90vh] pt-[44px] flex flex-col items-center justify-start text-center overflow-hidden">
-      <div className="mt-[80px] px-4 animate-apple-rise">
-        <h1 className="break-keep text-apple-ink text-4xl sm:text-hero mb-2 tracking-tight">
+    <section className="relative w-full min-h-[90vh] pt-11 flex flex-col items-center justify-start">
+      <div className="mt-12 max-w-content px-4 text-center animate-apple-rise sm:mt-20 sm:px-6">
+        <h1 className="break-keep text-apple-ink font-display text-display-sm sm:text-hero mb-2 tracking-tight">
           {title}
         </h1>
-        <p className="text-apple-ink text-lead mb-6 tracking-tight">
+        <p className="break-keep text-balance text-apple-ink text-body sm:text-lead mb-8 tracking-tight">
           {subtitle}
         </p>
         {ctaText && (
           <div className="flex justify-center space-x-4 mb-12">
-            <button className="bg-apple-primary text-apple-on-primary px-8 py-3 rounded-pill text-button-utility font-medium hover:bg-apple-primary-focus active:scale-95 transition-colors shadow-sm">
+            <Button variant="primary">
               {ctaText}
-            </button>
+            </Button>
           </div>
         )}
       </div>
       
       {/* Visualization Area */}
-      <div className="w-full px-4 pb-20 flex-grow flex items-center justify-center animate-apple-fade [animation-delay:300ms]">
+      <div className="w-full px-4 sm:px-6 pb-16 flex-grow flex items-center justify-center animate-apple-fade [animation-delay:300ms]">
         {children}
       </div>
     </section>

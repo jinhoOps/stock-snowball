@@ -41,9 +41,4 @@ describe('Workstream 3 Motion migration guard', () => {
     expect(packageJson.dependencies.animejs).toBe('4.5.0');
   });
 
-  it('disables GlobalNav state transitions for reduced-motion users', () => {
-    const source = readSource('src/components/layout/GlobalNav.tsx');
-
-    expect(source.match(/motion-reduce:transition-none/g) ?? []).toHaveLength(2);
-  });
 });
