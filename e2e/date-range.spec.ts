@@ -104,6 +104,8 @@ test('quick periods use the last data date and unsupported days stay disabled', 
 test('economic crises stay visible and apply complete historical windows', async ({ page }, info) => {
   const scenarios = page.getByRole('region', { name: '경제 위기 시나리오' });
   await expect(scenarios).toBeVisible();
+  await expect(scenarios.getByRole('button', { name: '닷컴 버블 붕괴 기간 적용' })).toBeHidden();
+  await scenarios.getByRole('button', { name: /경제 위기 시나리오/ }).click();
   await expect(scenarios.getByRole('button', { name: /대공황/ })).toHaveCount(0);
   for (const [label, startDate, endDate] of [
     ['닷컴 버블 붕괴', '2000-03-24', '2002-10-09'],
@@ -127,6 +129,8 @@ test('family comparisons retain crisis presets and respect their common coverage
   await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
   const scenarios = page.getByRole('region', { name: '경제 위기 시나리오' });
   await expect(scenarios).toBeVisible();
+  await expect(scenarios.getByRole('button', { name: '닷컴 버블 붕괴 기간 적용' })).toBeHidden();
+  await scenarios.getByRole('button', { name: /경제 위기 시나리오/ }).click();
   await expect(scenarios.getByRole('button', { name: '리먼 금융위기 기간 적용' })).toBeDisabled();
   await scenarios.getByRole('button', { name: '2022 금리 인상 기간 적용' }).click();
   expect(await appliedDates(page)).toEqual({ startDate: '2022-01-03', endDate: '2022-10-12' });

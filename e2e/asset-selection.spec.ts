@@ -1,0 +1,32 @@
+import { expect, test } from '@playwright/test';
+
+test('family members can be removed, promoted and toggled in one selection flow', async ({ page }, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/stock-snowball/');
+  await page.getByRole('button', { name: '과거 백테스트 모드' }).click();
+  const family = page.getByRole('button', { name: '나스닥 레버리지 가족 선택' });
+  await family.click();
+  await expect(family).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'TQQQ 기준으로 설정' }).click();
+  await expect(page.getByRole('region', { name: /TQQQ 핵심 지표/ })).toBeVisible();
+  await page.getByRole('button', { name: 'TQQQ 기준 자산 제거' }).click();
+  await expect(page.getByRole('region', { name: /QQQ 핵심 지표/ })).toBeVisible();
+  await expect(family).toHaveAttribute('aria-pressed', 'false');
+  await page.getByText('개별 종목 추가', { exact: true }).click();
+  const individual = page.getByRole('group', { name: '개별 자산 선택' });
+  await individual.getByRole('button', { name: 'TQQQ 개별 자산 선택' }).click();
+  await expect(family).toHaveAttribute('aria-pressed', 'true');
+  await expect(individual.getByRole('button', { name: 'AMD 개별 자산 선택' })).toBeDisabled();
+  await individual.getByRole('button', { name: 'QLD 개별 자산 해제' }).click();
+  await expect(individual.getByRole('button', { name: 'AMD 개별 자산 선택' })).toBeEnabled();
+  await family.click();
+  await family.click();
+  await expect(page.getByRole('button', { name: 'QQQ 기준 자산 제거' })).toBeDisabled();
+  await expect(individual.getByRole('button', { name: 'QQQ 개별 자산 해제' })).toBeDisabled();
+  await expect(page.getByRole('group', { name: '선택 자산' })).not.toContainText('QLD');
+  await expect(family).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: /경제 위기 시나리오/ })).toHaveAttribute('aria-expanded', 'false');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('group', { name: '선택 자산' }).scrollIntoViewIfNeeded();
+  await page.getByRole('group', { name: '선택 자산' }).locator('..').screenshot({ path: `test-results/visual-review/asset-selection-${info.project.name}.png` });
+});

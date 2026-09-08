@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { useState } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -488,4 +489,42 @@ describe('BacktestView', () => {
       ).toBeTruthy();
     }
   });
+});
+
+it('lets family members be toggled in the individual list even at the limit', async () => {
+  const user = userEvent.setup();
+  const onComparisonAssetsChange = vi.fn();
+  render(<BacktestView {...baseProps} primaryAsset="QQQ" comparisonAssets={['QLD', 'TQQQ']} onComparisonAssetsChange={onComparisonAssetsChange} />);
+  await user.click(screen.getByText('개별 종목 추가'));
+  await user.click(screen.getByRole('button', { name: 'QLD 개별 자산 해제' }));
+  expect(onComparisonAssetsChange).toHaveBeenCalledWith(['TQQQ']);
+});
+
+it('promotes the next selected asset when removing the primary', async () => {
+  const user = userEvent.setup();
+  const onComparisonAssetsChange = vi.fn();
+  render(<BacktestView {...baseProps} primaryAsset="QQQ" comparisonAssets={['QLD', 'TQQQ']} onComparisonAssetsChange={onComparisonAssetsChange} />);
+  await user.click(screen.getByRole('button', { name: 'QQQ 기준 자산 제거' }));
+  expect(onComparisonAssetsChange).toHaveBeenCalledWith(['TQQQ'], 'QLD');
+});
+
+it('allows an explicit primary change without dropping selected assets', async () => {
+  const user = userEvent.setup();
+  const onComparisonAssetsChange = vi.fn();
+  render(<BacktestView {...baseProps} primaryAsset="QQQ" comparisonAssets={['QLD', 'TQQQ']} onComparisonAssetsChange={onComparisonAssetsChange} />);
+  await user.click(screen.getByRole('button', { name: 'TQQQ 기준으로 설정' }));
+  expect(onComparisonAssetsChange).toHaveBeenCalledWith(['QQQ', 'QLD'], 'TQQQ');
+});
+
+it.each(['TQQQ 기준으로 설정', 'QQQ 기준 자산 제거'])('preserves keyboard focus after %s', async (buttonName) => {
+  function SelectionHarness() {
+    const [selection, setSelection] = useState<Pick<BacktestViewProps, 'primaryAsset' | 'comparisonAssets'>>({ primaryAsset: 'QQQ', comparisonAssets: ['QLD', 'TQQQ'] });
+    return <BacktestView {...baseProps} {...selection} onComparisonAssetsChange={(comparisonAssets, primaryAsset) =>
+      setSelection((previous) => ({ primaryAsset: primaryAsset ?? previous.primaryAsset, comparisonAssets }))} />;
+  }
+  const user = userEvent.setup();
+  render(<SelectionHarness />);
+  screen.getByRole('button', { name: buttonName }).focus();
+  await user.keyboard('{Enter}');
+  expect(document.activeElement?.getAttribute('data-selected-asset')).toBe(buttonName.startsWith('TQQQ') ? 'TQQQ' : 'QLD');
 });

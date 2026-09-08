@@ -175,9 +175,9 @@ function App() {
     setComparisonAssets(selection.comparisonAssets);
   };
 
-  const handleComparisonAssetsChange = (assets: HistoricalAssetType[]) => {
+  const handleComparisonAssetsChange = (assets: HistoricalAssetType[], primaryAsset?: HistoricalAssetType) => {
     const selection = normalizeBacktestSelection({
-      primaryAsset: backtestParams.assetType,
+      primaryAsset: primaryAsset ?? backtestParams.assetType,
       comparisonAssets: assets,
       startDate: backtestParams.startDate,
       endDate: backtestParams.endDate,

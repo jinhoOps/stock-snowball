@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { HistoricalCoverage } from '../../data/historicalAssets';
 import Button from './Button';
 import { HISTORICAL_SCENARIOS, isPresetSupported, type PresetScenario } from './ScenarioPresetPicker';
@@ -10,8 +10,17 @@ export default function HistoricalScenarioPicker({ coverage, startDate, endDate,
   onSelect: (preset: PresetScenario) => void;
 }) {
   const id = useId();
+  const [expanded, setExpanded] = useState(false);
+  const active = HISTORICAL_SCENARIOS.find((preset) => preset.startDate === startDate && preset.endDate === endDate);
   return <section aria-labelledby={`${id}-title`} className="mt-6 border-t border-apple-hairline pt-6">
-    <h3 id={`${id}-title`} className="text-body font-semibold text-apple-ink">경제 위기 시나리오</h3>
+    <h3 id={`${id}-title`}>
+      <Button variant="ghost" className="w-full justify-between text-left" aria-expanded={expanded} aria-controls={`${id}-content`}
+        onClick={() => setExpanded((value) => !value)}>
+        <span>경제 위기 시나리오</span><span className="text-caption">{expanded ? '접기 −' : '펼치기 +'}</span>
+      </Button>
+    </h3>
+    {active && <p className="mt-2 text-caption text-apple-primary">선택한 구간: {active.label} · {startDate} ~ {endDate}</p>}
+    <div id={`${id}-content`} hidden={!expanded}>
     <p className="mt-2 text-caption text-apple-secondary">닷컴버블 이후 주요 경제 사건을 현재 자산과 납입 조건으로 비교하세요.</p>
     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {HISTORICAL_SCENARIOS.filter((preset) => preset.name !== 'GFC Recovery').map((preset, index) => {
@@ -42,5 +51,6 @@ export default function HistoricalScenarioPicker({ coverage, startDate, endDate,
         </div>)}
     </details>
     <p className="mt-3 text-fine-print leading-relaxed text-apple-secondary">대표 시장 사건의 관찰 구간이며, 종목별 고점·저점과 다를 수 있습니다. 날짜를 변경해 전후 회복 구간도 살펴볼 수 있습니다.</p>
+    </div>
   </section>;
 }
