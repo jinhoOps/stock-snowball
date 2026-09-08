@@ -34,3 +34,5 @@
 - [연준 FEDS Notes 부록](https://www.federalreserve.gov/econres/notes/feds-notes/u-s-interest-rates-and-emerging-market-currencies-taking-stock-10-years-after-the-taper-tantrum-20231004.html)의 사건 관찰 구간을 사용: 유럽 재정위기 2011-07-22 ~ 2011-11-25, 중국 경기 둔화·위안화 절하 2015-05-20 ~ 2015-09-23. 해당 연구는 신흥국 통화 사건 연구이며, 이 날짜를 미국 주식의 고점·저점으로 표시하지 않는다.
 - [연준 2019년 2월 통화정책 보고서](https://www.federalreserve.gov/monetarypolicy/2019-02-mpr-part1.htm)의 2018년 4분기 주식시장 불안에 맞춰 2018-10-01 ~ 2018-12-31로 설정. 연말 반등을 포함한다.
 - [연준 2023년 5월 금융안정 보고서](https://www.federalreserve.gov/publications/files/financial-stability-report-20230508.pdf)의 3월 6일 주간부터 시작된 은행 불안을 관찰하도록 2023-03-06 ~ 2023-03-24의 3주를 선정했다. 3주 종료일은 이 앱의 관찰 범위이며 위기 종료일을 뜻하지 않는다.
+
+- PR 준비 시 최신 main의 데이터 갱신을 반영했다. 단위 203개·빌드·토큰 검사를 재확인했고, E2E 30개 통과 후 데이터 마지막 날짜를 하드코딩하던 2개 검증을 manifest 기준으로 고쳐 재실행 통과했다.

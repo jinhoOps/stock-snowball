@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 async function appliedDates(page: Page) {
@@ -79,13 +80,25 @@ test('quick periods use the last data date and unsupported days stay disabled', 
   }
   await presets.getByRole('button', { name: '3년', exact: true }).click();
   await expect(presets.getByRole('button', { name: '3년', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  expect(await appliedDates(page)).toEqual({ startDate: '2023-09-02', endDate: '2026-09-02' });
+  const manifest = JSON.parse(readFileSync(new URL('../src/data/indices/manifest.json', import.meta.url), 'utf8'));
+  const endDate: string = manifest.assets.SPY.endDate;
+  const last = new Date(`${endDate}T00:00:00Z`);
+  const threeYearsAgo = new Date(last);
+  threeYearsAgo.setUTCFullYear(last.getUTCFullYear() - 3);
+  expect(await appliedDates(page)).toEqual({ startDate: threeYearsAgo.toISOString().slice(0, 10), endDate });
   await page.getByRole('button', { name: '백테스트 기간 변경' }).click();
   const dialog = page.getByRole('dialog', { name: '백테스트 기간 선택' });
-  await dialog.getByLabel('달력 연도').selectOption({ label: '2026년' });
-  await dialog.getByLabel('달력 월').selectOption({ label: '9월' });
-  await expect(dialog.getByRole('button', { name: /2026년 9월 3일/ })).toBeDisabled();
+  await dialog.getByLabel('달력 연도').selectOption({ label: `${last.getUTCFullYear()}년` });
+  await dialog.getByLabel('달력 월').selectOption({ label: `${last.getUTCMonth() + 1}월` });
+  const next = new Date(last);
+  next.setUTCDate(last.getUTCDate() + 1);
+  if (next.getUTCMonth() === last.getUTCMonth()) {
+    await expect(dialog.getByRole('button', { name: new RegExp(`${next.getUTCFullYear()}년 ${next.getUTCMonth() + 1}월 ${next.getUTCDate()}일`) })).toBeDisabled();
+  }
   await expect(dialog.getByRole('button', { name: '다음 달', exact: true })).toBeDisabled();
+  await dialog.getByLabel('백테스트 종료일').fill(next.toISOString().slice(0, 10));
+  await expect(dialog.getByRole('button', { name: '기간 적용' })).toBeDisabled();
+  await expect(dialog.getByRole('alert')).toContainText('선택 가능한 기간');
 });
 
 test('economic crises stay visible and apply complete historical windows', async ({ page }, info) => {
