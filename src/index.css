@@ -1,3 +1,5 @@
+@import './styles/components.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,14 +7,38 @@
 @layer base {
   :root {
     font-family: "SF Pro Text", "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    --apple-primary: #0066cc;
-    --apple-ink: #1d1d1f;
-    --apple-ink-muted-48: #7a7a7a;
-    --apple-divider-soft: #f0f0f0;
-    --apple-hairline: #e0e0e0;
-    --market-index: #86868b;
-    --market-sma-20: #c65d00;
-    --market-sma-60: #af52de;
+    /* RGB channels are the source of truth; Tailwind supplies color opacity. */
+    --color-primary: 0 102 204;
+    --color-primary-focus: 0 91 181;
+    --color-primary-on-dark: 41 151 255;
+    --color-ink: 29 29 31;
+    --color-ink-strong: 51 51 51;
+    --color-secondary: 98 98 104;
+    --color-error: 180 35 24;
+    --color-success: 24 121 78;
+    --color-divider: 240 240 240;
+    --color-hairline: 224 224 224;
+    --color-canvas: 240 242 245;
+    --color-canvas-parchment: 245 245 247;
+    --color-surface-pearl: 250 250 252;
+    --color-white: 255 255 255;
+    --color-black: 0 0 0;
+    --color-chip: 210 210 215;
+    --color-on-dark: var(--color-canvas);
+    --color-market-index: 134 134 139;
+    --color-market-sma-20: 198 93 0;
+    --color-market-sma-60: 175 82 222;
+
+    /* SVG/chart consumers need complete colors rather than bare RGB channels. */
+    --apple-primary: rgb(var(--color-primary));
+    --apple-ink: rgb(var(--color-ink));
+    --apple-ink-muted-48: rgb(var(--color-secondary));
+    --apple-gray-400: rgb(var(--color-market-index));
+    --apple-divider-soft: rgb(var(--color-divider));
+    --apple-hairline: rgb(var(--color-hairline));
+    --market-index: rgb(var(--color-market-index));
+    --market-sma-20: rgb(var(--color-market-sma-20));
+    --market-sma-60: rgb(var(--color-market-sma-60));
   }
 
   html {
@@ -23,9 +49,7 @@
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: linear-gradient(135deg, #f0f2f5 0%, #e6eef5 100%);
-    background-attachment: fixed;
-    @apply text-apple-body;
+    @apply bg-apple-canvas text-apple-body;
   }
 
   /* SF Pro / Inter Font Stack Tightening */
@@ -38,7 +62,7 @@
   }
 
   ::selection {
-    background-color: rgba(0, 102, 204, 0.2);
+    background-color: rgb(var(--color-primary) / 0.2);
     @apply text-apple-ink;
   }
 
@@ -53,23 +77,23 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #d2d2d7;
+    background: rgb(var(--color-chip));
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #7a7a7a;
+    background: rgb(var(--color-secondary));
   }
 }
 
 @layer utilities {
   .frosted-glass {
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: rgb(var(--color-white) / 0.8);
     backdrop-filter: blur(20px) saturate(180%);
   }
 
   .frosted-glass-dark {
-    background-color: rgba(39, 39, 41, 0.8);
+    background-color: rgb(var(--color-ink) / 0.8);
     backdrop-filter: blur(20px) saturate(180%);
   }
 }
@@ -82,6 +106,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
   html {
     scroll-behavior: auto;
   }

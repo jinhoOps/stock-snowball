@@ -1,6 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useId, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
 import { HistoricalCoverage } from '../../data/historicalAssets';
+import Button from './Button';
+import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
 
 export interface PresetScenario {
   name: string;
@@ -96,6 +99,8 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
   activePresetName,
   familyPresets,
 }) => {
+  const panelId = useId();
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [isExpanded, setIsExpanded] = useState(false);
   const isFamilySelection = familyPresets !== undefined;
   const durationPresets = useMemo(
@@ -118,7 +123,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
     : undefined;
 
   return (
-    <div className="flex flex-col gap-3 w-full mt-1">
+    <div role="group" aria-label="기간 프리셋" className="flex flex-col gap-3 w-full mt-1">
       <div className="flex flex-wrap gap-2 items-center">
         {basicScenarios.map((preset) => (
           <ScenarioButton 
@@ -131,17 +136,16 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
           />
         ))}
         
-        {!isFamilySelection && <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+        {!isFamilySelection && <Button
+          variant="secondary"
+          size="compact"
+          aria-expanded={isExpanded}
+          aria-controls={isExpanded ? panelId : undefined}
           onClick={() => setIsExpanded(!isExpanded)}
-          className="px-3 py-1.5 rounded-pill text-[11px] font-bold border border-apple-hairline bg-apple-surface-pearl text-apple-primary transition-colors hover:bg-apple-divider-soft flex items-center gap-1 shadow-sm"
         >
           {isExpanded ? '시나리오 접기' : '더 많은 시나리오'}
-          <motion.span animate={{ rotate: isExpanded ? 180 : 0 }}>
-            ↓
-          </motion.span>
-        </motion.button>}
+          <ChevronDown className={`h-4 w-4 transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </Button>}
       </div>
 
       {familyDisabledReason && (
@@ -156,11 +160,12 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
       <AnimatePresence>
         {!isFamilySelection && isExpanded && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
+            id={panelId}
+            initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="overflow-hidden flex flex-col gap-4 bg-white/50 backdrop-blur-sm rounded-lg p-3 border border-apple-hairline/50"
+            transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
+            className="ui-surface ui-surface-compact flex flex-col gap-4 overflow-hidden"
           >
             <div className="flex flex-col gap-2">
               <span className="text-micro-legal font-bold text-apple-ink-muted-48 ml-1 tracking-widest uppercase">간편 기간 설정</span>
@@ -211,29 +216,17 @@ const ScenarioButton = ({
   disabledReasonId?: string;
   onClick: () => void;
 }) => (
-  <motion.button
-    whileHover={{ scale: 1.05 }}
-    whileTap={{ scale: 0.95 }}
+  <Button
+    variant={isActive ? 'primary' : 'secondary'}
+    size="compact"
     onClick={onClick}
     disabled={disabled}
+    aria-pressed={isActive}
     aria-describedby={disabled ? disabledReasonId : undefined}
     title={preset.description}
-    className={`px-4 py-2 rounded-pill text-[12px] font-bold border transition-all relative overflow-hidden disabled:cursor-not-allowed disabled:opacity-40 ${
-      isActive
-        ? 'bg-apple-primary text-white border-apple-primary shadow-md scale-105 z-10'
-        : 'bg-white text-apple-ink border-apple-hairline hover:bg-apple-canvas-parchment shadow-sm hover:border-apple-primary/30'
-    }`}
   >
-    {isActive && (
-      <motion.div 
-        layoutId="active-highlight"
-        className="absolute inset-0 bg-white/10"
-        initial={false}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      />
-    )}
-    <span className="relative z-10">{preset.name}</span>
-  </motion.button>
+    {preset.name}
+  </Button>
 );
 
 export default ScenarioPresetPicker;

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, type InputHTMLAttributes } from 'react';
+import clsx from 'clsx';
 
-interface NumericInputProps {
+interface NumericInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type' | 'onFocus' | 'onBlur'> {
   value: number;
   onChange: (value: number) => void;
   className?: string;
@@ -20,6 +21,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   id,
   placeholder,
   'aria-label': ariaLabel,
+  ...inputProps
 }) => {
   const [inputValue, setInputValue] = useState<string>(value.toString());
   const [isFocused, setIsFocused] = useState(false);
@@ -68,6 +70,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
 
   return (
     <input
+      {...inputProps}
       id={id}
       type="text"
       inputMode="numeric"
@@ -75,7 +78,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
       onChange={handleChange}
       onFocus={handleFocus}
       onBlur={handleBlur}
-      className={className}
+      className={clsx('ui-input', className)}
       placeholder={placeholder}
       aria-label={ariaLabel}
     />

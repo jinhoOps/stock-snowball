@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -36,16 +36,23 @@ describe('SimulationControls', () => {
     selectedAssets: ['QQQ' as const],
   };
 
-  it('keeps projection input controls visually aligned', () => {
-    const markup = renderToStaticMarkup(React.createElement(SimulationControls, baseProjectionProps));
+  it('exposes named single-choice controls and sends the selected values', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    const setMode = vi.fn();
+    const setCurrency = vi.fn();
+    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} setMode={setMode} setCurrency={setCurrency} />);
 
-    expect(markup).toContain('id="principal-input"');
-    expect(markup).toContain('id="monthly-investment-input"');
-    expect(markup).toContain('id="years-number"');
-    expect(markup).toContain('class="mb-3 flex h-6 w-full items-center px-2"');
-    expect(markup).toContain('class="relative mb-3 flex h-6 w-full items-center px-2"');
-    expect(markup).toContain('absolute right-2 top-1/2 flex -translate-y-1/2');
-    expect(markup).toContain('flex h-12 min-h-12 flex-1 items-center rounded-pill border border-apple-hairline bg-apple-canvas px-4');
+    await user.click(within(screen.getByRole('group', { name: '계산 모드' })).getByRole('button', { name: '과거 백테스트 모드' }));
+    await user.click(within(screen.getByRole('group', { name: '표시 통화' })).getByRole('button', { name: 'USD' }));
+    const cycle = within(screen.getByRole('group', { name: '납입 주기' }));
+    expect(cycle.getByRole('button', { name: '일' }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(cycle.getByRole('button', { name: '월' }));
+
+    expect(setMode).toHaveBeenCalledWith('BACKTEST');
+    expect(setCurrency).toHaveBeenCalledWith('USD');
+    expect(onUpdate).toHaveBeenCalledWith({ cycle: 'MONTHLY' });
+    expect(screen.getByLabelText('초기 자산 (KRW)').getAttribute('aria-describedby')).toBeTruthy();
   });
 
   it('renders family duration presets for an exact selected leverage family', () => {
@@ -82,6 +89,15 @@ describe('SimulationControls', () => {
     expect(markup).not.toContain('YTD');
   });
 
+  it('lets the existing parent normalization handle a cleared duration', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} />);
+    await user.clear(screen.getByRole('textbox', { name: '투자 기간 직접 입력' }));
+    await user.tab();
+    expect(onUpdate).toHaveBeenLastCalledWith({ years: 0 });
+  });
+
   it('explains an unavailable period and applies full common coverage only after confirmation', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn();
@@ -102,6 +118,8 @@ describe('SimulationControls', () => {
 
     expect(screen.getByRole('alert').textContent).toContain('공통 데이터');
     expect(screen.getByRole('status').textContent).toContain('기존 기간은 유지');
+    expect(screen.getByLabelText('백테스트 시작일').getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByLabelText('백테스트 종료일').getAttribute('aria-describedby')).toContain('backtest-range-error');
 
     await user.click(screen.getByRole('button', { name: '가능한 전체 기간 적용' }));
 

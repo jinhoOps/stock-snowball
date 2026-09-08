@@ -47,6 +47,17 @@ afterEach(() => {
 });
 
 describe('KPIGrid Anime.js migration', () => {
+  it('shows a percentage without a currency estimate and keeps a negative return sign', () => {
+    stubMotionPreference(true);
+    render(<KPIGrid {...baseProps} returnPercentage={-10} />);
+    const rateCard = screen.getByText('연복리 수익률 (CAGR)').closest('.kpi-card') as HTMLElement;
+    expect(rateCard.textContent).toContain('7.50%');
+    expect(rateCard.textContent).not.toMatch(/약|원|\$/);
+    const returnCard = screen.getByText('총 수익금').closest('.kpi-card') as HTMLElement;
+    expect(returnCard.textContent).toContain('-10.00%');
+    expect(returnCard.textContent).not.toContain('+-');
+  });
+
   it('scopes decorative Anime.js to the grid root and reverts on unmount', () => {
     createScope.mockImplementation(() => ({ add: vi.fn((callback: () => void) => callback()), revert }));
     animate.mockReturnValue({ revert: vi.fn(), restart: vi.fn(), cancel: vi.fn() });

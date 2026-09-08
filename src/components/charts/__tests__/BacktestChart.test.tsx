@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BacktestChart, {
   BacktestChartInner,
@@ -81,20 +79,6 @@ const firstPathY = (path: SVGPathElement): number => {
   const match = path.getAttribute('d')?.match(/^M[^,]+,([\d.-]+)/);
   if (!match) throw new Error(`Expected a path beginning with an M coordinate, received ${path.getAttribute('d')}`);
   return Number(match[1]);
-};
-
-const relativeLuminance = (hex: string): number => {
-  const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
-  const [red, green, blue] = channels.map((channel) => (
-    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
-  ));
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-};
-
-const contrastRatio = (foreground: string, background: string): number => {
-  const [lighter, darker] = [relativeLuminance(foreground), relativeLuminance(background)]
-    .sort((left, right) => right - left);
-  return (lighter + 0.05) / (darker + 0.05);
 };
 
 class TestResizeObserver {
@@ -240,15 +224,6 @@ describe('BacktestChart date alignment', () => {
     expect(liveTooltip.textContent).toContain('2025년 1월 2일');
     expect(liveTooltip.textContent).toContain('SPY');
     expect(liveTooltip.textContent).toContain('$100');
-  });
-});
-
-describe('BacktestChart market trend styling', () => {
-  it('keeps the SMA-20 stroke at 3:1 contrast or better on the chart surface', () => {
-    const appCss = readFileSync(path.join(process.cwd(), 'src/index.css'), 'utf8');
-    const sma20 = appCss.match(/--market-sma-20:\s*(#[\da-f]{6})/i)?.[1];
-    expect(sma20).toBeDefined();
-    expect(contrastRatio(sma20!, '#fafafc')).toBeGreaterThanOrEqual(3);
   });
 });
 

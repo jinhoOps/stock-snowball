@@ -28,10 +28,10 @@ export const BigNumberHelper: React.FC<BigNumberHelperProps> = ({
     : SnowballEngine.formatBigNumber(value, currency, true);
 
   return (
-    <div className={`text-fine-print text-apple-ink-muted-48 mt-1 transition-all duration-300 ${className}`}>
+    <div className={`text-fine-print leading-relaxed text-apple-ink-muted-48 mt-1 ${className}`}>
       {formatted && <div>{formatted}</div>}
       {showExchangeRate && currency === 'USD' && (
-        <div className="text-[10px] text-apple-primary/80 mt-0.5 font-medium">
+        <div className="text-fine-print leading-relaxed text-apple-primary mt-0.5 font-medium">
           적용 환율: {exchangeRate.toLocaleString()}원
         </div>
       )}

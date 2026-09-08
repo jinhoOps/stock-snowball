@@ -67,6 +67,20 @@ test('Nasdaq family exposes completed-week market values in both result views', 
   await expect(page.getByRole('button', { name: '시작값 100' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('path[aria-label="나스닥100 가격지수"]')).toBeVisible();
   await expect(page.locator('path[aria-label="나스닥100 20주 SMA"]')).toBeVisible();
+  const sma20Contrast = await page.locator('path[aria-label="나스닥100 20주 SMA"]').evaluate((element) => {
+    const luminance = (color: string) => {
+      const [red, green, blue] = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    };
+    const surface = element.closest('.ui-surface')!;
+    const [lighter, darker] = [getComputedStyle(element).stroke, getComputedStyle(surface).backgroundColor]
+      .map(luminance).sort((a, b) => b - a);
+    return (lighter + 0.05) / (darker + 0.05);
+  });
+  expect(sma20Contrast).toBeGreaterThanOrEqual(3);
   await expect(page.locator('path[aria-label="나스닥100 60주 SMA"]')).toBeVisible();
   await slider.focus();
   await expect(tooltip).toContainText('1,746.12');
