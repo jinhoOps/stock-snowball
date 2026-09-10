@@ -1,5 +1,6 @@
 import { Decimal } from 'decimal.js';
-import { AccountType, FeeConfig, TaxConfig, SimulationResult, StrategyConfig, AssetType } from '../types/finance';
+import { AccountType, FeeConfig, TaxConfig, SimulationResult, SimulationRangeResult, StrategyConfig, AssetType, BacktestHistoryPoint, DEFAULT_TAX_CONFIG } from '../types/finance';
+import { calculateMoneyWeightedReturn } from './MoneyWeightedReturn';
 
 
 // Decimal 설정: 금융 연산을 위해 정밀도를 높게 설정 (기본 20 -> 40)
@@ -9,6 +10,13 @@ Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
  * SnowballEngine: 고정밀 금융 연산을 담당하는 핵심 클래스
  */
 export class SnowballEngine {
+  /** Annual rates are effective rates; projection years contain 365 days. */
+  private static dailyGrowthFactor(annualRate: Decimal | number | string): Decimal {
+    const rate = new Decimal(annualRate);
+    if (!rate.isFinite() || rate.lt(-1)) throw new RangeError('Annual rate must be finite and at least -100%.');
+    return rate.plus(1).pow(new Decimal(1).dividedBy(365));
+  }
+
   /**
    * Banker's Rounding (Rounding Half to Even)을 수행합니다.
    * @param value 반올림할 값
@@ -21,7 +29,8 @@ export class SnowballEngine {
 
   /**
    * 일 단위 복리를 계산합니다. (추가 불입금 포함)
-   * 공식: A = P(1+r/n)^(nt) + PMT * [((1+r/n)^(nt) - 1) / (r/n)]
+   * 일 수익률 q = (1 + 연 유효 수익률)^(1/365) - 1
+   * 공식: A = P(1+q)^days + PMT * [((1+q)^days - 1) / q]
    * @param principal 원금 (P)
    * @param annualRate 연이율 (r, 예: 0.05 for 5%)
    * @param days 투자 기간 (n, 일수)
@@ -39,22 +48,22 @@ export class SnowballEngine {
     const n = new Decimal(days);
     const PMT = new Decimal(dailyContribution);
 
+    if (!n.isFinite() || n.lt(0)) throw new RangeError('Days must be finite and nonnegative.');
+    const dailyRate = this.dailyGrowthFactor(r).minus(1);
     if (n.isZero()) return P;
 
-    const dailyRate = r.dividedBy(365);
-    
     // 이자율이 0인 경우 단순 합산
     if (dailyRate.isZero()) {
       return P.plus(PMT.times(n));
     }
 
-    // (1 + r/365)^n
+    // (1 + annualRate)^(days/365)
     const multiplier = dailyRate.plus(1).pow(n);
     
-    // 원금의 성장: P * (1 + r/365)^n
+    // 원금의 성장
     const principalGrowth = P.times(multiplier);
     
-    // 불입금의 성장: PMT * [((1 + r/365)^n - 1) / (r/365)]
+    // 매일 말에 납입한 불입금의 성장
     const contributionGrowth = PMT.times(multiplier.minus(1).dividedBy(dailyRate));
 
     return principalGrowth.plus(contributionGrowth);
@@ -77,8 +86,9 @@ export class SnowballEngine {
     const i = new Decimal(annualInflationRate);
     const n = new Decimal(days);
 
-    const dailyInflation = i.dividedBy(365);
-    const divisor = dailyInflation.plus(1).pow(n);
+    if (!i.isFinite() || i.lte(-1)) throw new RangeError('Inflation must be finite and greater than -100%.');
+    if (!n.isFinite() || n.lt(0)) throw new RangeError('Days must be finite and nonnegative.');
+    const divisor = i.plus(1).pow(n.dividedBy(365));
 
     return FV.dividedBy(divisor);
   }
@@ -116,7 +126,12 @@ export class SnowballEngine {
    * @returns 포맷팅된 문자열 (예: 1억 2,345만 6,789원)
    */
   static formatKoreanWon(value: Decimal | number | string, simplified: boolean = false): string {
-    const amount = new Decimal(value).floor();
+    const signedAmount = new Decimal(value);
+    if (signedAmount.isNegative()) {
+      const formatted = this.formatKoreanWon(signedAmount.abs(), simplified);
+      return formatted === '0원' ? formatted : `-${formatted}`;
+    }
+    const amount = signedAmount.floor();
     if (amount.isZero()) return '0원';
 
     // 1억 원(10^8) 이상일 경우 1만 원 미만 단위는 반드시 절삭 (사용자 요청)
@@ -264,10 +279,10 @@ export class SnowballEngine {
 
 
   /**
-   * 주말(토, 일)을 제외한 영업일 여부를 확인합니다.
+   * UTC 날짜 기준으로 주말(토, 일)을 제외합니다. 시장 공휴일은 모델링하지 않습니다.
    */
   static isBusinessDay(date: Date): boolean {
-    const day = date.getDay();
+    const day = date.getUTCDay();
     return day !== 0 && day !== 6;
   }
 
@@ -282,12 +297,12 @@ export class SnowballEngine {
     strategy: StrategyConfig = { type: 'FIXED', baseAmount: 0 },
     inflationRate: number = 0,
     accountType: AccountType = 'GENERAL',
-    taxConfig: TaxConfig = { dividendTaxRate: 0.154, capitalGainTaxRate: 0.22, isaTaxFreeLimit: 2000000, isaReducedTaxRate: 0.095 },
+    taxConfig: TaxConfig = DEFAULT_TAX_CONFIG,
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
     exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
     intervalDays: number = 30,
     _assetType: AssetType = 'CUSTOM'
-  ): { pessimistic: SimulationResult[]; average: SimulationResult[]; optimistic: SimulationResult[] } {
+  ): SimulationRangeResult {
     // 자산군별 기대 변동성 (연율화 표준편차)
     const getVolatility = (type: AssetType): number => {
       switch (type) {
@@ -303,45 +318,99 @@ export class SnowballEngine {
       }
     };
 
-    const totalDays = years * 365;
-    const startDate = new Date();
+    if (!Number.isFinite(years) || years < 0 || !Number.isSafeInteger(Math.round(years * 365))) {
+      throw new RangeError('Years must produce a finite, nonnegative number of days.');
+    }
+    if (!Number.isInteger(intervalDays) || intervalDays <= 0) throw new RangeError('Sampling interval must be a positive integer.');
+    const nonnegativeAmounts = [principal, strategy.baseAmount ?? 0, strategy.targetGrowth ?? 0, taxConfig.isaTaxFreeLimit];
+    if (nonnegativeAmounts.some(value => !Number.isFinite(value) || value < 0)) throw new RangeError('Amounts must be finite and nonnegative.');
+    const feeAndTaxRates = [feeConfig.buyFeeRate, feeConfig.sellFeeRate, taxConfig.dividendTaxRate, taxConfig.capitalGainTaxRate, taxConfig.isaReducedTaxRate];
+    if (feeAndTaxRates.some(value => !Number.isFinite(value) || value < 0 || value > 1) || feeConfig.buyFeeRate === 1) {
+      throw new RangeError('Fees and tax rates must be between 0 and 1, with purchase fees below 1.');
+    }
+    if (!Number.isFinite(strategy.increaseRate ?? 0) || (strategy.increaseRate ?? 0) < -1) throw new RangeError('Contribution growth must be finite and at least -100%.');
+    if (!Number.isFinite(exchangeRateConfig.base) || exchangeRateConfig.base <= 0) throw new RangeError('Exchange rate must be positive and finite.');
+    if (!Number.isFinite(inflationRate) || inflationRate <= -1) throw new RangeError('Inflation must be finite and greater than -100%.');
+    if (!Number.isFinite(exchangeRateConfig.annualChangeRate) || exchangeRateConfig.annualChangeRate <= -1) throw new RangeError('Exchange rate change must be finite and greater than -100%.');
+
+    const totalDays = Math.round(years * 365);
+    const today = new Date();
+    // Encode the user's local calendar day as a UTC date-only timestamp.
+    const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
 
     const buyFeeRate = new Decimal(feeConfig.buyFeeRate);
     const sellFeeRate = new Decimal(feeConfig.sellFeeRate);
-    const dailyInflation = new Decimal(inflationRate).dividedBy(365);
-    const dailyExchangeChange = new Decimal(exchangeRateConfig.annualChangeRate).dividedBy(365);
+    const dailyInflationGrowth = this.dailyGrowthFactor(inflationRate);
+    const dailyExchangeGrowth = this.dailyGrowthFactor(exchangeRateConfig.annualChangeRate);
 
     const initialNominal = new Decimal(principal).minus(new Decimal(principal).times(buyFeeRate));
     
     // 3가지 시나리오용 상태
-    let states = {
-      pessimistic: { currentNominal: initialNominal, totalContribution: new Decimal(principal), totalFees: new Decimal(principal).times(buyFeeRate), results: [] as SimulationResult[] },
-      average: { currentNominal: initialNominal, totalContribution: new Decimal(principal), totalFees: new Decimal(principal).times(buyFeeRate), results: [] as SimulationResult[] },
-      optimistic: { currentNominal: initialNominal, totalContribution: new Decimal(principal), totalFees: new Decimal(principal).times(buyFeeRate), results: [] as SimulationResult[] },
+    const states = {
+      pessimistic: { currentNominal: initialNominal, results: [] as SimulationResult[] },
+      average: { currentNominal: initialNominal, results: [] as SimulationResult[] },
+      optimistic: { currentNominal: initialNominal, results: [] as SimulationResult[] },
     };
 
     let currentExchangeRate = new Decimal(exchangeRateConfig.base);
+    // Inputs use the asset currency; cost basis and paid fees use historical KRW.
+    let totalContributionInKrw = new Decimal(principal).times(currentExchangeRate);
+    let totalBuyFeesInKrw = totalContributionInKrw.times(buyFeeRate);
+    const cashFlowHistory: BacktestHistoryPoint[] = [];
 
     // 일일 성장 연산 (Projection 모드에서는 과거 낙폭을 재현하지 않고 고정 CAGR 기반 성장)
-    const dailyRate = new Decimal(annualRate).dividedBy(365);
+    const dailyGrowth = this.dailyGrowthFactor(annualRate);
     
-    // 통계적 범위 설정을 위한 파라미터 (Z-score 1.645 = 90% 신뢰구간)
+    // Illustrative volatility envelope, not a calibrated probability interval.
     const zScore = 1.645;
     const annualVolatility = getVolatility(_assetType);
 
     for (let d = 0; d <= totalDays; d++) {
       const date = new Date(startDate);
-      date.setDate(startDate.getDate() + d);
-      
-      // 변동성 봉투(Volatility Envelope) 계산: Square-root of Time Rule
-      // d가 커질수록 d/365의 제곱근에 비례하여 범위가 넓어짐
-      const yearsPassed = d / 365;
-      
-      // 개별 일자의 변동성 기여도 (미분값): sigma * Z / (2 * sqrt(t))
-      // 이를 매일 누적하면 최종적으로 sigma * Z * sqrt(T)의 범위가 형성됨
-      const dailyVolatilityOffset = d === 0 
-        ? 0 
-        : (annualVolatility * zScore) / (2 * Math.sqrt(yearsPassed) * 365);
+      date.setUTCDate(startDate.getUTCDate() + d);
+
+      // Initial principal only at day zero. Later points include that date's
+      // closing growth and cash contribution, including the final date.
+      if (d > 0) {
+        const volatilityStep = annualVolatility * zScore * (Math.sqrt(d / 365) - Math.sqrt((d - 1) / 365));
+        states.average.currentNominal = states.average.currentNominal.times(dailyGrowth);
+        states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(dailyGrowth).times(Math.exp(-volatilityStep));
+        states.optimistic.currentNominal = states.optimistic.currentNominal.times(dailyGrowth).times(Math.exp(volatilityStep));
+        currentExchangeRate = currentExchangeRate.times(dailyExchangeGrowth);
+
+        const cycle = strategy.cycle || 'MONTHLY';
+        const contributionDue = (cycle === 'DAILY' && this.isBusinessDay(date))
+          || (cycle === 'WEEKLY' && date.getUTCDay() === 1)
+          || (cycle === 'MONTHLY' && date.getUTCDate() === 1);
+        let contribution = new Decimal(0);
+        if (strategy.type === 'VALUE_AVERAGING') {
+          // Calendar-month targets, with the same average-path cashflow in all bands.
+          if (date.getUTCDate() === 1) {
+            const monthsPassed = (date.getUTCFullYear() - startDate.getUTCFullYear()) * 12 + date.getUTCMonth() - startDate.getUTCMonth();
+            const target = new Decimal(strategy.targetGrowth ?? strategy.baseAmount).times(monthsPassed).plus(principal);
+            contribution = Decimal.max(0, target.minus(states.average.currentNominal)).dividedBy(new Decimal(1).minus(buyFeeRate));
+          }
+        } else if (contributionDue) {
+          const increase = strategy.type === 'STEP_UP'
+            ? new Decimal(strategy.increaseRate ?? 0).plus(1).pow(Math.floor(d / 365))
+            : new Decimal(1);
+          contribution = new Decimal(strategy.baseAmount).times(increase);
+        }
+
+        if (contribution.gt(0)) {
+          const fee = contribution.times(buyFeeRate);
+          const netContribution = contribution.minus(fee);
+          for (const state of Object.values(states)) state.currentNominal = state.currentNominal.plus(netContribution);
+          totalContributionInKrw = totalContributionInKrw.plus(contribution.times(currentExchangeRate));
+          totalBuyFeesInKrw = totalBuyFeesInKrw.plus(fee.times(currentExchangeRate));
+        }
+      }
+
+      cashFlowHistory.push({
+        date: date.toISOString().slice(0, 10),
+        value: states.average.currentNominal.times(currentExchangeRate).toNumber(),
+        principal: totalContributionInKrw.toNumber(),
+      });
 
       // 데이터 포인트 기록
       if (d % intervalDays === 0 || d === totalDays) {
@@ -349,89 +418,31 @@ export class SnowballEngine {
           const state = states[key];
           const currentNominalInKrw = state.currentNominal.times(currentExchangeRate);
           const sellFees = currentNominalInKrw.times(sellFeeRate);
-          const totalFeesWithSell = state.totalFees.plus(sellFees);
-          const totalContributionInKrw = state.totalContribution.times(currentExchangeRate);
+          const totalFeesWithSell = totalBuyFeesInKrw.plus(sellFees);
           const totalGains = currentNominalInKrw.minus(totalContributionInKrw).minus(sellFees);
           const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
           const postTaxValue = currentNominalInKrw.minus(sellFees).minus(estimatedTax);
-          const realValue = postTaxValue.dividedBy(dailyInflation.plus(1).pow(d));
+          const realValue = postTaxValue.dividedBy(dailyInflationGrowth.pow(d));
 
           state.results.push({
             date: new Date(date),
-            nominalValue: this.bankersRounding(currentNominalInKrw).toNumber(),
-            realValue: this.bankersRounding(realValue).toNumber(),
-            totalContribution: this.bankersRounding(totalContributionInKrw).toNumber(),
-            totalGains: this.bankersRounding(totalGains).toNumber(),
-            totalFees: this.bankersRounding(totalFeesWithSell).toNumber(),
-            estimatedTax: this.bankersRounding(estimatedTax).toNumber(),
-            postTaxValue: this.bankersRounding(postTaxValue).toNumber(),
+            nominalValue: currentNominalInKrw.toNumber(),
+            realValue: realValue.toNumber(),
+            totalContribution: totalContributionInKrw.toNumber(),
+            totalGains: totalGains.toNumber(),
+            totalFees: totalFeesWithSell.toNumber(),
+            estimatedTax: estimatedTax.toNumber(),
+            postTaxValue: postTaxValue.toNumber(),
           });
         }
       }
-
-      if (d === totalDays) break;
-
-      // 분산 적용 (Pessimistic / Average / Optimistic)
-      const dOffset = new Decimal(dailyVolatilityOffset);
-      
-      states.average.currentNominal = states.average.currentNominal.times(dailyRate.plus(1));
-      states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(dailyRate.minus(dOffset).plus(1));
-      states.optimistic.currentNominal = states.optimistic.currentNominal.times(dailyRate.plus(dOffset).plus(1));
-      
-      // 환율 변동
-      currentExchangeRate = currentExchangeRate.times(dailyExchangeChange.plus(1));
-
-      // 추가 불입 (납입 주기에 따른 로직 적용)
-      const isBizDay = this.isBusinessDay(date);
-      const cycle = strategy.cycle || 'MONTHLY';
-      let dailyContribution = new Decimal(0);
-      
-      if (strategy.type === 'FIXED') {
-        if (cycle === 'DAILY' && isBizDay) {
-          dailyContribution = new Decimal(strategy.baseAmount);
-        } else if (cycle === 'WEEKLY' && date.getDay() === 1) { // 매주 월요일
-          dailyContribution = new Decimal(strategy.baseAmount);
-        } else if (cycle === 'MONTHLY' && date.getDate() === 1) { // 매달 1일
-          dailyContribution = new Decimal(strategy.baseAmount);
-        }
-      } else if (strategy.type === 'STEP_UP') {
-        const year = Math.floor(d / 365);
-        const annualIncrease = new Decimal(strategy.increaseRate || 0).plus(1).pow(year);
-        const base = new Decimal(strategy.baseAmount).times(annualIncrease);
-        
-        if (cycle === 'DAILY' && isBizDay) {
-          dailyContribution = base;
-        } else if (cycle === 'WEEKLY' && date.getDay() === 1) {
-          dailyContribution = base;
-        } else if (cycle === 'MONTHLY' && date.getDate() === 1) {
-          dailyContribution = base;
-        }
-      } else if (strategy.type === 'VALUE_AVERAGING') {
-        // VA는 월 단위로만 동작하도록 단순화 (필요 시 확장)
-        if (d > 0 && d % 30 === 0) {
-          const targetValue = new Decimal(strategy.targetGrowth || 0).times(d / 30).plus(principal);
-          if (states.average.currentNominal.lt(targetValue)) {
-            dailyContribution = targetValue.minus(states.average.currentNominal);
-          }
-        }
-      }
-
-      if (dailyContribution.gt(0)) {
-        const fee = dailyContribution.times(buyFeeRate);
-        const netContribution = dailyContribution.minus(fee);
-        
-        for (const key of ['pessimistic', 'average', 'optimistic'] as const) {
-          states[key].currentNominal = states[key].currentNominal.plus(netContribution);
-          states[key].totalContribution = states[key].totalContribution.plus(dailyContribution);
-          states[key].totalFees = states[key].totalFees.plus(fee);
-        }
-      }
     }
-
+    cashFlowHistory.at(-1)!.value = states.average.results.at(-1)!.postTaxValue;
     return {
       pessimistic: states.pessimistic.results,
       average: states.average.results,
       optimistic: states.optimistic.results,
+      irr: calculateMoneyWeightedReturn(cashFlowHistory, 365),
     };
   }
 
@@ -446,7 +457,7 @@ export class SnowballEngine {
     strategy: StrategyConfig = { type: 'FIXED', baseAmount: 0 },
     inflationRate: number = 0,
     accountType: AccountType = 'GENERAL',
-    taxConfig: TaxConfig = { dividendTaxRate: 0.154, capitalGainTaxRate: 0.22, isaTaxFreeLimit: 2000000, isaReducedTaxRate: 0.095 },
+    taxConfig: TaxConfig = DEFAULT_TAX_CONFIG,
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
     exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
     intervalDays: number = 30,
@@ -468,8 +479,7 @@ export class SnowballEngine {
     dailyContribution: number = 0,
     intervalDays: number = 30
   ): { date: Date; value: number }[] {
-    // dailyContribution * 30.42를 월간 baseAmount로 환산하여 전달
-    const strategy: StrategyConfig = { type: 'FIXED', baseAmount: dailyContribution * 30.42 };
+    const strategy: StrategyConfig = { type: 'FIXED', baseAmount: dailyContribution, cycle: 'DAILY' };
     return this.simulate(principal, annualRate, years, strategy, 0, 'GENERAL', undefined, undefined, undefined, intervalDays)
       .map(r => ({ date: r.date, value: r.nominalValue }));
   }

@@ -36,23 +36,9 @@ export class BacktestEngine {
       taxIsaReducedRate
     } = params;
 
-    // 기간 제한 체크 (전체 50년, DAILY 30년)
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffYears = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-    
-    let effectiveEndDate = endDate;
-    const maxYears = cycle === 'DAILY' ? 30 : 50;
-    
-    if (diffYears > maxYears) {
-      const clippedEnd = new Date(start);
-      clippedEnd.setFullYear(start.getFullYear() + maxYears);
-      effectiveEndDate = clippedEnd.toISOString().split('T')[0];
-    }
-
     // 기간 내 데이터 필터링 및 정렬
     const filteredData = historicalData
-      .filter(p => p.date >= startDate && p.date <= effectiveEndDate)
+      .filter(p => p.date >= startDate && p.date <= endDate)
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (filteredData.length === 0) {
@@ -63,15 +49,18 @@ export class BacktestEngine {
     let totalPrincipal = new Decimal(0);
     let totalFees = new Decimal(0);
     let cash = new Decimal(0);
+    let dividendCash = new Decimal(0);
     const history: BacktestHistoryPoint[] = [];
     
     let maxDrawdown = new Decimal(0);
     let isLiquidated = false;
 
-    // MDD 및 변동성 계산을 위한 '단위 가격(Unit Price)' 추적 (자금 투입 영향 배제)
+    // 납입과 무관한 기준 투자 100의 성과. 미재투자 배당은 현금으로 보유합니다.
     let unitPricePeak = new Decimal(-Infinity);
     let currentUnitPrice = new Decimal(100); // 기준가 100으로 시작
     let lastUnitPrice = new Decimal(100);
+    let unitShares = new Decimal(100).dividedBy(filteredData[0].price);
+    let unitCash = new Decimal(0);
     const dailyReturns: Decimal[] = [];
 
     let lastInvestmentDate = '';
@@ -84,26 +73,40 @@ export class BacktestEngine {
       if (isLiquidated) {
         history.push({
           date: point.date,
-          value: 0,
-          principal: SnowballEngine.bankersRounding(totalPrincipal).toNumber(),
+          value: cash.plus(dividendCash).toNumber(),
+          principal: totalPrincipal.toNumber(),
           isLiquidated: true
         });
         continue;
       }
 
-      // 이전 가격 대비 수익률 계산 (MDD용 단위 가격 추적)
-      if (i > 0) {
-        const prevPrice = new Decimal(filteredData[i-1].price);
-        const assetReturn = currentPrice.minus(prevPrice).dividedBy(prevPrice);
-        currentUnitPrice = currentUnitPrice.times(assetReturn.plus(1));
+      // CSV 배당은 배당락일의 주당 현금 배당입니다. 해당 종가로 새로 산 주식은
+      // 배당 권리가 없으므로 납입/매수 전에 기존 보유 수량에만 지급합니다.
+      const dividendPerShare = currentPrice.times(point.dividendYield || 0);
+      const dividendAmount = currentShares.times(dividendPerShare);
+      if (reinvestDividends) {
+        cash = cash.plus(dividendAmount);
+      } else {
+        dividendCash = dividendCash.plus(dividendAmount);
       }
+
+      if (i > 0 && dividendPerShare.gt(0)) {
+        const unitDividend = unitShares.times(dividendPerShare);
+        if (reinvestDividends && currentPrice.gt(0)) {
+          unitShares = unitShares.plus(unitDividend.dividedBy(currentPrice));
+        } else {
+          unitCash = unitCash.plus(unitDividend);
+        }
+      }
+      currentUnitPrice = unitShares.times(currentPrice).plus(unitCash);
 
       // 1. 자금 투입 로직
       let shouldInvest = false;
       let injectionAmount = new Decimal(0);
       
       const currentDate = new Date(point.date);
-      const isBizDay = SnowballEngine.isBusinessDay(currentDate);
+      const dayOfWeek = currentDate.getUTCDay();
+      const isBizDay = dayOfWeek !== 0 && dayOfWeek !== 6;
 
       if (i === 0) {
         shouldInvest = true;
@@ -122,7 +125,7 @@ export class BacktestEngine {
             injectionAmount = new Decimal(monthlyInstallment);
           }
         } else if (cycle === 'MONTHLY' && prevInvestDate) {
-          if (currentDate.getMonth() !== prevInvestDate.getMonth() || currentDate.getFullYear() !== prevInvestDate.getFullYear()) {
+          if (currentDate.getUTCMonth() !== prevInvestDate.getUTCMonth() || currentDate.getUTCFullYear() !== prevInvestDate.getUTCFullYear()) {
             shouldInvest = true;
             injectionAmount = new Decimal(monthlyInstallment);
           }
@@ -146,26 +149,12 @@ export class BacktestEngine {
         cash = new Decimal(0);
       }
 
-      let currentValue = currentShares.times(currentPrice);
+      let currentValue = currentShares.times(currentPrice).plus(cash).plus(dividendCash);
 
-      // 3. 배당금 재투자 (TR)
-      const currentDividendYield = new Decimal(point.dividendYield || 0);
-
-      if (reinvestDividends && currentDividendYield.gt(0)) {
-        const dy = currentDividendYield;
-        const dividendAmount = currentValue.times(dy);
-        
-        if (currentPrice.gt(0)) {
-          currentShares = currentShares.plus(dividendAmount.dividedBy(currentPrice));
-          currentValue = currentShares.times(currentPrice);
-          currentUnitPrice = currentUnitPrice.times(dy.plus(1));
-        }
-      }
-
-      // 4. 청산 체크 (자산 가치가 원금의 1% 미만으로 떨어지면 청산)
-      if (currentValue.lt(totalPrincipal.times(0.01)) || (currentShares.gt(0) && currentPrice.lte(0))) {
+      // 양수 가격의 급락은 보유 수량을 소멸시키지 않습니다.
+      if (currentShares.gt(0) && currentPrice.lte(0)) {
         isLiquidated = true;
-        currentValue = new Decimal(0);
+        currentValue = cash.plus(dividendCash);
         currentShares = new Decimal(0);
       }
 
@@ -187,14 +176,13 @@ export class BacktestEngine {
 
       history.push({
         date: point.date,
-        value: SnowballEngine.bankersRounding(currentValue).toNumber(),
-        principal: SnowballEngine.bankersRounding(totalPrincipal).toNumber(),
+        value: currentValue.toNumber(),
+        principal: totalPrincipal.toNumber(),
         isLiquidated: isLiquidated
       });
     }
 
-    let finalValue = history[history.length - 1].value;
-    const finalTotalPrincipal = SnowballEngine.bankersRounding(totalPrincipal).toNumber();
+    let finalValue = currentShares.times(filteredData.at(-1)!.price).plus(cash).plus(dividendCash);
 
     // 6. 변동성 계산
     let annualizedVol = new Decimal(0);
@@ -207,52 +195,53 @@ export class BacktestEngine {
     }
 
     // 7. 세금 계산 (ISA 특례 적용)
-    let estimatedTax = 0;
-    if (accountType === 'ISA' && finalValue > finalTotalPrincipal) {
-      const gains = finalValue - finalTotalPrincipal;
-      if (gains > taxIsaLimit) {
-        estimatedTax = (gains - taxIsaLimit) * taxIsaReducedRate;
+    let estimatedTax = new Decimal(0);
+    if (accountType === 'ISA' && finalValue.gt(totalPrincipal)) {
+      const gains = finalValue.minus(totalPrincipal);
+      if (gains.gt(taxIsaLimit)) {
+        estimatedTax = gains.minus(taxIsaLimit).times(taxIsaReducedRate);
       }
     }
     // 일반 계좌의 경우 매도 시점에 양도소득세가 발생하지만, 백테스트 종료 시점의 '미실현 수익'에 대한
     // 보수적 추정을 위해 여기서는 일단 ISA만 적용하거나 추후 확장 가능
-    finalValue = finalValue - estimatedTax;
+    finalValue = finalValue.minus(estimatedTax);
 
-    const totalReturn = finalTotalPrincipal > 0 ? (finalValue - finalTotalPrincipal) / finalTotalPrincipal : 0;
+    const totalReturn = totalPrincipal.gt(0) ? finalValue.minus(totalPrincipal).dividedBy(totalPrincipal) : new Decimal(0);
 
-    // 최종 연 배당금 계산
-    const lastPoint = filteredData[filteredData.length - 1];
-    const finalAnnualDividend = !isLiquidated && lastPoint.dividendYield 
-      ? SnowballEngine.bankersRounding(currentShares.times(lastPoint.price).times(lastPoint.dividendYield).times(12)).toNumber()
-      : 0;
+    // 종료 보유 수량 × 직전 12개월의 실제 주당 배당 합계 (예상 연 현금 배당).
+    const actualEndDate = new Date(filteredData.at(-1)!.date);
+    const dividendStart = new Date(actualEndDate);
+    dividendStart.setUTCFullYear(dividendStart.getUTCFullYear() - 1);
+    const dividendStartDate = dividendStart.toISOString().slice(0, 10);
+    const annualDividendPerShare = historicalData
+      .filter(point => point.date > dividendStartDate && point.date <= filteredData.at(-1)!.date)
+      .reduce((sum, point) => sum.plus(new Decimal(point.price).times(point.dividendYield || 0)), new Decimal(0));
+    const finalAnnualDividend = currentShares.times(annualDividendPerShare).toNumber();
 
     // CAGR 계산
     const actualStartDate = new Date(filteredData[0].date);
-    const actualEndDate = new Date(filteredData[filteredData.length - 1].date);
     const diffDays = Math.ceil(Math.abs(actualEndDate.getTime() - actualStartDate.getTime()) / (1000 * 60 * 60 * 24));
     const years = diffDays / 365.25;
 
-    const cagr = years > 0 && finalValue > 0 && initialPrincipal > 0 
-      ? Math.pow(finalValue / initialPrincipal, 1 / years) - 1 
+    const cagr = years > 0
+      ? Math.pow(currentUnitPrice.dividedBy(100).toNumber(), 1 / years) - 1
       : 0;
 
-    const reconciledHistory = history.map((point, index) => index === history.length - 1
-      ? { ...point, value: finalValue }
-      : point);
-    const irr = calculateMoneyWeightedReturn(reconciledHistory);
+    history[history.length - 1].value = finalValue.toNumber();
+    const irr = calculateMoneyWeightedReturn(history);
 
     return {
       metrics: {
         totalReturn: SnowballEngine.bankersRounding(totalReturn, 6).toNumber(),
-        cagr: SnowballEngine.bankersRounding(cagr, 6).toNumber(),
-        irr: SnowballEngine.bankersRounding(irr, 6).toNumber(),
+        cagr: Number.isFinite(cagr) ? SnowballEngine.bankersRounding(cagr, 6).toNumber() : 0,
+        irr: irr === null ? null : SnowballEngine.bankersRounding(irr, 6).toNumber(),
         mdd: SnowballEngine.bankersRounding(maxDrawdown, 6).toNumber(),
         volatility: SnowballEngine.bankersRounding(annualizedVol, 6).toNumber(),
-        finalValue,
-        totalPrincipal: finalTotalPrincipal,
+        finalValue: finalValue.toNumber(),
+        totalPrincipal: totalPrincipal.toNumber(),
         finalAnnualDividend,
-        estimatedTax: SnowballEngine.bankersRounding(estimatedTax).toNumber(),
-        totalFees: SnowballEngine.bankersRounding(totalFees).toNumber(),
+        estimatedTax: estimatedTax.toNumber(),
+        totalFees: totalFees.toNumber(),
       },
       history
     };

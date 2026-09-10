@@ -47,6 +47,27 @@ export interface TaxConfig {
   isaReducedTaxRate: number; // ISA 우대세율 (e.g., 0.09)
 }
 
+/** Simplified model defaults; ISA allowance is stored in KRW, including for USD scenarios.
+ * ISA: https://www.kbsec.com/go.able?linkcd=s050801010000 (checked 2026-09-10).
+ */
+export const DEFAULT_TAX_CONFIG: TaxConfig = {
+  dividendTaxRate: 0.154,
+  capitalGainTaxRate: 0.22,
+  isaTaxFreeLimit: 2_000_000,
+  isaReducedTaxRate: 0.099,
+};
+
+export const getCurrencyFactor = (
+  from: 'KRW' | 'USD', to: 'KRW' | 'USD', exchangeRate: number,
+): number => from === to ? 1 : to === 'KRW' ? exchangeRate : 1 / exchangeRate;
+
+export const getTaxConfigForCurrency = (
+  currency: 'KRW' | 'USD', exchangeRate: number, config: TaxConfig = DEFAULT_TAX_CONFIG,
+): TaxConfig => ({
+  ...config,
+  isaTaxFreeLimit: config.isaTaxFreeLimit * getCurrencyFactor('KRW', currency, exchangeRate),
+});
+
 export interface FeeConfig {
   buyFeeRate: number; // 매수 수수료율 (e.g., 0.00015)
   sellFeeRate: number; // 매도 수수료율 (e.g., 0.00015)
@@ -67,6 +88,8 @@ export interface SimulationRangeResult {
   pessimistic: SimulationResult[];
   average: SimulationResult[];
   optimistic: SimulationResult[];
+  /** Annual money-weighted return of the average scenario, using all cash-flow dates. */
+  irr: number | null;
 }
 
 export interface SimulationParams {
@@ -80,6 +103,14 @@ export interface SimulationParams {
   inflationRate: number;
   strategyType: StrategyType;
   strategyIncreaseRate: number;
+  /** Optional saved calculation settings; the ISA allowance stays denominated in KRW. */
+  taxConfig?: TaxConfig;
+  feeConfig?: FeeConfig;
+  exchangeAnnualChangeRate?: number;
+  reinvestDividends?: boolean;
+  strategyTargetGrowth?: number;
+  /** Preserve a saved reference-asset return until the asset or rate is edited. */
+  annualRateOverride?: number;
   startDate?: string;
   endDate?: string;
 }
@@ -108,7 +139,7 @@ export interface BacktestParams {
 export interface BacktestMetrics {
   totalReturn: number; // 누적 수익률 (0.0 ~ )
   cagr: number; // 연평균 성장률
-  irr: number; // 내부 수익률
+  irr: number | null; // 내부 수익률 (연환산 불가 시 null)
   mdd: number; // 최대 낙폭 (0.0 ~ 1.0)
   volatility: number; // 연율화된 변동성 (0.0 ~ )
   finalValue: number;

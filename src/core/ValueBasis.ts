@@ -19,14 +19,14 @@ export interface ValueBasisOptions {
 
 export interface PreparedBacktestDisplayResult {
   portfolioHistory: BacktestHistoryPoint[];
-  portfolioIrr: number;
+  portfolioIrr: number | null;
   productPoints: ProductPerformancePoint[];
   productMetrics: ProductPerformanceMetrics;
 }
 
 export interface PreparedPortfolioDisplayResult {
   portfolioHistory: BacktestHistoryPoint[];
-  portfolioIrr: number;
+  portfolioIrr: number | null;
 }
 
 export class ValueBasisError extends Error {

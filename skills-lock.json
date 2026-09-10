@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "risk-metrics-calculation": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/quantitative-trading/skills/risk-metrics-calculation/SKILL.md",
+      "computedHash": "5238dfdf2a1fd874166014bd5932c680cf48a4fc77602d3e2541ce531cf77b91"
+    }
+  }
+}

@@ -24,9 +24,12 @@ interface SimulationControlsProps {
   onOpenAdvanced: () => void;
   selectedAssets: HistoricalAssetType[];
   rangeNotice?: string | null;
+  backtestAssetSelection?: React.ReactNode;
 }
 
 const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
+  const isValueAveraging = props.mode === 'PROJECTION' && props.params.strategyType === 'VALUE_AVERAGING';
+  const contributionInput = isValueAveraging ? props.params.strategyTargetGrowth ?? props.params.contribution : props.params.contribution;
   const commonCoverage = getCommonCoverage(props.selectedAssets, getHistoricalCoverage);
   const historicalCoverage = {
     ...getHistoricalCoverage(props.selectedAssets[0]),
@@ -55,6 +58,70 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     props.onUpdate({ [key]: value });
   };
 
+  const investmentFields = (<>
+    <Field label={`초기 자산 (${props.currency})`} htmlFor="principal-input"
+      hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} />}>
+      <NumericInput value={props.params.principal} onChange={(value) => updateParam('principal', value)} />
+    </Field>
+
+    <div className="flex min-w-0 flex-col gap-4">
+      <Field label={`${isValueAveraging ? '월간 목표 증가액' : '납입액'} (${props.currency})`} htmlFor="monthly-investment-input"
+        hint={<BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showExchangeRate />}>
+        <NumericInput value={contributionInput} onChange={(value) => props.onUpdate({ contribution: value,
+          ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
+        })} />
+      </Field>
+      {isValueAveraging ? <p className="ui-field-hint">매월 목표 자산에 부족한 금액만 매수합니다.</p> : <div className="ui-field">
+        <span className="ui-field-label">납입 주기</span>
+        <SegmentedControl label="납입 주기" value={props.params.cycle} fullWidth size="compact"
+          options={[{ value: 'DAILY', label: '일' }, { value: 'WEEKLY', label: '주' }, { value: 'MONTHLY', label: '월' }]}
+          onChange={(cycle) => updateParam('cycle', cycle)} />
+      </div>}
+    </div>
+
+  </>);
+
+  const projectionPeriod = (
+    <div className="ui-field">
+      <label htmlFor="years-range" className="ui-field-label">투자 기간 (년)</label>
+      <div className="flex h-field min-w-0 items-center gap-3">
+        <div className="flex h-field min-w-0 flex-1 items-center rounded-pill border border-apple-hairline bg-apple-canvas px-4">
+          <input id="years-range" type="range" min="1" max={props.params.cycle === 'DAILY' ? 30 : 50}
+            value={props.params.years} onChange={(event) => updateParam('years', Number(event.target.value))}
+            aria-label="투자 기간 조절" className="h-11 w-full cursor-pointer accent-apple-primary" />
+        </div>
+        <NumericInput id="years-number" aria-label="투자 기간 직접 입력" value={props.params.years}
+          onChange={(value) => updateParam('years', value)}
+          className="w-20 shrink-0 text-center" />
+      </div>
+    </div>
+  );
+
+  const backtestPeriod = (
+    <fieldset className="min-w-0 md:col-span-2">
+      <legend className="ui-field-label mb-2">백테스트 기간</legend>
+      <div className="flex flex-col gap-4">
+        <DateRangeControl startDate={startDate} endDate={endDate}
+          minDate={historicalCoverage.startDate} maxDate={historicalCoverage.endDate}
+          errorId={historicalRangeError ? 'backtest-range-error' : undefined}
+          onChange={(range) => props.onUpdate(range)} />
+        {historicalRangeError && (
+          <Notice tone="error" id="backtest-range-error">
+            <p>{historicalRangeError}</p>
+            <Button size="compact" onClick={() => props.onUpdate({ startDate: historicalCoverage.startDate, endDate: historicalCoverage.endDate })} className="mt-3">
+              가능한 전체 기간 적용
+            </Button>
+          </Notice>
+        )}
+        {props.rangeNotice && <Notice>{props.rangeNotice}</Notice>}
+        <ScenarioPresetPicker coverage={historicalCoverage}
+          onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })}
+          activePresetName={selectablePresets.find((preset) => preset.startDate === props.params.startDate && preset.endDate === props.params.endDate)?.name}
+          familyPresets={familyPresets} quickPresets={quickPresets} />
+      </div>
+    </fieldset>
+  );
+
   return (
     <div className="mb-10 flex w-full max-w-content flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -71,68 +138,21 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
           options={[{ value: 'KRW', label: 'KRW' }, { value: 'USD', label: 'USD' }]} size="compact" />
       </div>
 
-      <Surface className="w-full">
-        <div className={`grid items-start gap-6 ${props.mode === 'PROJECTION' ? 'md:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
-          <Field label={`초기 자산 (${props.currency})`} htmlFor="principal-input"
-            hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} />}>
-            <NumericInput value={props.params.principal} onChange={(value) => updateParam('principal', value)} />
-          </Field>
-
-          <div className="flex min-w-0 flex-col gap-4">
-            <Field label={`납입액 (${props.currency})`} htmlFor="monthly-investment-input"
-              hint={<BigNumberHelper value={props.params.contribution} currency={props.currency} exchangeRate={props.exchangeRate} showExchangeRate />}>
-              <NumericInput value={props.params.contribution} onChange={(value) => updateParam('contribution', value)} />
-            </Field>
-            <div className="ui-field">
-              <span className="ui-field-label">납입 주기</span>
-              <SegmentedControl label="납입 주기" value={props.params.cycle} fullWidth size="compact"
-                options={[{ value: 'DAILY', label: '일' }, { value: 'WEEKLY', label: '주' }, { value: 'MONTHLY', label: '월' }]}
-                onChange={(cycle) => updateParam('cycle', cycle)} />
-            </div>
+      {props.mode === 'BACKTEST' && props.backtestAssetSelection}
+      <Surface className="w-full text-left">
+        {props.mode === 'BACKTEST' ? <div className="flex flex-col gap-6">
+          {backtestPeriod}
+          <HistoricalScenarioPicker coverage={historicalCoverage}
+            startDate={startDate} endDate={endDate}
+            onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })} />
+          <div className="border-t border-apple-hairline pt-6">
+            <h3 className="mb-4 text-body font-semibold text-apple-ink">투자 조건</h3>
+            <div className="grid items-start gap-6 md:grid-cols-2">{investmentFields}</div>
           </div>
-
-          {props.mode === 'PROJECTION' ? (
-            <div className="ui-field">
-              <label htmlFor="years-range" className="ui-field-label">투자 기간 (년)</label>
-              <div className="flex h-field min-w-0 items-center gap-3">
-                <div className="flex h-field min-w-0 flex-1 items-center rounded-pill border border-apple-hairline bg-apple-canvas px-4">
-                  <input id="years-range" type="range" min="1" max={props.params.cycle === 'DAILY' ? 30 : 50}
-                    value={props.params.years} onChange={(event) => updateParam('years', Number(event.target.value))}
-                    aria-label="투자 기간 조절" className="h-11 w-full cursor-pointer accent-apple-primary" />
-                </div>
-                <NumericInput id="years-number" aria-label="투자 기간 직접 입력" value={props.params.years}
-                  onChange={(value) => updateParam('years', value)}
-                  className="w-20 shrink-0 text-center" />
-              </div>
-            </div>
-          ) : (
-            <fieldset className="min-w-0 md:col-span-2">
-              <legend className="ui-field-label mb-2">백테스트 기간</legend>
-              <div className="flex flex-col gap-4">
-                <DateRangeControl startDate={startDate} endDate={endDate}
-                  minDate={historicalCoverage.startDate} maxDate={historicalCoverage.endDate}
-                  errorId={historicalRangeError ? 'backtest-range-error' : undefined}
-                  onChange={(range) => props.onUpdate(range)} />
-                {historicalRangeError && (
-                  <Notice tone="error" id="backtest-range-error">
-                    <p>{historicalRangeError}</p>
-                    <Button size="compact" onClick={() => props.onUpdate({ startDate: historicalCoverage.startDate, endDate: historicalCoverage.endDate })} className="mt-3">
-                      가능한 전체 기간 적용
-                    </Button>
-                  </Notice>
-                )}
-                {props.rangeNotice && <Notice>{props.rangeNotice}</Notice>}
-                <ScenarioPresetPicker coverage={historicalCoverage}
-                  onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })}
-                  activePresetName={selectablePresets.find((preset) => preset.startDate === props.params.startDate && preset.endDate === props.params.endDate)?.name}
-                  familyPresets={familyPresets} quickPresets={quickPresets} />
-              </div>
-            </fieldset>
-          )}
-        </div>
-        {props.mode === 'BACKTEST' && <HistoricalScenarioPicker coverage={historicalCoverage}
-          startDate={startDate} endDate={endDate}
-          onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })} />}
+        </div> : <div className="grid items-start gap-6 md:grid-cols-3">
+          {investmentFields}
+          {projectionPeriod}
+        </div>}
       </Surface>
     </div>
   );

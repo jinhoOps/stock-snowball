@@ -29,7 +29,7 @@ test('backtest foregrounds four metrics and one chart while preserving dates', a
   const period = page.getByRole('button', { name: '백테스트 기간 변경' });
   await expect(period).toContainText('2010-01-01 ~ 2024-01-01');
 
-  const individualPicker = page.getByText('개별 종목 추가', { exact: true });
+  const individualPicker = page.locator('summary').filter({ hasText: '비교 종목 추가' });
   await individualPicker.focus();
   await page.keyboard.press('Enter');
   const qqqPickerButton = page.getByRole('button', { name: 'QQQ 개별 자산 선택', exact: true });

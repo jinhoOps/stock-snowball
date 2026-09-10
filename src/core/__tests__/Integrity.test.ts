@@ -17,10 +17,9 @@ describe('SnowballEngine Integrity Validation', () => {
       const days = 365;
       const result = SnowballEngine.calculateDailyCompound(principal, annualRate, days);
       
-      // Expected: 10,000,000 * (1 + 0.05/365)^365 = 10512674.9646...
-      // Banker's Rounding (0자리): 10,512,675
+      // Expected: 10,000,000 * 1.05
       const rounded = SnowballEngine.bankersRounding(result, 0);
-      expect(rounded.toNumber()).toBe(10512675);
+      expect(rounded.toNumber()).toBe(10500000);
     });
 
     // 5년 (1825일)
@@ -28,10 +27,9 @@ describe('SnowballEngine Integrity Validation', () => {
       const days = 1825;
       const result = SnowballEngine.calculateDailyCompound(principal, annualRate, days);
       
-      // Expected: 10,000,000 * (1 + 0.05/365)^1825 = 12840034.3214...
-      // Banker's Rounding (0자리): 12,840,034
+      // Expected: 10,000,000 * 1.05^5
       const rounded = SnowballEngine.bankersRounding(result, 0);
-      expect(rounded.toNumber()).toBe(12840034);
+      expect(rounded.toNumber()).toBe(12762816);
     });
 
     // 10년 (3650일)
@@ -39,10 +37,9 @@ describe('SnowballEngine Integrity Validation', () => {
       const days = 3650;
       const result = SnowballEngine.calculateDailyCompound(principal, annualRate, days);
       
-      // Expected: 10,000,000 * (1 + 0.05/365)^3650 = 16486648.1376...
-      // Banker's Rounding (0자리): 16,486,648
+      // Expected: 10,000,000 * 1.05^10
       const rounded = SnowballEngine.bankersRounding(result, 0);
-      expect(rounded.toNumber()).toBe(16486648);
+      expect(rounded.toNumber()).toBe(16288946);
     });
   });
 
@@ -52,12 +49,9 @@ describe('SnowballEngine Integrity Validation', () => {
       const nominalFV = SnowballEngine.calculateDailyCompound(principal, annualRate, days);
       const realPV = SnowballEngine.calculateRealValue(nominalFV, inflationRate, days);
       
-      // Nominal FV: 16,486,648.137...
-      // Inflation Divisor: (1 + 0.03/365)^3650 = 1.34983...
-      // Real PV: 12,213,759.9097...
-      // Banker's Rounding (0자리): 12,213,760
+      // Expected: 10,000,000 * (1.05 / 1.03)^10
       const rounded = SnowballEngine.bankersRounding(realPV, 0);
-      expect(rounded.toNumber()).toBe(12213760);
+      expect(rounded.toNumber()).toBe(12120506);
     });
 
     it('수익률과 물가상승률이 동일할 경우 실질 가치는 원금과 같아야 합니다', () => {

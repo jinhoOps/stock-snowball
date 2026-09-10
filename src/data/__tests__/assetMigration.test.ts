@@ -62,4 +62,25 @@ describe('normalizeLegacyAssetType', () => {
       assetType: 'CUSTOM',
     });
   });
+
+  it('bounds cached projection inputs before they reach the compound engine', () => {
+    const normalized = normalizePersistedSimulationParams({
+      ...DEFAULT_PROJECTION_PARAMS,
+      years: 10000, rate: -1.5, strategyIncreaseRate: -2,
+    }, DEFAULT_PROJECTION_PARAMS, 'PROJECTION');
+    expect(normalized.years).toBe(30);
+    expect(normalized.rate).toBe(DEFAULT_PROJECTION_PARAMS.rate);
+    expect(normalized.strategyIncreaseRate).toBe(DEFAULT_PROJECTION_PARAMS.strategyIncreaseRate);
+    expect(normalizePersistedSimulationParams({
+      ...DEFAULT_PROJECTION_PARAMS, cycle: 'MONTHLY', years: 100,
+    }, DEFAULT_PROJECTION_PARAMS, 'PROJECTION').years).toBe(50);
+  });
+
+  it('restores value averaging with the monthly schedule used by the engine', () => {
+    const normalized = normalizePersistedSimulationParams({
+      ...DEFAULT_PROJECTION_PARAMS, strategyType: 'VALUE_AVERAGING', cycle: 'DAILY', years: 40,
+    }, DEFAULT_PROJECTION_PARAMS, 'PROJECTION');
+    expect(normalized.cycle).toBe('MONTHLY');
+    expect(normalized.years).toBe(40);
+  });
 });

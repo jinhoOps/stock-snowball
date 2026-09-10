@@ -132,8 +132,7 @@ const processReturns = (dataset: IndexDataset): number[] => {
   for (let index = 1; index < dataset.data.length; index += 1) {
     const previous = dataset.data[index - 1];
     const current = dataset.data[index];
-    const priceReturn = current.price / previous.price - 1;
-    returns.push(priceReturn + current.dividendYield);
+    returns.push((current.price / previous.price) * (1 + current.dividendYield) - 1);
   }
   return returns;
 };
@@ -206,20 +205,22 @@ export const findPointOnOrBefore = (
 };
 
 /**
- * 자산별 과거 데이터를 기반으로 약 1년(252 거래일) 구르는 수익률의 중앙값을 계산합니다.
+ * 배당 재투자를 포함한 252 거래일 수익률 구간의 중앙값으로 연 수익률을 추정합니다.
  */
 export const calculateMedianCAGR = (asset: AssetType): number => {
   if (asset === 'CUSTOM') return 0.08;
 
   const data = getHistoricalData(asset);
   const windowSize = 252;
-  if (data.length < windowSize) return 0.1;
+  if (data.length <= windowSize) return 0.1;
 
+  const dailyReturns = processReturns({ id: asset, data });
   const annualReturns: number[] = [];
-  for (let index = 0; index <= data.length - windowSize; index += 1) {
-    const start = data[index].price;
-    const end = data[index + windowSize - 1].price;
-    if (start > 0) annualReturns.push(end / start - 1);
+  let growth = 1;
+  for (let index = 0; index < dailyReturns.length; index += 1) {
+    growth *= 1 + dailyReturns[index];
+    if (index >= windowSize) growth /= 1 + dailyReturns[index - windowSize];
+    if (index >= windowSize - 1) annualReturns.push(growth - 1);
   }
 
   if (annualReturns.length === 0) return 0.1;
@@ -231,8 +232,10 @@ export const calculateMedianCAGR = (asset: AssetType): number => {
 };
 
 export const getDailyReturn = (asset: AssetType, dayIndex: number, defaultRate: number): number => {
-  if (asset === 'CUSTOM') return defaultRate / 365;
-  const returns = HISTORICAL_DAILY_RETURNS[asset];
-  if (returns.length === 0) return defaultRate / 365;
+  const returns = asset === 'CUSTOM' ? [] : HISTORICAL_DAILY_RETURNS[asset];
+  if (returns.length === 0) {
+    if (!Number.isFinite(defaultRate) || defaultRate < -1) throw new RangeError('Annual return must be finite and at least -100%.');
+    return Math.expm1(Math.log1p(defaultRate) / 365);
+  }
   return returns[dayIndex % returns.length];
 };

@@ -45,8 +45,8 @@ describe('BacktestEngine', () => {
 
     it('reinvests one explicit dividend once and never carries it forward', () => {
       const data = [
-        { date: '2024-01-02', price: 100, dividendYield: 0.01 },
-        { date: '2024-01-03', price: 100, dividendYield: 0 },
+        { date: '2024-01-02', price: 100, dividendYield: 0 },
+        { date: '2024-01-03', price: 100, dividendYield: 0.01 },
         { date: '2024-01-04', price: 100, dividendYield: 0 },
       ];
       const result = BacktestEngine.run({
@@ -70,8 +70,9 @@ describe('BacktestEngine', () => {
       const result = BacktestEngine.run(params, sampleData);
 
       expect(result.metrics.totalPrincipal).toBe(1000000);
-      expect(result.metrics.finalValue).toBe(1210000);
-      expect(result.metrics.totalReturn).toBeCloseTo(0.21, 5);
+      // 기존 10,000주에 2~4월 현금 배당 11,000 + 9,900 + 12,100을 보유합니다.
+      expect(result.metrics.finalValue).toBe(1243000);
+      expect(result.metrics.totalReturn).toBeCloseTo(0.243, 5);
     });
 
     it('MDD(최대 낙폭)를 올바르게 계산해야 한다', () => {
@@ -83,8 +84,8 @@ describe('BacktestEngine', () => {
 
       const result = BacktestEngine.run(params, sampleData);
 
-      // 최고점 110에서 99로 하락 -> (110-99)/110 = 0.1 (10%)
-      expect(result.metrics.mdd).toBeCloseTo(0.1, 5);
+      // 배당 현금 포함 기준가: 최고점 111.1에서 101.09로 하락합니다.
+      expect(result.metrics.mdd).toBeCloseTo(0.090099, 6);
     });
 
     it('배당 재투자(TR) 반영 시 수익률이 증가해야 한다', () => {
@@ -97,11 +98,8 @@ describe('BacktestEngine', () => {
 
       const result = BacktestEngine.run(params, sampleData);
 
-      // 1월: 100만원 시작
-      // 2월: 110만원 가치 + 1월 배당(1%) 1만원 재투자 -> 111만원
-      // 3월: 111만원 * (99/110) + 2월 배당(1%) 1.11만원 재투자 -> 99.9 + 1.11 = 101.01
-      // 4월: 101.01 * (121/99) + 3월 배당(1%) 1.0101만원 재투자 -> 123.4455 + 1.234455 = 124.68...
-      expect(result.metrics.finalValue).toBeGreaterThan(1210000);
+      // 첫 배당락일 매수분은 배당이 없고, 이후 세 번의 1% 배당을 재투자합니다.
+      expect(result.metrics.finalValue).toBeCloseTo(1246664.21, 6);
     });
   });
 
@@ -125,10 +123,11 @@ describe('BacktestEngine', () => {
   });
 
   describe('Edge Cases & Robustness', () => {
-    it('자산 가치가 원금의 1% 미만일 때 청산되어야 한다', () => {
+    it('keeps positive-price holdings through a drawdown below 1% of principal', () => {
       const crashData = [
         { date: '2023-01-01', price: 100 },
         { date: '2023-02-01', price: 0.5 }, // 99.5% 폭락
+        { date: '2023-03-01', price: 100 },
       ];
 
       const params: BacktestParams = {
@@ -136,13 +135,14 @@ describe('BacktestEngine', () => {
         initialPrincipal: 1000000,
         monthlyInstallment: 0,
         startDate: '2023-01-01',
-        endDate: '2023-02-01',
+        endDate: '2023-03-01',
       };
 
       const result = BacktestEngine.run(params, crashData);
 
-      expect(result.history[1].isLiquidated).toBe(true);
-      expect(result.metrics.finalValue).toBe(0);
+      expect(result.history[1].isLiquidated).toBe(false);
+      expect(result.history[1].value).toBe(5000);
+      expect(result.metrics.finalValue).toBe(1000000);
     });
 
     it('10년 이상의 장기 시뮬레이션에서 CAGR과 IRR이 합리적이어야 한다', () => {
@@ -259,9 +259,8 @@ describe('BacktestEngine', () => {
       };
 
       const result = BacktestEngine.run(params, sampleData);
-      // 수수료 없을 때 1,210,000원이었음.
-      // 1% 수수료 적용 시 초기 100만 -> 99만 투자됨 -> 99만 * 1.21 = 1,197,900원
-      expect(result.metrics.finalValue).toBe(1197900);
+      // 9,900주 평가액 1,197,900 + 미재투자 배당 현금 32,670.
+      expect(result.metrics.finalValue).toBe(1230570);
     });
 
     it('ISA 계좌의 비과세 한도 초과 수익에 대해 세금이 적용되어야 한다', () => {
@@ -273,9 +272,8 @@ describe('BacktestEngine', () => {
       };
 
       const result = BacktestEngine.run(params, sampleData);
-      // 수익 21만 원. 비과세 10만 원 제외 11만 원에 대해 10% 세금 -> 1.1만 원
-      // 최종 가치 = 121만 - 1.1만 = 1,199,000원
-      expect(result.metrics.finalValue).toBe(1199000);
+      // 평가액 + 현금 1,243,000; (수익 243,000 - 비과세 100,000) × 10%.
+      expect(result.metrics.finalValue).toBe(1228700);
     });
   });
 
@@ -306,8 +304,8 @@ describe('BacktestEngine', () => {
     });
   });
 
-  describe('Duration Limits', () => {
-    it('DAILY cycle에서 30년이 넘는 데이터는 30년으로 제한해야 한다', () => {
+  describe('Historical coverage', () => {
+    it('keeps the full selected daily history beyond 30 years', () => {
       const manyYearsData = [];
       const startDate = '2000-01-01';
       // 35년 데이터 생성 (테스트 시간 단축을 위해 35년)
@@ -326,14 +324,10 @@ describe('BacktestEngine', () => {
 
       const result = BacktestEngine.run(params, manyYearsData);
       
-      const firstDate = new Date(result.history[0].date);
-      const lastDate = new Date(result.history[result.history.length - 1].date);
-      const diffYears = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-      
-      expect(diffYears).toBeLessThanOrEqual(30.5); 
+      expect(result.history.at(-1)!.date).toBe(manyYearsData.at(-1)!.date);
     });
 
-    it('일반 cycle에서 50년이 넘는 데이터는 50년으로 제한해야 한다', () => {
+    it('keeps the full selected monthly history beyond 50 years', () => {
       const manyYearsData = [];
       const startDate = '1970-01-01';
       // 60년 데이터 생성
@@ -352,11 +346,7 @@ describe('BacktestEngine', () => {
 
       const result = BacktestEngine.run(params, manyYearsData);
       
-      const firstDate = new Date(result.history[0].date);
-      const lastDate = new Date(result.history[result.history.length - 1].date);
-      const diffYears = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-      
-      expect(diffYears).toBeLessThanOrEqual(50.5);
+      expect(result.history.at(-1)!.date).toBe(manyYearsData.at(-1)!.date);
     });
   });
 });

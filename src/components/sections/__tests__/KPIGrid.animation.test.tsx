@@ -47,6 +47,23 @@ afterEach(() => {
 });
 
 describe('KPIGrid Anime.js migration', () => {
+  it('preserves a small KRW balance and the monetary sign of a loss', () => {
+    stubMotionPreference(true);
+    render(<KPIGrid {...baseProps} currency="KRW" totalAsset={5000} totalReturn={-5000} returnPercentage={-50} />);
+    const assetCard = screen.getByText('최종 예상 자산').closest('.kpi-card') as HTMLElement;
+    const returnCard = screen.getByText('총 수익금').closest('.kpi-card') as HTMLElement;
+    expect(assetCard.querySelector('dd')?.textContent).toBe('5,000원');
+    expect(returnCard.querySelector('dd')?.textContent).toBe('-5,000원');
+  });
+
+  it('shows an unavailable annualized return without inventing a zero percent return', () => {
+    stubMotionPreference(true);
+    render(<KPIGrid {...baseProps} cagr={null} cagrLabel="내부수익률 (IRR)" />);
+    const rateCard = screen.getByText('내부수익률 (IRR)').closest('.kpi-card') as HTMLElement;
+    expect(rateCard.textContent).toContain('—');
+    expect(rateCard.textContent).not.toContain('0.00%');
+  });
+
   it('shows a percentage without a currency estimate and keeps a negative return sign', () => {
     stubMotionPreference(true);
     render(<KPIGrid {...baseProps} returnPercentage={-10} />);

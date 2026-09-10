@@ -89,6 +89,24 @@ describe('SimulationControls', () => {
     expect(markup).not.toContain('YTD');
   });
 
+  it('orders backtest inputs as assets, dates, then investment amounts', () => {
+    render(<SimulationControls {...baseProjectionProps} mode="BACKTEST"
+      backtestAssetSelection={<section aria-label="백테스트 종목 선택">선택한 종목</section>} />);
+    const assets = screen.getByRole('region', { name: '백테스트 종목 선택' });
+    const dates = screen.getByRole('group', { name: '백테스트 기간' });
+    const principal = screen.getByLabelText('초기 자산 (KRW)');
+    expect(assets.compareDocumentPosition(dates) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(dates.compareDocumentPosition(principal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the saved monthly value-averaging target instead of an ignored contribution cycle', () => {
+    render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params,
+      strategyType: 'VALUE_AVERAGING', strategyTargetGrowth: 50_000,
+    }} />);
+    expect((screen.getByLabelText('월간 목표 증가액 (KRW)') as HTMLInputElement).value).toBe('50000');
+    expect(screen.queryByRole('group', { name: '납입 주기' })).toBeNull();
+  });
+
   it('lets the existing parent normalization handle a cleared duration', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn();

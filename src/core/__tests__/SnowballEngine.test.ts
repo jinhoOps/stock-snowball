@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { SnowballEngine } from '../SnowballEngine';
+
+it('formats negative KRW amounts without hiding losses or rounding them away from zero', () => {
+  expect(SnowballEngine.formatKoreanWon(-15_000)).toBe('-1만 5,000원');
+  expect(SnowballEngine.formatKoreanWon(-15_000, true)).toBe('-1만 원');
+  expect(SnowballEngine.formatKoreanWon(-0.4)).toBe('0원');
+});
 import { Decimal } from 'decimal.js';
 
 describe('SnowballEngine', () => {
@@ -25,10 +31,8 @@ describe('SnowballEngine', () => {
       
       const result = SnowballEngine.calculateDailyCompound(principal, annualRate, days);
       
-      // 공식: 1,000,000 * (1 + 0.05/365)^365
-      // 계산값: 1,051,267.49646...
-      // 반올림(2자리): 1,051,267.50
-      expect(result.toDecimalPlaces(2).toNumber()).toBe(1051267.50);
+      // 연 유효 수익률 5%: 1,000,000 * 1.05
+      expect(result.toDecimalPlaces(2).toNumber()).toBe(1050000);
     });
 
     it('10년 장기 복리 계산 시 정밀도가 유지되어야 합니다', () => {
@@ -38,10 +42,8 @@ describe('SnowballEngine', () => {
       
       const result = SnowballEngine.calculateDailyCompound(principal, annualRate, days);
       
-      // 1,000,000 * (1 + 0.1/365)^3650
-      // 기대값: 약 2,717,909...
-      expect(result.gt(2717000)).toBe(true);
-      expect(result.lt(2719000)).toBe(true);
+      // 1,000,000 * 1.1^10
+      expect(result.toDecimalPlaces(2).toNumber()).toBe(2593742.46);
     });
   });
 
@@ -69,11 +71,10 @@ describe('SnowballEngine', () => {
 
       const realValue = SnowballEngine.calculateRealValue(nominalAmount, inflationRate, days);
       
-      // PV = 1,000,000 / (1 + 0.03/365)^(3650)
-      // 약 740,842
+      // PV = 1,000,000 / 1.03^10
       expect(realValue.toNumber()).toBeLessThan(1000000);
       expect(realValue.toNumber()).toBeGreaterThan(700000);
-      expect(Math.round(realValue.toNumber())).toBe(740827);
+      expect(Math.round(realValue.toNumber())).toBe(744094);
     });
   });
 
@@ -164,9 +165,9 @@ describe('SnowballEngine', () => {
       expect(lastPoint.realValue).toBeDefined();
       expect(lastPoint.realValue).toBeLessThan(lastPoint.postTaxValue);
       
-      // 수치 검증: nominalValue / (1 + 0.03/365)^(10*365)
-      const expectedReal = new Decimal(lastPoint.postTaxValue).dividedBy(new Decimal(inflation).dividedBy(365).plus(1).pow(years * 365));
-      expect(Math.abs(lastPoint.realValue - expectedReal.toNumber())).toBeLessThan(100);
+      // 수치 검증: 세후 가치 / (1 + 연 물가상승률)^기간
+      const expectedReal = lastPoint.postTaxValue / ((1 + inflation) ** years);
+      expect(lastPoint.realValue).toBeCloseTo(expectedReal, 6);
     });
 
     it('시간이 경과할수록 범위(Variance)가 넓어져야 합니다', () => {

@@ -4,9 +4,17 @@ import { useState } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import BacktestView, { type BacktestViewProps, type ComparisonAssetResult } from '../BacktestView';
+import BacktestResultsView, { type BacktestViewProps as BacktestResultsProps, type ComparisonAssetResult } from '../BacktestView';
 import { prepareBacktestDisplayResult } from '../../../core/ValueBasis';
 import { SnowballEngine } from '../../../core/SnowballEngine';
+import BacktestAssetSelector, { type BacktestAssetSelectorProps } from '../BacktestAssetSelector';
+
+type BacktestViewProps = BacktestResultsProps & BacktestAssetSelectorProps;
+const BacktestView = (props: BacktestViewProps) => <>
+  <BacktestAssetSelector {...props} />
+  <BacktestResultsView {...props} />
+</>;
+
 
 vi.mock('../../charts/BacktestChart', () => ({
   default: ({
@@ -90,6 +98,24 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 describe('BacktestView', () => {
+  it('replaces the primary asset directly while keeping the chosen comparisons', async () => {
+    const user = userEvent.setup();
+    const onComparisonAssetsChange = vi.fn();
+    render(<BacktestView {...baseProps} comparisonAssets={['QQQ', 'SCHD']} onComparisonAssetsChange={onComparisonAssetsChange} />);
+    await user.click(screen.getByRole('button', { name: 'SPY 기준 종목 변경' }));
+    await user.selectOptions(screen.getByLabelText('새 기준 종목'), 'AMD');
+    expect(onComparisonAssetsChange).toHaveBeenCalledWith(['QQQ', 'SCHD'], 'AMD');
+  });
+
+  it('promotes an already selected comparison through the primary picker without duplicates', async () => {
+    const user = userEvent.setup();
+    const onComparisonAssetsChange = vi.fn();
+    render(<BacktestView {...baseProps} comparisonAssets={['QQQ', 'SCHD']} onComparisonAssetsChange={onComparisonAssetsChange} />);
+    await user.click(screen.getByRole('button', { name: 'SPY 기준 종목 변경' }));
+    await user.selectOptions(screen.getByLabelText('새 기준 종목'), 'QQQ');
+    expect(onComparisonAssetsChange).toHaveBeenCalledWith(['SPY', 'SCHD'], 'QQQ');
+  });
+
   it('derives the optional market trend solely from the active primary asset', async () => {
     // Catches the production break where the market source ignores the active asset or bypasses the default-off toggle.
     const user = userEvent.setup();
@@ -410,11 +436,11 @@ describe('BacktestView', () => {
     expect(picker.textContent).toContain('SPY');
     expect(picker.textContent).toContain('QLD');
 
-    const disclosure = screen.getByText('개별 종목 추가').closest('details');
+    const disclosure = screen.getByText('비교 종목 추가').closest('details');
     expect(disclosure?.hasAttribute('open')).toBe(false);
     expect(screen.queryByRole('button', { name: 'AMD 개별 자산 선택' })).toBeNull();
 
-    await user.click(screen.getByText('개별 종목 추가'));
+    await user.click(screen.getByText('비교 종목 추가'));
     expect(screen.getByRole('button', { name: 'AMD 개별 자산 선택' })).toBeTruthy();
   });
 
@@ -431,7 +457,7 @@ describe('BacktestView', () => {
       />,
     );
 
-    await user.click(screen.getByText('개별 종목 추가'));
+    await user.click(screen.getByText('비교 종목 추가'));
     const unavailableAsset = screen.getByRole('button', { name: 'AMD 개별 자산 선택' });
     expect(unavailableAsset.hasAttribute('disabled')).toBe(true);
     expect(unavailableAsset.getAttribute('title')).toContain('최대 3개');
@@ -474,8 +500,8 @@ describe('BacktestView', () => {
     );
 
     const orderedNodes = [
-      screen.getByRole('region', { name: 'SPY 핵심 지표 · 명목 기준' }),
       screen.getByRole('group', { name: '선택 자산' }),
+      screen.getByRole('region', { name: 'SPY 핵심 지표 · 명목 기준' }),
       screen.getByRole('group', { name: '결과 보기' }),
       screen.getByRole('region', { name: '자산별 과거 성과 비교' }),
       screen.getByTestId('product-performance-summary'),
@@ -495,7 +521,7 @@ it('lets family members be toggled in the individual list even at the limit', as
   const user = userEvent.setup();
   const onComparisonAssetsChange = vi.fn();
   render(<BacktestView {...baseProps} primaryAsset="QQQ" comparisonAssets={['QLD', 'TQQQ']} onComparisonAssetsChange={onComparisonAssetsChange} />);
-  await user.click(screen.getByText('개별 종목 추가'));
+  await user.click(screen.getByText('비교 종목 추가'));
   await user.click(screen.getByRole('button', { name: 'QLD 개별 자산 해제' }));
   expect(onComparisonAssetsChange).toHaveBeenCalledWith(['TQQQ']);
 });

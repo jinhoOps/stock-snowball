@@ -52,20 +52,20 @@ export interface SnowballChartProps {
   onPointHover?: (data: SnowballChartSelection | null) => void;
 }
 
-// Simple bisector implementation
-const bisectDate = (points: SnowballScenarioPoint[], x0: number | Date, low: number = 0) => {
-  let l = low;
+const MS_PER_MONTH = 365 * 86_400_000 / 12;
+
+// Resolve each scenario by its own dates; values do not extend beyond its coverage.
+const findPointOnOrBefore = (points: readonly SnowballScenarioPoint[], targetTime: number): SnowballScenarioPoint | null => {
+  if (points.length === 0 || targetTime < points[0].date.getTime() || targetTime > points.at(-1)!.date.getTime()) return null;
+  let l = 0;
   let h = points.length;
-  const targetX = x0 instanceof Date ? x0.getTime() : x0;
 
   while (l < h) {
     const mid = (l + h) >>> 1;
-    // @ts-ignore
-    const currentX = points[mid].date instanceof Date ? points[mid].date.getTime() : points[mid].x;
-    if (currentX < targetX) l = mid + 1;
+    if (points[mid].date.getTime() <= targetTime) l = mid + 1;
     else h = mid;
   }
-  return l;
+  return l > 0 ? points[l - 1] : null;
 };
 
 const tooltipStyles = {
@@ -118,9 +118,9 @@ const SnowballChartInner: React.FC<{
   const processedScenarios = useMemo(() => {
     return scenarios.map(s => ({
       ...s,
-      transformedPoints: s.points.map((p, i) => ({
+      transformedPoints: s.points.map(p => ({
         ...p,
-        monthsElapsed: i // Points are assumed to be 30-day intervals
+        monthsElapsed: (p.date.getTime() - s.points[0].date.getTime()) / MS_PER_MONTH,
       }))
     }));
   }, [scenarios]);
@@ -168,43 +168,36 @@ const SnowballChartInner: React.FC<{
       }
       
       const x0 = xScale.invert(xLeft);
-      if (processedScenarios.length === 0 || !processedScenarios[0].transformedPoints.length) return;
-
-      const mainPoints = processedScenarios[0].transformedPoints;
-      let index = 0;
-      if (comparisonMode) {
-        index = Math.round(Number(x0));
-      } else {
-        index = bisectDate(mainPoints, x0 as Date, 1);
-      }
-      
-      index = Math.max(0, Math.min(index, mainPoints.length - 1));
-      const d = mainPoints[index];
-
-      const tooltipPoints = processedScenarios.map(s => {
-        const p = s.transformedPoints[index] || s.transformedPoints[mainPoints.length - 1];
-        return {
+      const tooltipPoints = processedScenarios.flatMap(s => {
+        const start = s.points[0];
+        if (!start) return [];
+        const targetTime = comparisonMode
+          ? Math.round(start.date.getTime() + Number(x0) * MS_PER_MONTH)
+          : Number(x0);
+        const p = findPointOnOrBefore(s.points, targetTime);
+        return p ? [{
+          ...p,
           id: s.id,
           name: s.name,
-          value: p.value,
-          realValue: p.realValue,
           color: s.color,
-          pessimistic: p.pessimistic,
-          optimistic: p.optimistic,
-          contribution: p.contribution,
-        };
+        }] : [];
       });
+      if (tooltipPoints.length === 0) {
+        hideTooltip();
+        onPointHover?.(null);
+        return;
+      }
 
       const tooltipPayload = {
-        date: d.date,
-        xValue: comparisonMode ? index : d.date,
+        date: comparisonMode ? tooltipPoints[0].date : new Date(Number(x0)),
+        xValue: x0,
         points: tooltipPoints,
       };
 
       showTooltip({
         tooltipData: tooltipPayload,
-        tooltipLeft: xScale(comparisonMode ? index : d.date.getTime()),
-        tooltipTop: valueScale(d.value),
+        tooltipLeft: xLeft,
+        tooltipTop: valueScale(tooltipPoints[0].value),
       });
 
       if (onPointHover) onPointHover(tooltipPayload);
@@ -341,7 +334,7 @@ const SnowballChartInner: React.FC<{
         {tooltipData && (
           <TooltipWithBounds top={margin.top} left={tooltipLeft! + margin.left} style={tooltipStyles}>
             <div className="font-semibold text-apple-ink mb-2 border-b border-apple-hairline pb-1">
-              {comparisonMode ? `${tooltipData.xValue}개월 경과` : tooltipData.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+              {comparisonMode ? `${Number(tooltipData.xValue).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}개월 경과` : tooltipData.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
             <div className="space-y-2">
               {tooltipData.points.map((p, i) => (

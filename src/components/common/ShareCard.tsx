@@ -9,6 +9,7 @@ interface ShareCardProps {
   pessimisticAsset: number;
   optimisticAsset: number;
   contribution: number;
+  contributionLabel?: string;
   cycle: ContributionCycle;
   totalReturn: number;
   returnPercentage: number;
@@ -33,6 +34,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
   pessimisticAsset,
   optimisticAsset,
   contribution,
+  contributionLabel,
   cycle,
   totalReturn,
   returnPercentage,
@@ -83,7 +85,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
         {/* Stats Grid - 3 columns */}
         <div className="grid grid-cols-3 gap-2 w-full z-10 mt-6">
           <div className="bg-apple-surface-pearl rounded-md p-2.5 border border-apple-hairline flex flex-col items-center text-center">
-            <span className="w-full text-[9px] leading-relaxed font-bold text-apple-ink-muted-48 uppercase mb-0.5 block whitespace-nowrap">{CYCLE_LABEL[cycle]} 얼마씩?</span>
+            <span className="w-full text-[9px] leading-relaxed font-bold text-apple-ink-muted-48 uppercase mb-0.5 block whitespace-nowrap">{contributionLabel ?? `${CYCLE_LABEL[cycle]} 얼마씩?`}</span>
             <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(contribution, currency, true)}</span>
           </div>
           <div className="bg-apple-surface-pearl rounded-md p-2.5 border border-apple-hairline flex flex-col items-center text-center">

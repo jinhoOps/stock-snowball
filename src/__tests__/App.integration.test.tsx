@@ -6,10 +6,10 @@ import App from '../App';
 import { SnowballEngine } from '../core/SnowballEngine';
 import { findPointOnOrBefore, getHistoricalCoverage, getHistoricalData } from '../data/historicalAssets';
 import { getCommonCoverage } from '../data/leverageFamilies';
-import type { HistoricalAssetType } from '../types/finance';
+import { DEFAULT_BACKTEST_PARAMS, DEFAULT_PROJECTION_PARAMS, type HistoricalAssetType } from '../types/finance';
 
 const backtestRun = vi.hoisted(() => vi.fn());
-const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[] }));
+const scenarioState = vi.hoisted(() => ({ scenarios: [] as Record<string, unknown>[], addScenario: vi.fn() }));
 const preparePortfolioDisplayResultCalls = vi.hoisted(() => vi.fn());
 
 vi.mock('../core/BacktestEngine', () => ({ BacktestEngine: { run: backtestRun } }));
@@ -36,7 +36,7 @@ vi.mock('../core/ProductPerformance', async (importOriginal) => ({
 vi.mock('../hooks/useScenarios', () => ({
   useScenarios: () => ({
     scenarios: scenarioState.scenarios,
-    addScenario: vi.fn(),
+    addScenario: scenarioState.addScenario,
     removeScenario: vi.fn(),
     loading: false,
   }),
@@ -77,39 +77,47 @@ vi.mock('../components/sections/KPIGrid', () => ({
     cagrLabel,
   }: {
     totalAsset: number;
-    cagr: number;
+    cagr: number | null;
     cagrLabel?: string;
   }) => (
     <div data-testid="projection-kpis">
-      <output data-testid="kpi-values">{totalAsset.toFixed(6)}|{cagr.toFixed(6)}</output>
+      <output data-testid="kpi-values">{totalAsset.toFixed(6)}|{cagr?.toFixed(6) ?? '-'}</output>
       <output data-testid="kpi-rate-label">{cagrLabel}</output>
     </div>
   ),
 }));
-vi.mock('../components/common/ShareCard', () => ({ default: () => null }));
+vi.mock('../components/common/ShareCard', () => ({ default: ({ contribution, contributionLabel }: { contribution: number; contributionLabel?: string }) =>
+  <output data-testid="share-contribution">{contributionLabel}|{contribution}</output>,
+}));
 vi.mock('../components/sections/SimulationControls', () => ({
   default: ({
     setMode,
+    backtestAssetSelection,
     params,
     rangeNotice,
     selectedAssets,
     onUpdate,
+    setCurrency,
   }: {
     setMode: (mode: 'BACKTEST' | 'PROJECTION') => void;
+    backtestAssetSelection?: React.ReactNode;
     params: { startDate?: string; endDate?: string };
     rangeNotice?: string | null;
     selectedAssets: HistoricalAssetType[];
     onUpdate: (params: { startDate: string; endDate: string }) => void;
+    setCurrency: (currency: 'KRW' | 'USD') => void;
   }) => (
     <>
       <button onClick={() => setMode('BACKTEST')}>open backtest</button>
       <button onClick={() => setMode('PROJECTION')}>open projection</button>
+      <button onClick={() => setCurrency('USD')}>display USD</button>
       <button onClick={() => {
         const coverage = getCommonCoverage(selectedAssets, getHistoricalCoverage);
         onUpdate({ startDate: coverage.startDate, endDate: coverage.endDate });
       }}>
         apply common range
       </button>
+      {backtestAssetSelection}
       <output data-testid="control-dates">{params.startDate}|{params.endDate}</output>
       <output data-testid="range-notice">{rangeNotice}</output>
     </>
@@ -132,17 +140,29 @@ vi.mock('../components/sections/AdvancedSettingsSheet', () => ({
     </>
   ),
 }));
+vi.mock('../components/sections/BacktestAssetSelector', () => ({
+  default: ({ primaryAsset, onFamilySelect, onComparisonAssetsChange }: {
+    primaryAsset: string;
+    onFamilySelect: (familyId: 'NASDAQ' | 'AMD') => void;
+    onComparisonAssetsChange: (assets: string[]) => void;
+  }) => <>
+      <button onClick={() => onFamilySelect('NASDAQ')}>select NASDAQ family</button>
+      <button onClick={() => onFamilySelect('AMD')}>select AMD family</button>
+      <button onClick={() => onComparisonAssetsChange(['QLD', 'QLD', primaryAsset, 'TQQQ'])}>
+        send invalid comparisons
+      </button>
+  </>,
+}));
+
 vi.mock('../components/sections/BacktestView', () => ({
   default: ({
     primaryAsset,
     comparisonAssets,
-    onFamilySelect,
     results,
     onValueBasisChange,
     onResultViewChange,
     valueBasis,
     resultView,
-    onComparisonAssetsChange,
     goldBasisError,
     startDate,
     endDate,
@@ -152,7 +172,6 @@ vi.mock('../components/sections/BacktestView', () => ({
     startDate: string;
     endDate: string;
     comparisonAssets: string[];
-    onFamilySelect: (familyId: 'NASDAQ' | 'AMD') => void;
     results: Array<{
       status: string;
       display?: {
@@ -164,7 +183,6 @@ vi.mock('../components/sections/BacktestView', () => ({
     onResultViewChange: (view: 'NORMALIZED') => void;
     valueBasis: string;
     resultView: string;
-    onComparisonAssetsChange: (assets: string[]) => void;
     goldBasisError: string | null;
     scenarioSeries: Array<{
       name: string;
@@ -197,8 +215,7 @@ vi.mock('../components/sections/BacktestView', () => ({
       <output data-testid="backtest-boundary">
         {primaryAsset}|{startDate}|{endDate}
       </output>
-      <button onClick={() => onFamilySelect('NASDAQ')}>select NASDAQ family</button>
-      <button onClick={() => onFamilySelect('AMD')}>select AMD family</button>
+
       <output data-testid="prepared-final-value">
         {results.find((result) => result.status === 'success')?.display?.portfolioHistory.at(-1)?.value}
       </output>
@@ -214,9 +231,7 @@ vi.mock('../components/sections/BacktestView', () => ({
       </button>
       {goldBasisError && <p role="status">{goldBasisError}</p>}
       <button onClick={() => onResultViewChange('NORMALIZED')}>show normalized</button>
-      <button onClick={() => onComparisonAssetsChange(['QLD', 'QLD', primaryAsset, 'TQQQ'])}>
-        send invalid comparisons
-      </button>
+
       <output data-testid="presentation-state">{valueBasis}|{resultView}</output>
     </>
     );
@@ -278,6 +293,7 @@ beforeEach(() => {
   backtestRun.mockReset();
   preparePortfolioDisplayResultCalls.mockReset();
   scenarioState.scenarios = [];
+  scenarioState.addScenario.mockReset();
   backtestRun.mockReturnValue({
     history: [
       { date: '2024-01-01', value: 100, principal: 100 },
@@ -295,9 +311,127 @@ afterEach(() => {
   cleanup();
   testStorage.clear();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe('App backtest selection', () => {
+  it('shows the applied backtest conditions and updates their currency', async () => {
+    testStorage.setItem('exchange_rate', '1000');
+    testStorage.setItem('backtest_params', JSON.stringify({ ...DEFAULT_BACKTEST_PARAMS, cycle: 'MONTHLY', contribution: 300000 }));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
+    const summary = await screen.findByRole('region', { name: '백테스트 적용 조건' });
+    expect(summary.textContent).toContain('SPY');
+    expect(summary.textContent).toContain('2010-01-01 ~ 2024-01-01');
+    expect(summary.textContent).toContain('초기 1,000만 원');
+    expect(summary.textContent).toContain('매월 30만 원');
+    fireEvent.click(screen.getByRole('button', { name: 'display USD' }));
+    expect(summary.textContent).toContain('초기 $10,000');
+    expect(summary.textContent).toContain('매월 $300');
+  });
+
+  it('reports dated portfolio IRR instead of treating later deposits as initial capital', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2025-01-01T12:00:00Z'));
+    testStorage.setItem('projection_params', JSON.stringify({
+      ...DEFAULT_PROJECTION_PARAMS, principal: 1000, contribution: 100,
+      cycle: 'MONTHLY', years: 1, rate: 0.1,
+    }));
+    render(<App />);
+    const annualReturn = Number(screen.getByTestId('kpi-values').textContent?.split('|')[1]);
+    // Independent dated-cash-flow solution after 0.015% buy/sell fees and 15.4% gain tax.
+    expect(annualReturn).toBeCloseTo(8.413428, 5);
+    expect(screen.getByTestId('kpi-rate-label').textContent).toContain('IRR');
+    vi.useRealTimers();
+  });
+
+  it('keeps ISA wealth invariant when switching the display currency', () => {
+    testStorage.setItem('exchange_rate', '1000');
+    testStorage.setItem('projection_params', JSON.stringify({
+      ...DEFAULT_PROJECTION_PARAMS, principal: 30_000_000, contribution: 0,
+      years: 1, rate: 0.2, accountType: 'ISA',
+    }));
+    render(<App />);
+    const krw = Number(screen.getByTestId('kpi-values').textContent?.split('|')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'display USD' }));
+    const usd = Number(screen.getByTestId('kpi-values').textContent?.split('|')[0]);
+    expect(usd * 1000).toBeCloseTo(krw, 2);
+  });
+
+  it('converts a saved USD projection into the current KRW comparison currency', () => {
+    testStorage.setItem('exchange_rate', '1000');
+    scenarioState.scenarios = [savedScenario({
+      name: 'USD cash', simulationMode: 'PROJECTION', assetType: 'CUSTOM',
+      principal: 100, annualRate: 0, strategyBaseAmount: 0,
+      buyFeeRate: 0, sellFeeRate: 0, currency: 'USD', exchangeRate: 1000,
+    })];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'USD cash 비교하기' }));
+    expect(screen.getByTestId('chart-scenarios').textContent).toContain('USD cash:100000.000000:100000.000000');
+  });
+
+  it('loads saved amounts in the current display currency', () => {
+    testStorage.setItem('exchange_rate', '1000');
+    scenarioState.scenarios = [savedScenario({
+      name: 'USD load', simulationMode: 'PROJECTION', assetType: 'CUSTOM',
+      principal: 100, strategyBaseAmount: 2, currency: 'USD',
+    })];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'USD load 불러오기' }));
+    const stored = JSON.parse(testStorage.getItem('projection_params')!);
+    expect(stored.principal).toBe(100_000);
+    expect(stored.contribution).toBe(2000);
+  });
+
+  it('keeps saved projection calculations identical after load, currency conversion and reload', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2025-01-01T12:00:00Z'));
+    testStorage.setItem('exchange_rate', '1000');
+    scenarioState.scenarios = [savedScenario({
+      name: 'preserved projection', simulationMode: 'PROJECTION', assetType: 'SPY',
+      principal: 30000, annualRate: 0.2, strategyType: 'VALUE_AVERAGING',
+      strategyBaseAmount: 2, strategyTargetGrowth: 1000,
+      buyFeeRate: 0.01, sellFeeRate: 0.02, currency: 'USD', exchangeAnnualChangeRate: 0.1,
+    })];
+    const view = render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'preserved projection 비교하기' }));
+    const savedKrw = Number(screen.getByTestId('chart-scenarios').textContent!.split('|')[1].split(':')[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'preserved projection 불러오기' }));
+    expect(Number(screen.getByTestId('kpi-values').textContent!.split('|')[0])).toBeCloseTo(savedKrw, 5);
+    const loaded = JSON.parse(testStorage.getItem('projection_params')!);
+    expect(loaded.strategyTargetGrowth).toBe(1_000_000);
+    expect(screen.getByTestId('share-contribution').textContent).toBe('월간 목표 증가액|1000000');
+    expect(loaded.taxConfig.isaReducedTaxRate).toBe(0.095);
+    fireEvent.click(screen.getByRole('button', { name: 'display USD' }));
+    expect(Number(screen.getByTestId('kpi-values').textContent!.split('|')[0]) * 1000).toBeCloseTo(savedKrw, 2);
+    view.unmount();
+    render(<App />);
+    expect(Number(screen.getByTestId('kpi-values').textContent!.split('|')[0]) * 1000).toBeCloseTo(savedKrw, 2);
+    fireEvent.click(screen.getByRole('button', { name: '저장 및 비교' }));
+    expect(scenarioState.addScenario).toHaveBeenLastCalledWith(expect.objectContaining({
+      principal: 30000, annualRate: 0.2, strategyTargetGrowth: 1000,
+      buyFeeRate: 0.01, sellFeeRate: 0.02, taxIsaLimit: 2_000_000,
+      taxIsaReducedRate: 0.095, exchangeAnnualChangeRate: 0.1, currency: 'USD',
+    }));
+  });
+
+  it('restores saved backtest fees, tax rules and dividend reinvestment on load', async () => {
+    testStorage.setItem('exchange_rate', '1000');
+    scenarioState.scenarios = [savedScenario({
+      name: 'preserved backtest', reinvestDividends: false,
+      buyFeeRate: 0.01, sellFeeRate: 0.02, taxDividendRate: 0.2,
+      taxCapitalGainRate: 0.3, taxIsaLimit: 4_000_000, taxIsaReducedRate: 0.095,
+    })];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'preserved backtest 불러오기' }));
+    await waitFor(() => expect(backtestRun).toHaveBeenCalled());
+    expect(backtestRun.mock.calls.at(-1)![0]).toMatchObject({
+      initialPrincipal: 100000, reinvestDividends: false,
+      buyFeeRate: 0.01, sellFeeRate: 0.02, taxDividendRate: 0.2,
+      taxCapitalGainRate: 0.3, taxIsaLimit: 4_000_000, taxIsaReducedRate: 0.095,
+    });
+  });
+
   it('moves chart, metrics, and saved scenarios to the backtest analysis surface', async () => {
     render(<App />);
 
@@ -481,7 +615,7 @@ describe('App backtest selection', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     fireEvent.click(await screen.findByRole('button', { name: 'select NASDAQ family' }));
-    fireEvent.click(screen.getByRole('button', { name: 'show real basis' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'show real basis' }));
     fireEvent.click(screen.getByRole('button', { name: 'show normalized' }));
     await waitFor(() => expect(screen.getByTestId('presentation-state').textContent).toBe('REAL|NORMALIZED'));
 

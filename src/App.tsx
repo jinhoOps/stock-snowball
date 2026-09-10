@@ -23,7 +23,9 @@ import {
   preparePortfolioDisplayResult,
 } from './core/ValueBasis';
 import { useScenarios } from './hooks/useScenarios';
-import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS } from './types/finance';
+import BacktestAssetSelector from './components/sections/BacktestAssetSelector';
+import BacktestConditionsSummary from './components/sections/BacktestConditionsSummary';
+import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS, DEFAULT_TAX_CONFIG, getCurrencyFactor, getTaxConfigForCurrency } from './types/finance';
 import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
 import { toPng } from 'html-to-image';
 import ShareCard from './components/common/ShareCard';
@@ -98,11 +100,12 @@ function App() {
   const [mode, setMode] = useState<SimulationMode>('PROJECTION');
   const [currency, setCurrency] = useState<'KRW' | 'USD'>(() => {
     const cached = localStorage.getItem('currency');
-    return (cached as 'KRW' | 'USD') || 'KRW';
+    return cached === 'USD' ? 'USD' : 'KRW';
   });
   const [exchangeRate, setExchangeRate] = useState(() => {
     const cached = localStorage.getItem('exchange_rate');
-    return cached ? Number(cached) : DEFAULT_EXCHANGE_RATE;
+    const parsed = Number(cached);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_EXCHANGE_RATE;
   });
   const [scenarioName, setScenarioName] = useState('기본 시나리오');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -147,6 +150,7 @@ function App() {
   }, [exchangeRate]);
 
   const activeParams = mode === 'PROJECTION' ? projectionParams : backtestParams;
+  const isValueAveragingProjection = mode === 'PROJECTION' && projectionParams.strategyType === 'VALUE_AVERAGING';
   const selectedBacktestAssets = useMemo(() => [
     backtestParams.assetType as HistoricalAssetType,
     ...comparisonAssets,
@@ -195,6 +199,9 @@ function App() {
   const handleUpdateParams = (newParams: Partial<SimulationParams>) => {
     const applyLimits = (params: SimulationParams, changes: Partial<SimulationParams>): SimulationParams => {
       const merged = { ...params, ...changes };
+      if ((changes.assetType !== undefined && changes.assetType !== params.assetType)
+        || (changes.rate !== undefined && changes.rate !== params.rate)) delete merged.annualRateOverride;
+      if (changes.contribution !== undefined && changes.contribution !== params.contribution) delete merged.strategyTargetGrowth;
       const maxYears = merged.cycle === 'DAILY' ? 30 : 50;
       if (merged.years > maxYears) {
         merged.years = maxYears;
@@ -262,8 +269,11 @@ function App() {
     // Convert values for both modes
     const convert = (params: SimulationParams) => ({
       ...params,
-      principal: SnowballEngine.convertCurrency(params.principal, exchangeRate, newCurrency),
-      contribution: SnowballEngine.convertCurrency(params.contribution, exchangeRate, newCurrency),
+      principal: params.principal * getCurrencyFactor(currency, newCurrency, exchangeRate),
+      contribution: params.contribution * getCurrencyFactor(currency, newCurrency, exchangeRate),
+      ...(params.strategyTargetGrowth === undefined ? {} : {
+        strategyTargetGrowth: params.strategyTargetGrowth * getCurrencyFactor(currency, newCurrency, exchangeRate),
+      }),
     });
 
     setProjectionParams(convert(projectionParams));
@@ -281,33 +291,35 @@ function App() {
     (scenario) => comparingScenarioIds.includes(scenario.id),
   ), [scenarios, comparingScenarioIds]);
 
+  const projectionTaxConfig = useMemo(() => getTaxConfigForCurrency(currency, exchangeRate, projectionParams.taxConfig), [currency, exchangeRate, projectionParams.taxConfig]);
+  const backtestTaxConfig = useMemo(() => getTaxConfigForCurrency(currency, exchangeRate, backtestParams.taxConfig), [currency, exchangeRate, backtestParams.taxConfig]);
+  const effectiveProjectionRate = useMemo(() => projectionParams.annualRateOverride ?? (
+    projectionParams.assetType === 'CUSTOM' ? projectionParams.rate : calculateMedianCAGR(projectionParams.assetType)
+  ), [projectionParams.annualRateOverride, projectionParams.assetType, projectionParams.rate]);
+
   const activeSimulation: SimulationRangeResult = useMemo(() => {
     const strategy: StrategyConfig = {
       type: projectionParams.strategyType,
       baseAmount: projectionParams.contribution,
+      targetGrowth: projectionParams.strategyTargetGrowth,
       increaseRate: projectionParams.strategyIncreaseRate,
       cycle: projectionParams.cycle,
     };
 
-    // 자산별 Median CAGR 자동 적용 (커스텀이 아닐 경우)
-    const effectiveRate = projectionParams.assetType === 'CUSTOM' 
-      ? projectionParams.rate 
-      : calculateMedianCAGR(projectionParams.assetType);
-
     return SnowballEngine.simulateRange(
       projectionParams.principal,
-      effectiveRate,
+      effectiveProjectionRate,
       projectionParams.years,
       strategy,
       projectionParams.inflationRate,
       projectionParams.accountType,
-      undefined,
-      undefined,
-      undefined,
+      projectionTaxConfig,
+      projectionParams.feeConfig,
+      { base: 1, annualChangeRate: projectionParams.exchangeAnnualChangeRate ?? 0 },
       30,
       projectionParams.assetType
     );
-  }, [projectionParams]);
+  }, [projectionParams, projectionTaxConfig, effectiveProjectionRate]);
 
   const comparisonResults = useMemo<ComparisonAssetResult[]>(() => {
     if (mode !== 'BACKTEST' || backtestRangeError) return [];
@@ -330,15 +342,15 @@ function App() {
           cycle: backtestParams.cycle,
           startDate,
           endDate,
-          reinvestDividends: true,
+          reinvestDividends: backtestParams.reinvestDividends ?? true,
           assetId,
           accountType: backtestParams.accountType,
-          buyFeeRate: 0.00015,
-          sellFeeRate: 0.00015,
-          taxDividendRate: 0.154,
-          taxCapitalGainRate: 0.22,
-          taxIsaLimit: 2000000,
-          taxIsaReducedRate: 0.095,
+          buyFeeRate: backtestParams.feeConfig?.buyFeeRate ?? 0.00015,
+          sellFeeRate: backtestParams.feeConfig?.sellFeeRate ?? 0.00015,
+          taxDividendRate: backtestTaxConfig.dividendTaxRate,
+          taxCapitalGainRate: backtestTaxConfig.capitalGainTaxRate,
+          taxIsaLimit: backtestTaxConfig.isaTaxFreeLimit,
+          taxIsaReducedRate: backtestTaxConfig.isaReducedTaxRate,
         }, data);
         const product = calculateProductPerformance(data, startDate, endDate);
         return { status: 'success', assetId, targetMultiple: multiple, portfolio: rawPortfolio, product };
@@ -351,7 +363,7 @@ function App() {
         };
       }
     });
-  }, [mode, backtestParams, selectedBacktestAssets, backtestRangeError]);
+  }, [mode, backtestParams, selectedBacktestAssets, backtestRangeError, backtestTaxConfig]);
 
   const activeBacktest = comparisonResults?.find((result) =>
     result.status === 'success' && result.assetId === backtestParams.assetType)?.portfolio ?? null;
@@ -434,16 +446,16 @@ function App() {
     return getProductPeriodMetric(points, calculateProductPerformanceMetrics(points));
   }, [activeDisplay]);
   const shareUsesRecovery = mode === 'BACKTEST' && sharePeriodMetric?.kind === 'RECOVERY';
-  const cagr = mode === 'PROJECTION' && projectionParams.years > 0
-    ? (Math.pow(activeResult.postTaxValue / activeResult.totalContribution, 1 / projectionParams.years) - 1) * 100 
+  const cagr = mode === 'PROJECTION'
+    ? activeSimulation.irr === null ? null : activeSimulation.irr * 100
     : shareUsesRecovery
       ? sharePeriodMetric.value === null ? null : sharePeriodMetric.value * 100
       : sharePeriodMetric?.value == null
       ? null
       : backtestResultView === 'NORMALIZED'
       ? sharePeriodMetric.value * 100
-      : (activeDisplay?.portfolioIrr ?? 0) * 100;
-  const cagrLabel = mode === 'BACKTEST' && backtestResultView === 'PORTFOLIO'
+      : activeDisplay?.portfolioIrr == null ? null : activeDisplay.portfolioIrr * 100;
+  const cagrLabel = mode === 'PROJECTION' || backtestResultView === 'PORTFOLIO'
     ? '내부수익률 (IRR)'
     : '연복리 수익률 (CAGR)';
   
@@ -487,6 +499,13 @@ function App() {
 
     const comparing = selectedComparisonScenarios
       .flatMap((s, index) => {
+        const moneyFactor = getCurrencyFactor(s.currency, currency, exchangeRate);
+        const savedTaxConfig = getTaxConfigForCurrency(currency, exchangeRate, {
+          dividendTaxRate: s.taxDividendRate,
+          capitalGainTaxRate: s.taxCapitalGainRate,
+          isaTaxFreeLimit: s.taxIsaLimit,
+          isaReducedTaxRate: s.taxIsaReducedRate,
+        });
         if (s.simulationMode === 'BACKTEST') {
           const assetType = s.assetType || 'SPY';
           const startDate = s.backtestStartDate || '2010-01-01';
@@ -495,20 +514,20 @@ function App() {
 
           const data = getHistoricalData(assetType);
           const bt = BacktestEngine.run({
-            initialPrincipal: s.principal,
-            monthlyInstallment: s.strategyBaseAmount,
+            initialPrincipal: s.principal * moneyFactor,
+            monthlyInstallment: s.strategyBaseAmount * moneyFactor,
             cycle: s.contributionCycle || 'MONTHLY',
             startDate,
             endDate,
-            reinvestDividends: true,
+            reinvestDividends: s.reinvestDividends ?? true,
             assetId: assetType,
             accountType: s.accountType,
-            buyFeeRate: 0.00015,
-            sellFeeRate: 0.00015,
-            taxDividendRate: 0.154,
-            taxCapitalGainRate: 0.22,
-            taxIsaLimit: 2000000,
-            taxIsaReducedRate: 0.095,
+            buyFeeRate: s.buyFeeRate,
+            sellFeeRate: s.sellFeeRate,
+            taxDividendRate: savedTaxConfig.dividendTaxRate,
+            taxCapitalGainRate: savedTaxConfig.capitalGainTaxRate,
+            taxIsaLimit: savedTaxConfig.isaTaxFreeLimit,
+            taxIsaReducedRate: savedTaxConfig.isaReducedTaxRate,
           }, data);
           const prepared = preparePortfolioDisplayResult(bt, effectiveValueBasis, {
             inflationRate: s.inflationRate,
@@ -527,20 +546,21 @@ function App() {
         }
 
         const sim = SnowballEngine.simulateRange(
-          s.principal,
+          s.principal * moneyFactor,
           s.annualRate,
           s.years,
           { 
             type: s.strategyType, 
-            baseAmount: s.strategyBaseAmount, 
+            baseAmount: s.strategyBaseAmount * moneyFactor,
+            targetGrowth: s.strategyTargetGrowth === undefined ? undefined : s.strategyTargetGrowth * moneyFactor,
             increaseRate: s.strategyIncreaseRate,
             cycle: s.contributionCycle || 'MONTHLY'
           },
           s.inflationRate,
           s.accountType,
-          undefined,
-          undefined,
-          undefined,
+          savedTaxConfig,
+          { buyFeeRate: s.buyFeeRate, sellFeeRate: s.sellFeeRate },
+          { base: 1, annualChangeRate: s.exchangeAnnualChangeRate },
           30,
           s.assetType || 'CUSTOM'
         );
@@ -559,7 +579,7 @@ function App() {
         }];
           });
     return [main, ...comparing];
-  }, [activeSimulation, activeDisplayHistory, scenarioName, selectedComparisonScenarios, mode, effectiveValueBasis, goldData, backtestRangeError]);
+  }, [activeSimulation, activeDisplayHistory, scenarioName, selectedComparisonScenarios, mode, effectiveValueBasis, goldData, backtestRangeError, currency, exchangeRate]);
 
   const handleSaveScenario = async () => {
     if (!scenarioName.trim()) {
@@ -573,27 +593,28 @@ function App() {
         simulationMode: mode,
         backtestStartDate: activeParams.startDate,
         backtestEndDate: activeParams.endDate,
-        reinvestDividends: true,
+        reinvestDividends: activeParams.reinvestDividends ?? true,
         principal: activeParams.principal,
-        annualRate: mode === 'PROJECTION' ? (activeParams.assetType === 'CUSTOM' ? activeParams.rate : calculateMedianCAGR(activeParams.assetType)) : activeParams.rate,
+        annualRate: mode === 'PROJECTION' ? effectiveProjectionRate : activeParams.rate,
         years: activeParams.years,
         dailyContribution: activeParams.contribution / 30.42,
         strategyType: activeParams.strategyType,
         strategyBaseAmount: activeParams.contribution,
         strategyIncreaseRate: activeParams.strategyIncreaseRate,
+        strategyTargetGrowth: activeParams.strategyTargetGrowth,
         contributionCycle: activeParams.cycle,
         assetType: activeParams.assetType,
         accountType: activeParams.accountType,
         inflationRate: activeParams.inflationRate,
-        buyFeeRate: 0.00015,
-        sellFeeRate: 0.00015,
-        taxDividendRate: 0.154,
-        taxCapitalGainRate: 0.22,
-        taxIsaLimit: 2000000,
-        taxIsaReducedRate: 0.095,
+        buyFeeRate: activeParams.feeConfig?.buyFeeRate ?? 0.00015,
+        sellFeeRate: activeParams.feeConfig?.sellFeeRate ?? 0.00015,
+        taxDividendRate: (activeParams.taxConfig ?? DEFAULT_TAX_CONFIG).dividendTaxRate,
+        taxCapitalGainRate: (activeParams.taxConfig ?? DEFAULT_TAX_CONFIG).capitalGainTaxRate,
+        taxIsaLimit: (activeParams.taxConfig ?? DEFAULT_TAX_CONFIG).isaTaxFreeLimit,
+        taxIsaReducedRate: (activeParams.taxConfig ?? DEFAULT_TAX_CONFIG).isaReducedTaxRate,
         currency: currency,
         exchangeRate: exchangeRate,
-        exchangeAnnualChangeRate: 0,
+        exchangeAnnualChangeRate: activeParams.exchangeAnnualChangeRate ?? 0,
       });
       
       // 즉시 비교군에 추가
@@ -616,8 +637,8 @@ function App() {
     const scenarioMode = s.simulationMode || 'PROJECTION';
     setMode(scenarioMode);
     const newParams: SimulationParams = {
-      principal: s.principal,
-      contribution: s.strategyBaseAmount,
+      principal: s.principal * getCurrencyFactor(s.currency, currency, exchangeRate),
+      contribution: s.strategyBaseAmount * getCurrencyFactor(s.currency, currency, exchangeRate),
       cycle: s.contributionCycle || 'MONTHLY',
       assetType: s.assetType || 'CUSTOM',
       years: s.years,
@@ -625,7 +646,19 @@ function App() {
       accountType: s.accountType,
       inflationRate: s.inflationRate,
       strategyType: s.strategyType,
-      strategyIncreaseRate: s.strategyIncreaseRate || 0.05,
+      strategyIncreaseRate: s.strategyIncreaseRate ?? 0.05,
+      strategyTargetGrowth: s.strategyTargetGrowth === undefined ? undefined
+        : s.strategyTargetGrowth * getCurrencyFactor(s.currency, currency, exchangeRate),
+      annualRateOverride: s.annualRate,
+      taxConfig: {
+        dividendTaxRate: s.taxDividendRate,
+        capitalGainTaxRate: s.taxCapitalGainRate,
+        isaTaxFreeLimit: s.taxIsaLimit,
+        isaReducedTaxRate: s.taxIsaReducedRate,
+      },
+      feeConfig: { buyFeeRate: s.buyFeeRate, sellFeeRate: s.sellFeeRate },
+      exchangeAnnualChangeRate: s.exchangeAnnualChangeRate,
+      reinvestDividends: s.reinvestDividends ?? true,
       startDate: s.backtestStartDate,
       endDate: s.backtestEndDate,
     };
@@ -693,7 +726,8 @@ function App() {
         totalAsset={activeResult.postTaxValue}
         pessimisticAsset={mode === 'PROJECTION' ? activeSimulation.pessimistic[activeSimulation.pessimistic.length - 1].postTaxValue : activeResult.postTaxValue}
         optimisticAsset={mode === 'PROJECTION' ? activeSimulation.optimistic[activeSimulation.optimistic.length - 1].postTaxValue : activeResult.postTaxValue}
-        contribution={activeParams.contribution}
+        contribution={isValueAveragingProjection ? activeParams.strategyTargetGrowth ?? activeParams.contribution : activeParams.contribution}
+        contributionLabel={isValueAveragingProjection ? '월간 목표 증가액' : undefined}
         cycle={activeParams.cycle}
         totalReturn={totalReturn}
         returnPercentage={returnPercentage}
@@ -725,9 +759,16 @@ function App() {
                 onOpenAdvanced={() => setIsAdvancedOpen(true)}
                 selectedAssets={selectedBacktestAssets}
                 rangeNotice={mode === 'BACKTEST' ? backtestRangeNotice : null}
+                backtestAssetSelection={mode === 'BACKTEST' ? <BacktestAssetSelector
+                  primaryAsset={backtestParams.assetType as HistoricalAssetType}
+                  comparisonAssets={comparisonAssets}
+                  onFamilySelect={handleFamilySelect}
+                  onComparisonAssetsChange={handleComparisonAssetsChange}
+                /> : undefined}
               />
 
               <AdvancedSettingsSheet 
+                mode={mode}
                 isOpen={isAdvancedOpen}
                 onClose={() => setIsAdvancedOpen(false)}
                 params={activeParams}
@@ -743,6 +784,8 @@ function App() {
                   transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.25, 0.1, 0.25, 1.0] }}
                   className="w-full flex flex-col items-center"
                 >
+                  {mode === 'BACKTEST' && !backtestRangeError && activeBacktest && <BacktestConditionsSummary
+                    params={backtestParams} selectedAssets={selectedBacktestAssets} currency={currency} />}
                   {!backtestRangeError && <div className="mb-10 text-center flex flex-col items-center">
                     <div className="flex items-center gap-3 mb-4">
                       <span className="text-caption-strong text-apple-ink-muted-48 tracking-tight uppercase font-display">
@@ -818,7 +861,7 @@ function App() {
                       totalContribution={activeResult.totalContribution}
                       totalReturn={totalReturn}
                       returnPercentage={returnPercentage}
-                      cagr={cagr ?? 0}
+                      cagr={cagr}
                       cagrLabel={cagrLabel}
                       currency={currency}
                       exchangeRate={exchangeRate}
@@ -838,8 +881,6 @@ function App() {
                         leverageInsights={leverageInsights}
                         scenarioSeries={chartScenarios}
                         onShare={handleShare}
-                        onComparisonAssetsChange={handleComparisonAssetsChange}
-                        onFamilySelect={handleFamilySelect}
                         currency={currency}
                         valueBasis={valueBasis}
                         resultView={backtestResultView}

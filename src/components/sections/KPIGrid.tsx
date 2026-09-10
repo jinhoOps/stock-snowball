@@ -15,7 +15,7 @@ interface KPIGridProps {
   totalContribution: number;
   totalReturn: number;
   returnPercentage: number;
-  cagr: number;
+  cagr: number | null;
   cagrLabel?: string;
   currency: 'USD' | 'KRW';
   exchangeRate?: number;
@@ -25,7 +25,7 @@ interface KPIGridProps {
 
 interface KPICardProps {
   label: string;
-  value: number;
+  value: number | null;
   formatter: (value: number) => string;
   isPercentage?: boolean;
   subValue?: number;
@@ -52,9 +52,9 @@ const KPICard = ({ label, value, formatter, isPercentage, subValue, subFormatter
   return (
     <MetricCard
       label={label}
-      value={<AnimatedCounter value={value} formatter={formatter} />}
+      value={value === null ? <span aria-label="연환산 수익률 계산 불가">—</span> : <AnimatedCounter value={value} formatter={formatter} />}
       highlighted={isHighlighted}
-      detail={!isPercentage ? <BigNumberHelper value={value} currency={currency} exchangeRate={exchangeRate} showDual onlyEstimate /> : undefined}
+      detail={!isPercentage && value !== null ? <BigNumberHelper value={value} currency={currency} exchangeRate={exchangeRate} showDual onlyEstimate /> : undefined}
       badge={<>
         {subValue !== undefined && subFormatter && (
           <span className="inline-flex items-center rounded-pill bg-apple-primary/5 px-3 py-1 text-caption-strong text-apple-primary">
@@ -121,7 +121,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
     return () => scope.revert();
   }, [hoveredCardIndex, prefersReducedMotion]);
 
-  const formatCurrency = (value: number) => currency === 'KRW' ? SnowballEngine.formatKoreanWon(Math.floor(value / 10000) * 10000) : SnowballEngine.formatUSD(value);
+  const formatCurrency = (value: number) => SnowballEngine.formatBigNumber(value, currency, currency === 'KRW');
   const formatPercent = (value: number) => value.toFixed(2);
   const kpis = [
     { label: '최종 예상 자산', value: totalAsset, formatter: formatCurrency, isHighlighted: true },

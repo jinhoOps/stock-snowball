@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFamilyId, LeverageInsight, ProductPerformanceResult, ValueBasis } from '../../types/finance';
+import React, { useMemo } from 'react';
+import { BacktestResult, HistoricalAssetType, LeverageInsight, ProductPerformanceResult, ValueBasis } from '../../types/finance';
 import { getProductPeriodMetric } from '../../core/ProductPerformance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
@@ -16,7 +16,7 @@ import SegmentedControl from '../common/SegmentedControl';
 import Surface from '../common/Surface';
 import BacktestPrimaryMetrics from './BacktestPrimaryMetrics';
 import BacktestAnalysisChart from './BacktestAnalysisChart';
-import { Check, Share2, X } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 
 interface ComparisonAssetBase {
   assetId: HistoricalAssetType;
@@ -42,14 +42,11 @@ export interface BacktestViewProps {
   goldBasisError: string | null;
   goldData?: readonly IndexPoint[];
   inflationRate?: number;
-  onFamilySelect: (familyId: LeverageFamilyId) => void;
-  onComparisonAssetsChange: (assets: HistoricalAssetType[], primaryAsset?: HistoricalAssetType) => void;
   onValueBasisChange: (basis: ValueBasis) => void;
   onResultViewChange: (view: 'PORTFOLIO' | 'NORMALIZED') => void;
   onShare?: () => void;
 }
 
-const ASSET_OPTIONS: HistoricalAssetType[] = [...HISTORICAL_ASSET_IDS];
 const SERIES_LINE_STYLE = {
   1: {},
   2: {},
@@ -57,13 +54,6 @@ const SERIES_LINE_STYLE = {
 } as const;
 
 const families: readonly LeverageFamily[] = Object.values(LEVERAGE_FAMILIES);
-
-const familyMember = (assetId: HistoricalAssetType) => families
-  .flatMap((family) => family.members)
-  .find((member) => member.assetId === assetId);
-
-const targetMultipleOf = (assetId: HistoricalAssetType): 1 | 2 | 3 =>
-  familyMember(assetId)?.targetMultiple ?? 1;
 
 const completeFamilyFor = (selectedAssets: readonly HistoricalAssetType[]) => families
   .find((family) => family.members.length === selectedAssets.length
@@ -95,13 +85,10 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   goldBasisError,
   goldData = [],
   inflationRate = 0,
-  onFamilySelect,
-  onComparisonAssetsChange,
   onValueBasisChange,
   onResultViewChange,
   onShare,
 }) => {
-  const [isIndividualPickerOpen, setIsIndividualPickerOpen] = useState(false);
   const displayBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
   const successfulResults = useMemo(() => results.filter(
     (result): result is Extract<ComparisonAssetResult, { status: 'success' }> => result.status === 'success',
@@ -115,15 +102,6 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   }, [primaryAsset, startDate, endDate, successfulResults.length]);
   const selectedAssets = useMemo(() => [primaryAsset, ...comparisonAssets], [primaryAsset, comparisonAssets]);
   const chartColors = useMemo(() => resolveBacktestSeriesColors(selectedAssets), [selectedAssets]);
-  const selectedGroupRef = useRef<HTMLDivElement>(null);
-  const focusAfterSelection = useRef<HistoricalAssetType | null>(null);
-  useLayoutEffect(() => {
-    const asset = focusAfterSelection.current;
-    if (asset) {
-      selectedGroupRef.current?.querySelector<HTMLElement>(`[data-selected-asset="${asset}"]`)?.focus();
-      focusAfterSelection.current = null;
-    }
-  }, [selectedAssets]);
   const completeFamily = completeFamilyFor(selectedAssets);
   const preparedResults = useMemo(() => successfulResults.map((result) => {
     const display = result.display ?? prepareBacktestDisplayResult(
@@ -155,19 +133,8 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   }), [preparedResults, resultView, chartColors]);
 
   const formatCurrency = (value: number) => currency === 'KRW'
-    ? SnowballEngine.formatKoreanWon(Math.floor(value / 10_000) * 10_000)
+    ? SnowballEngine.formatKoreanWon(value, true)
     : SnowballEngine.formatUSD(value);
-  const toggleAsset = (asset: HistoricalAssetType) => {
-    if (asset === primaryAsset) {
-      if (comparisonAssets.length > 0) onComparisonAssetsChange(comparisonAssets.slice(1), comparisonAssets[0]);
-      return;
-    }
-    if (comparisonAssets.includes(asset)) {
-      onComparisonAssetsChange(comparisonAssets.filter((selected) => selected !== asset));
-    } else if (comparisonAssets.length < 2) {
-      onComparisonAssetsChange([...comparisonAssets, asset]);
-    }
-  };
 
   return (
     <section className="flex w-full flex-col items-center gap-6" aria-label="과거 자산 비교">
@@ -186,69 +153,6 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         </div>
       ) : null}
 
-      <Surface className="w-full max-w-analysis">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-body font-semibold text-apple-ink">비교 종목</h3>
-          <span className="text-caption text-apple-secondary">{selectedAssets.length} / 3개 선택</span>
-        </div>
-        <p id="asset-selection-limit" className="mt-2 text-fine-print leading-relaxed text-apple-secondary">최대 3개를 비교합니다. 기준 종목이 핵심 지표와 시장 지표의 기준이 됩니다. 마지막 1개는 유지합니다.</p>
-        <div role="group" aria-label="선택 자산" ref={selectedGroupRef} className="mt-4 grid gap-3 sm:grid-cols-3">
-          {selectedAssets.map((asset) => {
-            const isPrimary = asset === primaryAsset;
-            return <div key={asset} data-selected-asset={asset} tabIndex={-1} role="group" aria-label={`${asset} ${isPrimary ? '기준 종목' : '비교 종목'}`} className="rounded-card border border-apple-hairline bg-apple-canvas p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary">
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2 font-semibold">{asset} <MetricBadge multiple={targetMultipleOf(asset)} /></span>
-                <Button variant="ghost" size="icon" disabled={selectedAssets.length === 1}
-                  aria-label={`${asset} ${isPrimary ? '기준 자산 제거' : '비교 자산 제거'}`}
-                  aria-describedby={selectedAssets.length === 1 ? 'asset-selection-limit' : undefined}
-                  onClick={() => { focusAfterSelection.current = isPrimary ? comparisonAssets[0] : primaryAsset; toggleAsset(asset); }}><X size={16} aria-hidden="true" /></Button>
-              </div>
-              {isPrimary ? <span className="flex min-h-control items-center gap-1 text-caption font-semibold text-apple-primary"><Check size={16} aria-hidden="true" />기준 종목</span>
-                : <Button variant="ghost" size="compact" aria-label={`${asset} 기준으로 설정`}
-                    onClick={() => { focusAfterSelection.current = asset; onComparisonAssetsChange(selectedAssets.filter((selected) => selected !== asset), asset); }}>기준으로 설정</Button>}
-            </div>;
-          })}
-        </div>
-        <div className="mt-5 border-t border-apple-hairline pt-5">
-          <h4 className="text-caption-strong text-apple-ink">레버리지 가족으로 한 번에 선택</h4>
-          <p className="mt-1 text-fine-print leading-relaxed text-apple-secondary">현재 선택을 같은 기초자산의 상품 묶음으로 바꿉니다. 선택된 가족을 다시 누르면 기준 종목만 남습니다.</p>
-          <div role="group" aria-label="레버리지 가족" className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-            {(Object.keys(LEVERAGE_FAMILIES) as LeverageFamilyId[]).map((familyId) => {
-              const family = LEVERAGE_FAMILIES[familyId];
-              const selected = completeFamily?.id === familyId;
-              return <Button key={familyId} variant={selected ? 'primary' : 'secondary'}
-                aria-label={`${family.label} 레버리지 가족 선택`} aria-pressed={selected}
-                className="h-auto flex-col items-start rounded-card px-4 py-3 text-left"
-                onClick={() => selected ? onComparisonAssetsChange([]) : onFamilySelect(familyId)}>
-                <span className="flex w-full items-center justify-between gap-2">{family.label}{selected && <Check size={16} aria-hidden="true" />}</span>
-                <span className="text-fine-print font-normal">{family.members.map((member) => member.assetId).join(' · ')}</span>
-              </Button>;
-            })}
-          </div>
-        </div>
-        <details className="mt-4 border-t border-apple-hairline pt-2"
-          onToggle={(event) => setIsIndividualPickerOpen(event.currentTarget.open)}>
-          <summary className="min-h-control cursor-pointer rounded-sm py-3 text-caption-strong text-apple-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2">개별 종목 추가</summary>
-          {isIndividualPickerOpen && <>
-            <p className="mb-3 text-fine-print text-apple-secondary">선택된 종목을 다시 누르면 해제됩니다. 기준 종목을 해제하면 다음 종목이 기준이 됩니다.</p>
-            <div role="group" className="flex flex-wrap gap-2" aria-label="개별 자산 선택">
-              {ASSET_OPTIONS.map((asset) => {
-                const selected = selectedAssets.includes(asset);
-                const limitReached = !selected && selectedAssets.length >= 3;
-                const lastAsset = selected && selectedAssets.length === 1;
-                return <Button key={asset} variant={selected ? 'primary' : 'secondary'} size="compact"
-                  aria-pressed={selected} aria-label={`${asset} 개별 자산 ${selected ? '해제' : '선택'}`}
-                  aria-describedby={limitReached || lastAsset ? 'asset-selection-limit' : undefined}
-                  disabled={limitReached || lastAsset}
-                  title={limitReached ? '비교 자산은 최대 3개까지 선택할 수 있습니다.' : lastAsset ? '최소 1개 종목을 유지해야 합니다.' : undefined}
-                  onClick={() => toggleAsset(asset)}>
-                  {selected && <Check size={14} aria-hidden="true" />}{asset} <MetricBadge multiple={targetMultipleOf(asset)} />
-                </Button>;
-              })}
-            </div>
-          </>}
-        </details>
-      </Surface>
 
       {successfulResults.length > 0 && <div className="flex w-full max-w-analysis flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <SegmentedControl

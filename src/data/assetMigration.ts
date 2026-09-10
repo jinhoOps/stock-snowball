@@ -3,6 +3,7 @@ import {
   HISTORICAL_ASSET_IDS,
   SimulationMode,
   SimulationParams,
+  DEFAULT_TAX_CONFIG,
 } from '../types/finance';
 
 const historicalAssets = new Set<string>(HISTORICAL_ASSET_IDS);
@@ -24,8 +25,8 @@ const isFiniteNumber = (value: unknown): value is number =>
 const nonNegativeNumber = (value: unknown, fallback: number): number =>
   isFiniteNumber(value) && value >= 0 ? value : fallback;
 
-const finiteNumber = (value: unknown, fallback: number): number =>
-  isFiniteNumber(value) ? value : fallback;
+const annualRate = (value: unknown, fallback: number): number =>
+  isFiniteNumber(value) && value >= -1 ? value : fallback;
 
 const isCalendarDate = (value: unknown): value is string => {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -58,22 +59,46 @@ export const normalizePersistedSimulationParams = (
     || source.strategyType === 'STEP_UP'
     ? source.strategyType
     : defaults.strategyType;
+  const effectiveCycle = mode === 'PROJECTION' && strategyType === 'VALUE_AVERAGING' ? 'MONTHLY' : cycle;
   const startDate = isCalendarDate(source.startDate) ? source.startDate : defaults.startDate;
   const endDate = isCalendarDate(source.endDate) ? source.endDate : defaults.endDate;
+  const taxConfig = isRecord(source.taxConfig) ? source.taxConfig : null;
+  const feeConfig = isRecord(source.feeConfig) ? source.feeConfig : null;
+  const unitRate = (value: unknown, fallback: number): number =>
+    isFiniteNumber(value) && value >= 0 && value <= 1 ? value : fallback;
 
   return {
     principal: nonNegativeNumber(source.principal, defaults.principal),
     contribution: nonNegativeNumber(source.contribution, defaults.contribution),
-    cycle,
+    cycle: effectiveCycle,
     assetType: normalizePersistedAssetType(source.assetType ?? defaults.assetType, mode),
-    years: isFiniteNumber(source.years) && source.years >= 1 ? source.years : defaults.years,
-    rate: finiteNumber(source.rate, defaults.rate),
+    years: isFiniteNumber(source.years) && source.years >= 1
+      ? Math.min(source.years, effectiveCycle === 'DAILY' ? 30 : 50)
+      : defaults.years,
+    rate: annualRate(source.rate, defaults.rate),
     accountType,
     inflationRate: isFiniteNumber(source.inflationRate) && source.inflationRate > -1
       ? source.inflationRate
       : defaults.inflationRate,
     strategyType,
-    strategyIncreaseRate: finiteNumber(source.strategyIncreaseRate, defaults.strategyIncreaseRate),
+    strategyIncreaseRate: annualRate(source.strategyIncreaseRate, defaults.strategyIncreaseRate),
+    ...(taxConfig ? { taxConfig: {
+      dividendTaxRate: unitRate(taxConfig.dividendTaxRate, DEFAULT_TAX_CONFIG.dividendTaxRate),
+      capitalGainTaxRate: unitRate(taxConfig.capitalGainTaxRate, DEFAULT_TAX_CONFIG.capitalGainTaxRate),
+      isaTaxFreeLimit: nonNegativeNumber(taxConfig.isaTaxFreeLimit, DEFAULT_TAX_CONFIG.isaTaxFreeLimit),
+      isaReducedTaxRate: unitRate(taxConfig.isaReducedTaxRate, DEFAULT_TAX_CONFIG.isaReducedTaxRate),
+    } } : {}),
+    ...(feeConfig ? { feeConfig: {
+      buyFeeRate: isFiniteNumber(feeConfig.buyFeeRate) && feeConfig.buyFeeRate >= 0 && feeConfig.buyFeeRate < 1 ? feeConfig.buyFeeRate : 0.00015,
+      sellFeeRate: unitRate(feeConfig.sellFeeRate, 0.00015),
+    } } : {}),
+    ...(isFiniteNumber(source.exchangeAnnualChangeRate) && source.exchangeAnnualChangeRate > -1
+      ? { exchangeAnnualChangeRate: source.exchangeAnnualChangeRate } : {}),
+    ...(typeof source.reinvestDividends === 'boolean' ? { reinvestDividends: source.reinvestDividends } : {}),
+    ...(isFiniteNumber(source.strategyTargetGrowth) && source.strategyTargetGrowth >= 0
+      ? { strategyTargetGrowth: source.strategyTargetGrowth } : {}),
+    ...(isFiniteNumber(source.annualRateOverride) && source.annualRateOverride >= -1
+      ? { annualRateOverride: source.annualRateOverride } : {}),
     ...(startDate === undefined ? {} : { startDate }),
     ...(endDate === undefined ? {} : { endDate }),
   };

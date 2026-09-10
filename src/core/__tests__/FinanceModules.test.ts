@@ -86,9 +86,8 @@ describe('SnowballEngine - Finance Modules', () => {
       );
 
       const lastResult = results[results.length - 1];
-      // Expected with compounding: 1000 * 1300 * (1 + 0.1/365)^365 ≈ 1,436,721
-      expect(lastResult.nominalValue).toBeGreaterThan(1430000);
-      expect(lastResult.nominalValue).toBeLessThan(1440000);
+      // Effective annual FX change: 1000 * 1300 * 1.1
+      expect(lastResult.nominalValue).toBeCloseTo(1430000, 6);
     });
   });
 

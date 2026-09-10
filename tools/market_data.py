@@ -382,6 +382,16 @@ def normalize_history(
                 f"{asset_id} has a non-trading weekend date on {record_date}"
             )
 
+        if previous_record is not None and record_date > previous_record.date:
+            split = _finite_number(row["Stock Splits"])
+            if split not in (0.0, 1.0):
+                # Yahoo rebases historical closes and dividends after a split.
+                # Appending the new share basis would corrupt historical returns.
+                raise MarketDataValidationError(
+                    f"{asset_id} split on {record_date} requires a full-history rebuild; "
+                    "incremental refresh aborted to preserve the existing share basis"
+                )
+
         close = _finite_number(row["Close"])
         if close is None or close <= 0:
             latest_valid_record = records[-1] if records else previous_record

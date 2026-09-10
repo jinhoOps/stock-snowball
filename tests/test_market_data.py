@@ -271,6 +271,20 @@ class MarketDataNormalizationTests(unittest.TestCase):
             ],
         )
 
+    def test_full_history_keeps_provider_split_adjusted_prices(self) -> None:
+        history = pd.DataFrame(
+            {
+                "Close": [50.0, 50.0],
+                "Dividends": [0.5, 0.0],
+                "Stock Splits": [0.0, 2.0],
+            },
+            index=pd.to_datetime(["2026-09-01", "2026-09-02"]),
+        )
+        self.assertEqual(normalize_history("QQQ", history), [
+            MarketRecord("2026-09-01", 50.0, 0.5),
+            MarketRecord("2026-09-02", 50.0, 0.0),
+        ])
+
     def test_normalize_history_rejects_duplicate_and_non_increasing_provider_dates(self) -> None:
         histories = {
             "duplicate": pd.concat([self.history.iloc[[0]], self.history.iloc[[0]], self.history.iloc[[1]]]),
@@ -898,6 +912,33 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
         self.assertEqual(requested_tickers, [asset.ticker for asset in ASSETS])
         self.assertEqual(entries["QQQ"].end_date, "2026-09-02")
         self.assertEqual(entries["QLD"].end_date, "2026-09-03")
+
+    def test_incremental_refresh_rejects_splits_without_changing_the_catalog(self) -> None:
+        for split, close in ((2.0, 50.0), (0.2, 500.0)):
+            with self.subTest(split=split), tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir)
+                data_dir = root / "indices"
+                self._write_incremental_data_dir(data_dir)
+                before = {path.name: path.read_bytes() for path in data_dir.iterdir()}
+                history = pd.DataFrame(
+                    {
+                        "Close": [close],
+                        "Dividends": [0.0],
+                        "Stock Splits": [split],
+                    },
+                    index=pd.to_datetime(["2026-09-02"]),
+                )
+
+                # Appending post-split 50 to the stored 100 would invent a 50% loss.
+                with self.assertRaisesRegex(MarketDataValidationError, r"QQQ.*split.*full-history"):
+                    refresh_all(data_dir, lambda _: FakeTicker(history), as_of=date(2026, 9, 4))
+
+                self.assertEqual(
+                    {path.name: path.read_bytes() for path in data_dir.iterdir()},
+                    before,
+                )
+                self.assertEqual(list(root.glob(".indices.staging-*")), [])
+                self.assertEqual(list(root.glob(".indices.backup-*")), [])
 
     def test_refresh_reads_each_endpoint_and_appends_only_new_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
