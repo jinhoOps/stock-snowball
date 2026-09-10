@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BacktestResult, HistoricalAssetType, HISTORICAL_ASSET_IDS, LeverageFamilyId, LeverageInsight, ProductPerformanceResult, ValueBasis } from '../../types/finance';
+import { getProductPeriodMetric } from '../../core/ProductPerformance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
 import { LEVERAGE_FAMILIES, type LeverageFamily } from '../../data/leverageFamilies';
@@ -68,7 +69,7 @@ const completeFamilyFor = (selectedAssets: readonly HistoricalAssetType[]) => fa
   .find((family) => family.members.length === selectedAssets.length
     && family.members.every((member) => selectedAssets.includes(member.assetId)));
 
-const percentage = (value: number) => `${(value * 100).toFixed(2)}%`;
+const percentage = (value: number | null) => value === null ? '—' : `${(value * 100).toFixed(2)}%`;
 const drawdownPercentage = (value: number) => {
   const magnitude = Math.abs(value);
   return magnitude === 0 ? '0.00%' : `-${percentage(magnitude)}`;
@@ -134,8 +135,12 @@ const BacktestView: React.FC<BacktestViewProps> = ({
     return {
       ...result,
       ...display,
+      periodMetric: getProductPeriodMetric(display.productPoints, display.productMetrics),
     };
   }), [successfulResults, inflationRate, goldData, displayBasis]);
+  const allRecovery = preparedResults.length > 0 && preparedResults.every((result) => result.periodMetric.kind === 'RECOVERY');
+  const mixedPeriodMetrics = !allRecovery && preparedResults.some((result) => result.periodMetric.kind === 'RECOVERY');
+  const periodHeading = allRecovery ? '최저점 대비 회복률' : mixedPeriodMetrics ? '기간 성과 (종목별)' : '연평균수익률 (CAGR)';
   const primaryPreparedResult = preparedResults.find((result) => result.assetId === primaryAsset);
   const primaryPortfolioPoint = primaryPreparedResult?.portfolioHistory.at(-1);
   const chartSeries: BacktestDisplaySeries[] = useMemo(() => preparedResults.map((result) => {
@@ -173,6 +178,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
             valueBasis={displayBasis}
             cumulativeReturn={primaryPreparedResult.productMetrics.cumulativeReturn}
             cagr={primaryPreparedResult.productMetrics.cagr}
+            periodMetric={primaryPreparedResult.periodMetric}
             mdd={primaryPreparedResult.productMetrics.mdd}
             investedPrincipal={primaryPortfolioPoint.principal}
             currency={currency}
@@ -286,6 +292,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         <h3 className="font-display text-body-strong text-apple-ink">선택 기간 성과 비교</h3>
         <p className="mt-1 text-fine-print text-apple-ink-muted-48">
           {startDate} ~ {endDate} · 수익률·CAGR·MDD: 배당 재투자 포함 · 납입액 영향 제외
+          {preparedResults.some((result) => result.productMetrics.cagr === null) && <span className="mt-2 block">1년 미만은 CAGR 대신 최저점 대비 회복률(상품의 최저점 → 종료일)을 표시합니다. 원금 회복률과 다릅니다. 단기 또는 산출 불가 IRR은 —로 표시합니다.</span>}
         </p>
         <p className="mt-1 text-fine-print text-apple-ink-muted-48">최종 자산: 납입 포함</p>
       </div>}
@@ -294,7 +301,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         <Surface padding="none" className="overflow-hidden">
           <table className="w-full border-collapse text-left">
             <thead><tr className="border-b border-apple-hairline bg-apple-canvas-parchment/50">
-              {['자산', '누적수익률', '연평균수익률 (CAGR)', '최대낙폭 (MDD)', '포트폴리오 최종 자산 (납입 포함)', '변동성'].map((heading, index) => (
+              {['자산', '누적수익률', periodHeading, '최대낙폭 (MDD)', '포트폴리오 최종 자산 (납입 포함)', '변동성'].map((heading, index) => (
                 <th key={heading} className={`p-4 text-micro-legal font-bold uppercase tracking-widest text-apple-ink-muted-48 ${index > 0 ? 'text-center' : ''}`}>{heading}</th>
               ))}
             </tr></thead>
@@ -312,12 +319,12 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                     </span>
                   </td>
                   <td className="p-4 text-center font-display font-bold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</td>
-                  <td className="p-4 text-center font-display font-bold text-apple-ink">{percentage(result.productMetrics.cagr)}</td>
+                  <td className="p-4 text-center font-display font-bold text-apple-ink">{percentage(result.periodMetric.value)}{mixedPeriodMetrics && <span className="block text-fine-print font-normal">{result.periodMetric.kind === 'RECOVERY' ? '최저점 대비 회복률' : 'CAGR'}</span>}</td>
                   <td className="p-4 text-center font-display font-bold text-apple-ink">{drawdownPercentage(result.productMetrics.mdd)}</td>
                   <td className="p-4 font-display font-semibold text-apple-ink">
                     <span className="block">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</span>
                     <span className="mt-1 block text-fine-print font-normal text-apple-ink-muted-48">
-                      포트폴리오 IRR {percentage(result.portfolioIrr)}
+                      포트폴리오 IRR {percentage(result.productMetrics.cagr === null ? null : result.portfolioIrr)}
                     </span>
                   </td>
                   <td className="p-4 text-center font-display text-apple-ink-muted-64">{percentage(result.productMetrics.volatility)}</td>
@@ -341,11 +348,11 @@ const BacktestView: React.FC<BacktestViewProps> = ({
             </div>
             <dl className="grid grid-cols-3 gap-2 text-caption">
               <div><dt className="text-apple-ink-muted-48">누적수익률</dt><dd className="font-display font-bold text-apple-ink">{percentage(result.productMetrics.cumulativeReturn)}</dd></div>
-              <div><dt className="text-apple-ink-muted-48">CAGR</dt><dd className="font-display font-bold text-apple-ink">{percentage(result.productMetrics.cagr)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">{result.periodMetric.kind === 'RECOVERY' ? '최저점 대비 회복률' : 'CAGR'}</dt><dd className="font-display font-bold text-apple-ink">{percentage(result.periodMetric.value)}</dd></div>
               <div><dt className="text-apple-ink-muted-48">MDD</dt><dd className="font-display font-bold text-apple-ink">{drawdownPercentage(result.productMetrics.mdd)}</dd></div>
             </dl>
             <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-apple-hairline pt-3 text-caption">
-              <div><dt className="text-apple-ink-muted-48">포트폴리오 IRR (납입 포함)</dt><dd className="font-semibold text-apple-ink">{percentage(result.portfolioIrr)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">포트폴리오 IRR (납입 포함)</dt><dd className="font-semibold text-apple-ink">{percentage(result.productMetrics.cagr === null ? null : result.portfolioIrr)}</dd></div>
               <div><dt className="text-apple-ink-muted-48">포트폴리오 최종 자산 (납입 포함)</dt><dd className="font-semibold text-apple-ink">{formatCurrency(result.portfolioHistory.at(-1)?.value ?? 0)}</dd></div>
               <div><dt className="text-apple-ink-muted-48">변동성</dt><dd className="font-semibold text-apple-ink-muted-64">{percentage(result.productMetrics.volatility)}</dd></div>
             </dl>

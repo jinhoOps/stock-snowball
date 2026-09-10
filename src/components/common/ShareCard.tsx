@@ -12,9 +12,11 @@ interface ShareCardProps {
   cycle: ContributionCycle;
   totalReturn: number;
   returnPercentage: number;
-  cagr: number;
+  cagr: number | null;
   rateLabel?: string;
+  rateDetail?: string;
   years: number;
+  backtestPeriod?: { startDate: string; endDate: string };
   currency: 'KRW' | 'USD';
   cardRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -36,7 +38,9 @@ const ShareCard: React.FC<ShareCardProps> = ({
   returnPercentage,
   cagr,
   rateLabel = 'CAGR',
+  rateDetail,
   years,
+  backtestPeriod,
   currency,
   cardRef,
 }) => {
@@ -54,7 +58,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
         {/* Header */}
         <div className="w-full flex justify-between items-start gap-4 z-10">
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="block w-full whitespace-nowrap text-[9px] leading-relaxed font-bold uppercase tracking-widest text-apple-ink-muted-48 mb-1">Portfolio Projection</span>
+            <span className="block w-full whitespace-nowrap text-[9px] leading-relaxed font-bold uppercase tracking-widest text-apple-ink-muted-48 mb-1">{backtestPeriod ? 'Backtest Result' : 'Portfolio Projection'}</span>
             <h1 className="w-full text-lg font-display font-bold text-apple-ink leading-snug break-words line-clamp-2">{scenarioName}</h1>
           </div>
           {/* Brand Icon */}
@@ -65,7 +69,8 @@ const ShareCard: React.FC<ShareCardProps> = ({
 
         {/* Main Value */}
         <div className="text-center z-10 w-full mt-4">
-          <span className="text-[10px] font-bold text-apple-ink-muted-48 mb-1.5 block uppercase tracking-tighter">{years}년 후 예상 자산</span>
+          <span className="text-[10px] font-bold text-apple-ink-muted-48 mb-1.5 block uppercase tracking-tighter">{backtestPeriod ? '백테스트 최종 자산' : `${years}년 후 예상 자산`}</span>
+          {backtestPeriod && <p className="mb-2 text-[10px] text-apple-secondary">{backtestPeriod.startDate} ~ {backtestPeriod.endDate}</p>}
           <div className="text-3xl font-display font-bold text-apple-primary tracking-tight mb-1 break-keep">
             {SnowballEngine.formatBigNumber(totalAsset, currency)}
           </div>
@@ -87,12 +92,14 @@ const ShareCard: React.FC<ShareCardProps> = ({
           </div>
           <div className="bg-apple-surface-pearl rounded-md p-2.5 border border-apple-hairline flex flex-col items-center text-center">
             <span className="w-full text-[9px] leading-relaxed font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">{rateLabel}</span>
-            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{cagr.toFixed(1)}%</span>
+            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{cagr === null ? '—' : `${cagr.toFixed(1)}%`}</span>
+            {rateDetail && <span className="text-[9px] leading-relaxed text-apple-secondary">{rateDetail}</span>}
+            {cagr === null && <span className="text-[9px] leading-relaxed text-apple-secondary">단기·산출 불가<br />연환산 제외</span>}
           </div>
         </div>
 
         {/* Best / Worst Scenario Band */}
-        <div className="w-full z-10 bg-white/40 rounded-3xl border border-white/50 p-4 mt-4">
+        {!backtestPeriod && <div className="w-full z-10 bg-white/40 rounded-3xl border border-white/50 p-4 mt-4">
           <div className="flex justify-between items-center">
             {/* Pessimistic */}
             <div className="flex flex-col items-center text-center flex-1">
@@ -109,7 +116,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
               <span className="w-full text-[11px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(optimisticAsset, currency, true)}</span>
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* Footer */}
         <div className="w-full flex justify-between items-end gap-3 z-10 border-t border-apple-hairline pt-4">

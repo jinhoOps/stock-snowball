@@ -1,3 +1,4 @@
+import { parseDate } from '@internationalized/date';
 import { IndexPoint } from '../data/historicalAssets';
 import {
   ProductPerformanceMetrics,
@@ -31,13 +32,18 @@ export const calculateProductPerformanceMetrics = (
   points: readonly ProductPerformancePoint[],
 ): ProductPerformanceMetrics => {
   if (points.length < 2 || points[0].value <= 0) {
-    return { cumulativeReturn: 0, cagr: 0, mdd: 0, volatility: 0 };
+    return { cumulativeReturn: 0, cagr: null, mdd: 0, volatility: 0 };
   }
 
   const first = points[0];
   const last = points.at(-1)!;
   const cumulativeReturn = last.value / first.value - 1;
   const calendarDays = calendarDaysBetween(first.date, last.date);
+  // Do not extrapolate a sub-year observation window into an annual return.
+  const hasFullYear = last.date >= parseDate(first.date).add({ years: 1 }).toString();
+  const annualized = hasFullYear && calendarDays > 0 && last.value > 0
+    ? (last.value / first.value) ** (365.25 / calendarDays) - 1
+    : null;
   let peak = first.value;
   let mdd = 0;
   for (const point of points) {
@@ -47,9 +53,7 @@ export const calculateProductPerformanceMetrics = (
 
   return {
     cumulativeReturn,
-    cagr: calendarDays > 0 && last.value > 0
-      ? (last.value / first.value) ** (365.25 / calendarDays) - 1
-      : 0,
+    cagr: annualized !== null && Number.isFinite(annualized) ? annualized : null,
     mdd,
     volatility: calculateAnnualizedSampleVolatility(points),
   };
@@ -82,4 +86,28 @@ export const calculateProductPerformance = (
   const metrics = calculateProductPerformanceMetrics(points);
 
   return { points, metrics };
+};
+
+export interface ProductPeriodMetric {
+  kind: 'CAGR' | 'RECOVERY';
+  value: number | null;
+}
+
+/** Short periods use a non-annualized rebound from the lowest total-return value. */
+export const getProductPeriodMetric = (
+  points: readonly ProductPerformancePoint[],
+  metrics: ProductPerformanceMetrics,
+): ProductPeriodMetric => {
+  if (points.length < 2) return { kind: 'CAGR', value: null };
+  const first = points[0];
+  const last = points.at(-1)!;
+  if (last.date >= parseDate(first.date).add({ years: 1 }).toString()) {
+    return { kind: 'CAGR', value: metrics.cagr };
+  }
+  if (last.date <= first.date || points.some((point) => !Number.isFinite(point.value) || point.value <= 0)) {
+    return { kind: 'RECOVERY', value: null };
+  }
+  const low = points.reduce((minimum, point) => Math.min(minimum, point.value), first.value);
+  const recovery = last.value / low - 1;
+  return { kind: 'RECOVERY', value: Number.isFinite(recovery) ? recovery : null };
 };

@@ -16,7 +16,7 @@ import SimulationControls from './components/sections/SimulationControls';
 import AdvancedSettingsSheet from './components/sections/AdvancedSettingsSheet';
 import { SnowballEngine } from './core/SnowballEngine';
 import { BacktestEngine } from './core/BacktestEngine';
-import { calculateProductPerformance } from './core/ProductPerformance';
+import { calculateProductPerformance, calculateProductPerformanceMetrics, getProductPeriodMetric } from './core/ProductPerformance';
 import {
   getGoldBasisError,
   prepareBacktestDisplayResult,
@@ -426,10 +426,22 @@ function App() {
 
   const totalReturn = activeResult.postTaxValue - activeResult.totalContribution;
   const returnPercentage = activeResult.totalContribution > 0 ? (totalReturn / activeResult.totalContribution) * 100 : 0;
+  const sharePeriodMetric = useMemo(() => {
+    if (!activeDisplay || activeDisplay.portfolioHistory.length === 0) return null;
+    const start = activeDisplay.portfolioHistory[0].date;
+    const end = activeDisplay.portfolioHistory.at(-1)!.date;
+    const points = activeDisplay.productPoints.filter((point) => point.date >= start && point.date <= end);
+    return getProductPeriodMetric(points, calculateProductPerformanceMetrics(points));
+  }, [activeDisplay]);
+  const shareUsesRecovery = mode === 'BACKTEST' && sharePeriodMetric?.kind === 'RECOVERY';
   const cagr = mode === 'PROJECTION' && projectionParams.years > 0
     ? (Math.pow(activeResult.postTaxValue / activeResult.totalContribution, 1 / projectionParams.years) - 1) * 100 
-    : backtestResultView === 'NORMALIZED'
-      ? (activeDisplay?.productMetrics.cagr ?? 0) * 100
+    : shareUsesRecovery
+      ? sharePeriodMetric.value === null ? null : sharePeriodMetric.value * 100
+      : sharePeriodMetric?.value == null
+      ? null
+      : backtestResultView === 'NORMALIZED'
+      ? sharePeriodMetric.value * 100
       : (activeDisplay?.portfolioIrr ?? 0) * 100;
   const cagrLabel = mode === 'BACKTEST' && backtestResultView === 'PORTFOLIO'
     ? '내부수익률 (IRR)'
@@ -686,7 +698,12 @@ function App() {
         totalReturn={totalReturn}
         returnPercentage={returnPercentage}
         cagr={cagr}
-        rateLabel={cagrLabel.includes('IRR') ? 'IRR' : 'CAGR'}
+        rateLabel={shareUsesRecovery ? '최저점 대비 회복률' : cagrLabel.includes('IRR') ? 'IRR' : 'CAGR'}
+        rateDetail={shareUsesRecovery ? '상품 기준 · 최저점 → 종료일' : undefined}
+        backtestPeriod={mode === 'BACKTEST' ? {
+          startDate: activeDisplay?.portfolioHistory[0]?.date ?? backtestParams.startDate ?? '',
+          endDate: activeDisplay?.portfolioHistory.at(-1)?.date ?? backtestParams.endDate ?? '',
+        } : undefined}
         years={mode === 'PROJECTION' ? projectionParams.years : backtestParams.years}
         currency={currency}
       />
@@ -801,7 +818,7 @@ function App() {
                       totalContribution={activeResult.totalContribution}
                       totalReturn={totalReturn}
                       returnPercentage={returnPercentage}
-                      cagr={cagr}
+                      cagr={cagr ?? 0}
                       cagrLabel={cagrLabel}
                       currency={currency}
                       exchangeRate={exchangeRate}

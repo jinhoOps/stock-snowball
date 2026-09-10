@@ -141,3 +141,33 @@ test('family comparisons retain crisis presets and respect their common coverage
   expect(await appliedDates(page)).toEqual({ startDate: '2025-04-02', endDate: '2025-04-08' });
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
+
+test('short crisis windows show recovery instead of annualized rates', async ({ page }, info) => {
+  await page.getByRole('button', { name: /경제 위기 시나리오/ }).click();
+  await page.getByRole('button', { name: '2025 관세 충격 기간 적용' }).click();
+  const metrics = page.getByRole('region', { name: /SPY 핵심 지표/ });
+  await expect(metrics.getByText('최저점 대비 회복률').locator('..')).toContainText('%');
+  await expect(metrics).toContainText('1년 미만');
+  await expect(page.getByText(/포트폴리오 IRR/).filter({ visible: true }).first().locator('..')).toContainText('—');
+  await page.getByRole('button', { name: '금 기준', exact: true }).click();
+  await expect(metrics.getByText('최저점 대비 회복률').locator('..')).toContainText('%');
+  await page.getByRole('button', { name: '시작값 100', exact: true }).click();
+  await expect(metrics.getByText('최저점 대비 회복률').locator('..')).toContainText('%');
+  const share = page.locator('[aria-hidden="true"]').filter({ hasText: 'Backtest Result' }).first();
+  await expect(share).toContainText('최저점 대비 회복률');
+  await expect(share).toContainText('상품 기준');
+  await expect(share).toContainText('2025-04-02 ~ 2025-04-08');
+  await expect(share).not.toContainText('년 후 예상');
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '공유(이미지)', exact: true }).click();
+  await (await downloadPromise).saveAs(`test-results/visual-review/short-period-share-${info.project.name}.png`);
+  await page.getByRole('group', { name: '기간 프리셋' }).getByRole('button', { name: '5년', exact: true }).click();
+  await expect(metrics.getByText('연평균수익률 (CAGR)').locator('..')).not.toContainText('—');
+});
+
+
+test('shared dates match the portfolio amount when a long simulation is capped', async ({ page }) => {
+  await page.getByRole('group', { name: '기간 프리셋' }).getByRole('button', { name: '전체', exact: true }).click();
+  const share = page.locator('[aria-hidden="true"]').filter({ hasText: 'Backtest Result' }).first();
+  await expect(share).toContainText('1993-01-29 ~ 2023-01-27');
+});

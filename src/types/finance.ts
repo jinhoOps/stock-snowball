@@ -137,7 +137,7 @@ export interface ProductPerformancePoint {
 
 export interface ProductPerformanceMetrics {
   cumulativeReturn: number;
-  cagr: number;
+  cagr: number | null; // 실제 데이터 1년 미만 또는 연환산 불가
   mdd: number;
   volatility: number;
 }
