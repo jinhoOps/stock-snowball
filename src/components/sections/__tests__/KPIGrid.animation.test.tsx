@@ -52,8 +52,8 @@ describe('KPIGrid Anime.js migration', () => {
     render(<KPIGrid {...baseProps} currency="KRW" totalAsset={5000} totalReturn={-5000} returnPercentage={-50} />);
     const assetCard = screen.getByText('최종 예상 자산').closest('.kpi-card') as HTMLElement;
     const returnCard = screen.getByText('총 수익금').closest('.kpi-card') as HTMLElement;
-    expect(assetCard.querySelector('dd')?.textContent).toBe('5,000원');
-    expect(returnCard.querySelector('dd')?.textContent).toBe('-5,000원');
+    expect(assetCard.querySelector('dd [aria-live]')?.textContent).toBe('5,000원');
+    expect(returnCard.querySelector('dd [aria-live]')?.textContent).toBe('-5,000원');
   });
 
   it('shows an unavailable annualized return without inventing a zero percent return', () => {

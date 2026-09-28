@@ -4,9 +4,9 @@ import { createScope } from 'animejs/scope';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import AnimatedCounter from '../common/AnimatedCounter';
 import MetricCard from '../common/MetricCard';
-import Button from '../common/Button';
+import ShareImageButton from '../common/ShareImageButton';
 import { BigNumberHelper } from '../common/BigNumberHelper';
-import { Share2, Snowflake } from 'lucide-react';
+import { Snowflake } from 'lucide-react';
 import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
 
 interface KPIGridProps {
@@ -21,6 +21,8 @@ interface KPIGridProps {
   exchangeRate?: number;
   isMilestoneReached?: boolean;
   onShare?: () => void;
+  isExporting?: boolean;
+  shareError?: string | null;
 }
 
 interface KPICardProps {
@@ -100,7 +102,7 @@ const KPICard = ({ label, value, formatter, isPercentage, subValue, subFormatter
   );
 };
 
-const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalContribution, totalReturn, returnPercentage, cagr, cagrLabel = '연복리 수익률 (CAGR)', currency, exchangeRate = 1450, isMilestoneReached, onShare }) => {
+const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalContribution, totalReturn, returnPercentage, cagr, cagrLabel = '연복리 수익률 (CAGR)', currency, exchangeRate = 1450, isMilestoneReached, onShare, isExporting, shareError }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
@@ -137,9 +139,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
         {kpis.map((kpi, index) => <KPICard key={`${kpi.label}-${index}`} {...kpi} index={index} currency={currency} exchangeRate={exchangeRate} isMilestoneReached={isMilestoneReached} prefersReducedMotion={prefersReducedMotion} onHoverChange={setHoveredCardIndex} />)}
       </dl>
       {onShare && (
-        <Button onClick={onShare} className="kpi-share-button animate-apple-rise mt-8 motion-reduce:transition-none group">
-          <Share2 className="w-4 h-4 group-hover:rotate-12 transition-transform motion-reduce:transition-none" />공유(이미지)
-        </Button>
+        <ShareImageButton onClick={onShare} isExporting={isExporting} error={shareError} className="kpi-share-button animate-apple-rise mt-8" />
       )}
     </div>
   );

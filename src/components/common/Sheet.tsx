@@ -115,7 +115,7 @@ export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
       <div
         aria-hidden="true"
         onClick={onClose}
-        className="fixed inset-0 z-overlay bg-apple-surface-black/30 backdrop-blur-sm"
+        className="sheet-backdrop fixed inset-0 z-overlay bg-apple-surface-black/30 backdrop-blur-sm"
       />
       <section
         ref={dialogRef}
@@ -123,7 +123,7 @@ export function Sheet({ open, onClose, title, children, footer }: SheetProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="fixed inset-x-0 bottom-0 z-dialog flex h-[85dvh] w-full flex-col overflow-hidden rounded-t-card border border-apple-hairline bg-apple-surface-pearl text-left text-apple-ink shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-dvh md:w-[420px] md:rounded-none md:rounded-l-card"
+        className="sheet-panel fixed inset-x-0 bottom-0 z-dialog flex h-[85dvh] w-full flex-col overflow-hidden rounded-t-card border border-apple-hairline bg-apple-surface-pearl text-left text-apple-ink shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:h-dvh md:w-[420px] md:rounded-none md:rounded-l-card"
       >
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-apple-hairline p-4 md:p-6">
           <h2 id={titleId} className="text-title-md font-display">{title}</h2>

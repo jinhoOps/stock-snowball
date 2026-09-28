@@ -113,6 +113,23 @@ test('sharing exports the styled result as a PNG', async ({ page }, testInfo) =>
     ['-long', '장기간 적립식 투자 비교 시나리오 ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'],
   ]) {
     await page.getByLabel('시나리오 이름', { exact: true }).fill(name);
+    const card = page.locator('[aria-hidden="true"]').filter({ hasText: 'Portfolio Projection' }).first().locator(':scope > div');
+    // A valid PNG can still clip its title/footer. Check the actual text geometry too.
+    expect(await card.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        if (!node.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          if (rect.left < bounds.left || rect.right > bounds.right || rect.top < bounds.top || rect.bottom > bounds.bottom) return false;
+        }
+      }
+      return true;
+    })).toBe(true);
+    const cardHeight = await card.evaluate(element => element.offsetHeight);
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: '공유(이미지)', exact: true }).click();
     const download = await downloadPromise;
@@ -121,6 +138,7 @@ test('sharing exports the styled result as a PNG', async ({ page }, testInfo) =>
     await download.saveAs(imagePath);
     const png = await readFile(imagePath);
     expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
-    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 1560]);
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, cardHeight * 3]);
+    expect(cardHeight).toBeGreaterThanOrEqual(520);
   }
 });

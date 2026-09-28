@@ -50,7 +50,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
     <div aria-hidden="true" className="fixed -left-[10000px] top-0"> {/* Render off-screen for capture */}
       <div 
         ref={cardRef}
-        className="w-[400px] h-[520px] rounded-card border border-apple-hairline bg-apple-canvas p-8 flex flex-col items-center justify-between shadow-2xl overflow-hidden relative"
+        className="w-[400px] min-h-[520px] rounded-card border border-apple-hairline bg-apple-canvas p-8 flex flex-col items-center justify-between gap-5 shadow-2xl overflow-hidden relative"
 
       >
         {/* Subtle Background Pattern */}
@@ -61,7 +61,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
         <div className="w-full flex justify-between items-start gap-4 z-10">
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="block w-full whitespace-nowrap text-[9px] leading-relaxed font-bold uppercase tracking-widest text-apple-ink-muted-48 mb-1">{backtestPeriod ? 'Backtest Result' : 'Portfolio Projection'}</span>
-            <h1 className="w-full text-lg font-display font-bold text-apple-ink leading-snug break-words line-clamp-2">{scenarioName}</h1>
+            <h1 className="w-full text-lg font-display font-bold text-apple-ink leading-snug [overflow-wrap:anywhere]">{scenarioName}</h1>
           </div>
           {/* Brand Icon */}
           <div className="w-8 h-8 bg-apple-primary rounded-xl flex shrink-0 items-center justify-center shadow-lg shadow-apple-primary/20">
@@ -70,7 +70,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
         </div>
 
         {/* Main Value */}
-        <div className="text-center z-10 w-full mt-4">
+        <div className="text-center z-10 w-full">
           <span className="text-[10px] font-bold text-apple-ink-muted-48 mb-1.5 block uppercase tracking-tighter">{backtestPeriod ? '백테스트 최종 자산' : `${years}년 후 예상 자산`}</span>
           {backtestPeriod && <p className="mb-2 text-[10px] text-apple-secondary">{backtestPeriod.startDate} ~ {backtestPeriod.endDate}</p>}
           <div className="text-3xl font-display font-bold text-apple-primary tracking-tight mb-1 break-keep">
@@ -83,30 +83,30 @@ const ShareCard: React.FC<ShareCardProps> = ({
         </div>
 
         {/* Stats Grid - 3 columns */}
-        <div className="grid grid-cols-3 gap-2 w-full z-10 mt-6">
+        <div className="grid grid-cols-3 gap-2 w-full z-10">
           <div className="bg-apple-surface-pearl rounded-md p-2.5 border border-apple-hairline flex flex-col items-center text-center">
             <span className="w-full text-[9px] leading-relaxed font-bold text-apple-ink-muted-48 uppercase mb-0.5 block whitespace-nowrap">{contributionLabel ?? `${CYCLE_LABEL[cycle]} 얼마씩?`}</span>
-            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(contribution, currency, true)}</span>
+            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink [overflow-wrap:anywhere]">{SnowballEngine.formatBigNumber(contribution, currency, true)}</span>
           </div>
           <div className="bg-apple-surface-pearl rounded-md p-2.5 border border-apple-hairline flex flex-col items-center text-center">
             <span className="w-full text-[9px] leading-relaxed font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">수익금</span>
-            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(totalReturn, currency, true)}</span>
+            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink [overflow-wrap:anywhere]">{SnowballEngine.formatBigNumber(totalReturn, currency, true)}</span>
           </div>
           <div className="bg-apple-surface-pearl rounded-md p-2.5 border border-apple-hairline flex flex-col items-center text-center">
             <span className="w-full text-[9px] leading-relaxed font-bold text-apple-ink-muted-48 uppercase mb-0.5 block">{rateLabel}</span>
-            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{cagr === null ? '—' : `${cagr.toFixed(1)}%`}</span>
+            <span className="w-full text-[10px] leading-relaxed font-bold text-apple-ink [overflow-wrap:anywhere]">{cagr === null ? '—' : `${cagr.toFixed(1)}%`}</span>
             {rateDetail && <span className="text-[9px] leading-relaxed text-apple-secondary">{rateDetail}</span>}
             {cagr === null && <span className="text-[9px] leading-relaxed text-apple-secondary">단기·산출 불가<br />연환산 제외</span>}
           </div>
         </div>
 
         {/* Best / Worst Scenario Band */}
-        {!backtestPeriod && <div className="w-full z-10 bg-white/40 rounded-3xl border border-white/50 p-4 mt-4">
+        {!backtestPeriod && <div className="w-full z-10 bg-white/40 rounded-3xl border border-white/50 p-4">
           <div className="flex justify-between items-center">
             {/* Pessimistic */}
             <div className="flex flex-col items-center text-center flex-1">
               <span className="w-full text-[9px] leading-relaxed font-bold text-apple-error uppercase tracking-wider mb-1">Worst</span>
-              <span className="w-full text-[11px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(pessimisticAsset, currency, true)}</span>
+              <span className="w-full text-[11px] leading-relaxed font-bold text-apple-ink [overflow-wrap:anywhere]">{SnowballEngine.formatBigNumber(pessimisticAsset, currency, true)}</span>
             </div>
             {/* Divider & Arrow */}
             <div className="flex flex-col items-center px-3">
@@ -115,7 +115,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
             {/* Optimistic */}
             <div className="flex flex-col items-center text-center flex-1">
               <span className="w-full text-[9px] leading-relaxed font-bold text-apple-success uppercase tracking-wider mb-1">Best</span>
-              <span className="w-full text-[11px] leading-relaxed font-bold text-apple-ink whitespace-nowrap">{SnowballEngine.formatBigNumber(optimisticAsset, currency, true)}</span>
+              <span className="w-full text-[11px] leading-relaxed font-bold text-apple-ink [overflow-wrap:anywhere]">{SnowballEngine.formatBigNumber(optimisticAsset, currency, true)}</span>
             </div>
           </div>
         </div>}

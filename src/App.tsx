@@ -27,7 +27,7 @@ import BacktestAssetSelector from './components/sections/BacktestAssetSelector';
 import BacktestConditionsSummary from './components/sections/BacktestConditionsSummary';
 import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS, DEFAULT_TAX_CONFIG, getCurrencyFactor, getTaxConfigForCurrency } from './types/finance';
 import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
-import { toPng } from 'html-to-image';
+import { useImageExport } from './hooks/useImageExport';
 import ShareCard from './components/common/ShareCard';
 import {
   normalizePersistedSimulationParams,
@@ -694,26 +694,7 @@ function App() {
     setScenarioName(s.name);
   };
 
-  const shareCardRef = useRef<HTMLDivElement>(null);
-  const handleShare = async () => {
-    if (!shareCardRef.current) return;
-    try {
-      const dataUrl = await toPng(shareCardRef.current, { 
-        cacheBust: true,
-        backgroundColor: '#F5F5F7',
-        pixelRatio: 3,
-        skipFonts: true, // Prevents SecurityError from external CSS/fonts
-      });
-      const link = document.createElement('a');
-      link.download = `stock-snowball-${scenarioName}-${new Date().getTime()}.png`;
-      link.href = dataUrl;
-      link.click();
-      confetti({ disableForReducedMotion: true, particleCount: 50, spread: 60, origin: { y: 0.9 }, colors: ['#0066cc', '#FFFFFF'] });
-    } catch (err) {
-      console.error('Sharing failed:', err);
-      alert('이미지 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
-    }
-  };
+  const { cardRef: shareCardRef, isExporting, error: shareError, exportImage: handleShare } = useImageExport(scenarioName);
 
   return (
     <div className="min-h-screen font-text">
@@ -780,8 +761,10 @@ function App() {
               <AnimatePresence mode="wait">
                 <motion.div 
                   key={mode}
-                  initial={prefersReducedMotion ? false : { opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.25, 0.1, 0.25, 1.0] }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -4, transition: { duration: prefersReducedMotion ? 0 : 0.12 } }}
+                  transition={{ duration: prefersReducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
                   className="w-full flex flex-col items-center"
                 >
                   {mode === 'BACKTEST' && !backtestRangeError && activeBacktest && <BacktestConditionsSummary
@@ -867,6 +850,8 @@ function App() {
                       exchangeRate={exchangeRate}
                       isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
                       onShare={handleShare}
+                      isExporting={isExporting}
+                      shareError={shareError}
                     />
                   </div>}
 
@@ -881,6 +866,8 @@ function App() {
                         leverageInsights={leverageInsights}
                         scenarioSeries={chartScenarios}
                         onShare={handleShare}
+                        isExporting={isExporting}
+                        shareError={shareError}
                         currency={currency}
                         valueBasis={valueBasis}
                         resultView={backtestResultView}

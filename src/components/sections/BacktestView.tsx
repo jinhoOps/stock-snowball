@@ -10,14 +10,13 @@ import { prepareBacktestDisplayResult, type PreparedBacktestDisplayResult } from
 import type { SnowballScenarioData } from '../charts/SnowballChart';
 import { type BacktestDisplaySeries } from '../charts/BacktestChart';
 import { resolveBacktestSeriesColors } from '../charts/backtestSeriesColors';
-import Button from '../common/Button';
 import Notice from '../common/Notice';
 import SegmentedControl from '../common/SegmentedControl';
 import Surface from '../common/Surface';
 import BacktestPrimaryMetrics from './BacktestPrimaryMetrics';
 import BacktestAnalysisChart from './BacktestAnalysisChart';
 import BacktestDrawdownRecovery from './BacktestDrawdownRecovery';
-import { Share2 } from 'lucide-react';
+import ShareImageButton from '../common/ShareImageButton';
 
 interface ComparisonAssetBase {
   assetId: HistoricalAssetType;
@@ -46,6 +45,8 @@ export interface BacktestViewProps {
   onValueBasisChange: (basis: ValueBasis) => void;
   onResultViewChange: (view: 'PORTFOLIO' | 'NORMALIZED') => void;
   onShare?: () => void;
+  isExporting?: boolean;
+  shareError?: string | null;
 }
 
 const SERIES_LINE_STYLE = {
@@ -89,6 +90,8 @@ const BacktestView: React.FC<BacktestViewProps> = ({
   onValueBasisChange,
   onResultViewChange,
   onShare,
+  isExporting,
+  shareError,
 }) => {
   const displayBasis: ValueBasis = valueBasis === 'GOLD' && goldBasisError ? 'NOMINAL' : valueBasis;
   const successfulResults = useMemo(() => results.filter(
@@ -305,13 +308,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       )}
 
       {onShare ? (
-        <Button
-          variant="primary"
-          onClick={onShare}
-        >
-          <Share2 className="h-4 w-4" aria-hidden="true" />
-          공유(이미지)
-        </Button>
+        <ShareImageButton variant="primary" onClick={onShare} isExporting={isExporting} error={shareError} />
       ) : null}
     </section>
   );
