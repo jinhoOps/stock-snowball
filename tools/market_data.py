@@ -284,6 +284,50 @@ REVIEWED_DAILY_BACKFILLS = (
         retrieved_at="2026-09-01T06:57:29Z",
         reason="Yahoo Finance ^KS200 history omitted valid KOSPI 200 trading dates",
     ),
+    ReviewedDailyBackfill(
+        asset_id="KOSPI",
+        ticker="^KS200",
+        records=(
+            MarketRecord("2026-09-02", 1031.53, 0),
+            MarketRecord("2026-09-03", 1032.82, 0),
+            MarketRecord("2026-09-04", 1051.52, 0),
+            MarketRecord("2026-09-07", 1105.19, 0),
+            MarketRecord("2026-09-08", 1100.08, 0),
+            MarketRecord("2026-09-09", 1114.61, 0),
+            MarketRecord("2026-09-10", 1112.13, 0),
+            MarketRecord("2026-09-11", 1090.22, 0),
+            MarketRecord("2026-09-14", 1050.83, 0),
+            MarketRecord("2026-09-15", 1042.46, 0),
+            MarketRecord("2026-09-16", 1060.05, 0),
+            MarketRecord("2026-09-17", 1058.27, 0),
+            MarketRecord("2026-09-18", 1090.23, 0),
+            MarketRecord("2026-09-21", 1112.16, 0),
+            MarketRecord("2026-09-22", 1113.3, 0),
+            MarketRecord("2026-09-23", 1126.12, 0),
+        ),
+        source_url=(
+            "https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day"
+            "&count=100&requestType=0"
+        ),
+        retrieved_at="2026-09-28T13:21:05Z",
+        reason="Yahoo Finance ^KS200 omitted sessions; previously stored 2026-09-04 and 2026-09-08 closes differed from reviewed values",
+    ),
+    ReviewedDailyBackfill(
+        asset_id="KOSDAQ",
+        ticker="^KQ11",
+        records=(
+            MarketRecord("2026-08-28", 838.41, 0),
+            MarketRecord("2026-09-03", 790.21, 0),
+            MarketRecord("2026-09-04", 813.5, 0),
+            MarketRecord("2026-09-08", 811.88, 0),
+        ),
+        source_url=(
+            "https://fchart.stock.naver.com/sise.nhn?symbol=KOSDAQ&timeframe=day"
+            "&count=100&requestType=0"
+        ),
+        retrieved_at="2026-09-28T13:21:05Z",
+        reason="Reviewed missing KOSDAQ sessions and corrected previously stored 2026-09-04 and 2026-09-08 closes using Naver Finance",
+    ),
 )
 
 SOURCE_PROVENANCE = {
@@ -465,15 +509,20 @@ def apply_reviewed_weekly_close_overrides(
 def apply_reviewed_daily_backfills(
     asset: AssetDefinition,
     records: list[MarketRecord],
+    *,
+    as_of: date,
 ) -> list[MarketRecord]:
     """Replay reviewed daily rows that the primary provider omitted."""
     result = records
     for backfill in REVIEWED_DAILY_BACKFILLS:
         if backfill.asset_id != asset.asset_id:
             continue
-        backfill_dates = {record.date for record in backfill.records}
+        backfill_dates = {
+            record.date for record in backfill.records
+            if date.fromisoformat(record.date) <= as_of
+        }
         result = [record for record in result if record.date not in backfill_dates]
-        result.extend(backfill.records)
+        result.extend(record for record in backfill.records if record.date in backfill_dates)
     return sorted(result, key=lambda record: record.date)
 
 
@@ -574,8 +623,9 @@ def validate_generated_data(
             asset,
             as_of=validation_date,
         )
-        _validate_reviewed_daily_backfills(asset, records)
+        _validate_reviewed_daily_backfills(asset, records, as_of=generated_at.date())
         _validate_reviewed_weekly_close_overrides(asset, records)
+        _validate_recent_korean_index_sessions(asset, records, generated_at)
         if asset.frequency == "weekly":
             _validate_weekly_endpoint(asset, records, as_of=validation_date)
         expected_entry = AssetManifestEntry.from_records(asset, records)
@@ -640,7 +690,7 @@ def refresh_all(
                 )
             )
             records = existing_records + new_records
-            records = apply_reviewed_daily_backfills(asset, records)
+            records = apply_reviewed_daily_backfills(asset, records, as_of=refresh_date)
             if asset.frequency == "weekly":
                 records = completed_weekly_records(records, as_of=refresh_date)
                 records = apply_reviewed_weekly_close_overrides(asset, records)
@@ -825,6 +875,28 @@ def _validate_daily_gap(
         )
 
 
+def _validate_recent_korean_index_sessions(
+    asset: AssetDefinition,
+    records: list[MarketRecord],
+    generated_at: datetime,
+) -> None:
+    # The Korean index series were reconciled against actual closes from this date onward.
+    if asset.asset_id not in ("KOSPI", "KOSDAQ") or generated_at.date() < date(2026, 9, 28):
+        return
+    calendar = exchange_calendars.get_calendar(
+        "XKRX", start=date(2026, 8, 28), end=generated_at.date()
+    )
+    actual_dates = {record.date for record in records}
+    for session in calendar.sessions:
+        if calendar.session_close(session).to_pydatetime() > generated_at:
+            continue
+        expected_date = session.date().isoformat()
+        if expected_date not in actual_dates:
+            raise MarketDataValidationError(
+                f"{asset.output_filename} is missing XKRX session {expected_date}"
+            )
+
+
 def _validate_weekly_endpoint(
     asset: AssetDefinition,
     records: list[MarketRecord],
@@ -873,12 +945,16 @@ def _validate_reviewed_weekly_close_overrides(
 def _validate_reviewed_daily_backfills(
     asset: AssetDefinition,
     records: list[MarketRecord],
+    *,
+    as_of: date,
 ) -> None:
     records_by_date = {record.date: record for record in records}
     for backfill in REVIEWED_DAILY_BACKFILLS:
         if backfill.asset_id != asset.asset_id:
             continue
         for expected in backfill.records:
+            if date.fromisoformat(expected.date) > as_of:
+                continue
             actual = records_by_date.get(expected.date)
             if actual is None:
                 raise MarketDataValidationError(

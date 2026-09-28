@@ -35,7 +35,8 @@ test('projection uses aligned fields, readable metrics and full-size choices', a
   expect(contributionBounds?.height).toBe(48);
   if (page.viewportSize()!.width >= 768) expect(principalBounds?.y).toBe(contributionBounds?.y);
   await expect(page.locator('.ui-metric-value').first()).toHaveCSS('font-size', '24px');
-  const percentCard = page.locator('.ui-metric').filter({ hasText: '연복리 수익률 (CAGR)' });
+  const percentCard = page.locator('.ui-metric').filter({ hasText: '내부수익률 (IRR)' });
+  await expect(percentCard).toContainText('%');
   await expect(percentCard).not.toContainText(/약|원|\$/);
   const selectedColor = await page.getByRole('group', { name: '납입 주기' }).getByRole('button', { name: '일', exact: true })
     .evaluate((element) => getComputedStyle(element).backgroundColor);

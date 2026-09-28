@@ -180,10 +180,10 @@ export interface ProductPerformanceResult {
 
 export type ValueBasis = 'NOMINAL' | 'REAL' | 'GOLD';
 
-// KRW per USD; Woori Bank transaction standard rate, effective 2026-09-07.
+// KRW per USD; Woori Bank transaction standard rate, effective 2026-09-28.
 // Source: https://sbiz.wooribank.com/biz/jcc?__ID=c009550&withyou=ENENG0190
-// Retrieved: 2026-09-08T02:31:34Z (UTC).
-export const DEFAULT_EXCHANGE_RATE = 1336.20;
+// Retrieved: 2026-09-28T13:23:50Z (UTC).
+export const DEFAULT_EXCHANGE_RATE = 1361.00;
 
 export const DEFAULT_PROJECTION_PARAMS: SimulationParams = {
   principal: 10000000,

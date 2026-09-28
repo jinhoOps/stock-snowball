@@ -14,6 +14,56 @@ const calendarDaysBetween = (startDate: string, endDate: string): number => {
   return (end.getTime() - start.getTime()) / MS_PER_DAY;
 };
 
+export type MaxDrawdownRecovery =
+  | { status: 'insufficient-data' | 'no-drawdown' }
+  | { status: 'recovered'; peakDate: string; troughDate: string; recoveryDate: string; calendarDays: number }
+  | { status: 'unrecovered'; peakDate: string; troughDate: string; lastDate: string; calendarDays: number };
+
+/** The selected product series' deepest drawdown, measured from its preceding peak. */
+export const getMaxDrawdownRecovery = (
+  points: readonly ProductPerformancePoint[],
+): MaxDrawdownRecovery => {
+  if (points.length < 2 || points.some((point, index) =>
+    !Number.isFinite(point.value) || point.value <= 0 ||
+    (index > 0 && point.date <= points[index - 1].date) ||
+    !Number.isFinite(Date.parse(point.date)))) {
+    return { status: 'insufficient-data' };
+  }
+
+  const tolerance = 1e-12;
+  let peak = points[0];
+  let worstPeak = peak;
+  let worstTroughIndex = -1;
+  let maximumDrawdown = 0;
+
+  points.forEach((point, index) => {
+    if (point.value >= peak.value * (1 - tolerance)) {
+      peak = point.value > peak.value ? point : { date: point.date, value: peak.value };
+      return;
+    }
+    const drawdown = (peak.value - point.value) / peak.value;
+    if (drawdown > maximumDrawdown + tolerance) {
+      maximumDrawdown = drawdown;
+      worstPeak = peak;
+      worstTroughIndex = index;
+    }
+  });
+
+  if (worstTroughIndex < 0) return { status: 'no-drawdown' };
+  const troughDate = points[worstTroughIndex].date;
+  const recovery = points.slice(worstTroughIndex + 1).find((point) =>
+    point.value >= worstPeak.value * (1 - tolerance));
+  if (recovery) return {
+    status: 'recovered', peakDate: worstPeak.date, troughDate,
+    recoveryDate: recovery.date, calendarDays: calendarDaysBetween(worstPeak.date, recovery.date),
+  };
+  const lastDate = points.at(-1)!.date;
+  return {
+    status: 'unrecovered', peakDate: worstPeak.date, troughDate, lastDate,
+    calendarDays: calendarDaysBetween(worstPeak.date, lastDate),
+  };
+};
+
 const calculateAnnualizedSampleVolatility = (points: readonly ProductPerformancePoint[]): number => {
   const dailyReturns = points.slice(1).map((point, index) => point.value / points[index].value - 1);
 
