@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import os
 import shutil
@@ -439,10 +440,11 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             MarketRecord(date="2026-08-21", close=100.0, dividend=0.0),
         ]
         overrides = {override.asset_id: override for override in REVIEWED_WEEKLY_CLOSE_OVERRIDES}
-        daily_backfills = {
-            backfill.asset_id: list(backfill.records)
-            for backfill in REVIEWED_DAILY_BACKFILLS
-        }
+        daily_backfills: dict[str, list[MarketRecord]] = {}
+        for backfill in REVIEWED_DAILY_BACKFILLS:
+            daily_backfills.setdefault(backfill.asset_id, []).extend(
+                record for record in backfill.records if record.date <= "2026-09-01"
+            )
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
             records = daily_backfills.get(asset.asset_id, daily_records)
@@ -470,6 +472,11 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             elif asset.asset_id == "KOSPI":
                 records = list(REVIEWED_DAILY_BACKFILLS[0].records) + [
                     MarketRecord("2026-09-01", 1075.3, 0.0),
+                ]
+            elif asset.asset_id == "KOSDAQ":
+                records = [
+                    MarketRecord("2026-08-28", 838.41, 0.0),
+                    MarketRecord("2026-09-01", 100.0, 0.0),
                 ]
             else:
                 records = [MarketRecord("2026-09-01", 100.0, 0.0)]
@@ -754,6 +761,59 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                     f"{filename} is missing the 2026-08-28 final trading-day close",
                 )
 
+    def test_committed_korean_index_catalog_has_reviewed_august_and_september_closes(self) -> None:
+        data_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        expected = {
+            "kospi.csv": {
+                "2026-09-02": 1031.53,
+                "2026-09-03": 1032.82,
+                "2026-09-04": 1051.52,
+                "2026-09-07": 1105.19,
+                "2026-09-08": 1100.08,
+                "2026-09-23": 1126.12,
+            },
+            "kosdaq.csv": {
+                "2026-08-28": 838.41,
+                "2026-09-03": 790.21,
+                "2026-09-04": 813.50,
+                "2026-09-08": 811.88,
+            },
+        }
+        for filename, expected_closes in expected.items():
+            with (data_dir / filename).open(encoding="utf-8", newline="") as source:
+                actual = {row["date"]: float(row["close"]) for row in csv.DictReader(source)}
+            for day, close in expected_closes.items():
+                with self.subTest(filename=filename, day=day):
+                    self.assertEqual(actual.get(day), close)
+
+    def test_check_rejects_a_missing_recent_korean_index_session(self) -> None:
+        source_dir = Path(__file__).resolve().parents[1] / "src" / "data" / "indices"
+        for asset_id, filename, omitted_day in (
+            ("KOSPI", "kospi.csv", "2026-09-28"),
+            ("KOSDAQ", "kosdaq.csv", "2026-09-18"),
+        ):
+            with self.subTest(asset_id=asset_id), tempfile.TemporaryDirectory() as temporary:
+                data_dir = Path(temporary) / "indices"
+                shutil.copytree(source_dir, data_dir)
+                path = data_dir / filename
+                path.write_text(
+                    "\n".join(line for line in path.read_text(encoding="utf-8").splitlines()
+                              if not line.startswith(f"{omitted_day},")) + "\n",
+                    encoding="utf-8",
+                )
+                manifest_path = data_dir / "manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["assets"][asset_id]["rowCount"] -= 1
+                if asset_id == "KOSPI":
+                    manifest["assets"][asset_id]["endDate"] = "2026-09-23"
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+                with self.assertRaisesRegex(
+                    MarketDataValidationError,
+                    f"{filename} is missing XKRX session {omitted_day}",
+                ):
+                    validate_generated_data(data_dir)
+
     @staticmethod
     def _replace_benchmark_manifest_entry(data_dir: Path, records: list[MarketRecord]) -> None:
         manifest_path = data_dir / "manifest.json"
@@ -982,7 +1042,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
 
             self.assertEqual(entries["QQQ"].end_date, "2026-09-02")
             self.assertEqual(entries["QQQ"].row_count, previous_entries["QQQ"].row_count + 1)
-            self.assertEqual(entries["KOSPI"].end_date, "2026-09-02")
+            self.assertEqual(entries["KOSPI"].end_date, "2026-09-04")
             self.assertEqual(entries["NASDAQ100"], previous_entries["NASDAQ100"])
             self.assertIn(
                 "2026-09-01,100,0\n2026-09-02,101,0\n",
@@ -997,7 +1057,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
             entries = refresh_all(
                 data_dir,
                 lambda _: FakeTicker(pd.DataFrame()),
-                as_of=date(2026, 9, 4),
+                as_of=date(2026, 9, 1),
             )
 
             self.assertEqual(entries, previous_entries)

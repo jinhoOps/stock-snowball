@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BacktestResult, HistoricalAssetType, LeverageInsight, ProductPerformanceResult, ValueBasis } from '../../types/finance';
-import { getProductPeriodMetric } from '../../core/ProductPerformance';
+import { getMaxDrawdownRecovery, getProductPeriodMetric } from '../../core/ProductPerformance';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { IndexPoint } from '../../data/historicalAssets';
 import { LEVERAGE_FAMILIES, type LeverageFamily } from '../../data/leverageFamilies';
@@ -16,6 +16,7 @@ import SegmentedControl from '../common/SegmentedControl';
 import Surface from '../common/Surface';
 import BacktestPrimaryMetrics from './BacktestPrimaryMetrics';
 import BacktestAnalysisChart from './BacktestAnalysisChart';
+import BacktestDrawdownRecovery from './BacktestDrawdownRecovery';
 import { Share2 } from 'lucide-react';
 
 interface ComparisonAssetBase {
@@ -114,6 +115,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       ...result,
       ...display,
       periodMetric: getProductPeriodMetric(display.productPoints, display.productMetrics),
+      recovery: getMaxDrawdownRecovery(display.productPoints),
     };
   }), [successfulResults, inflationRate, goldData, displayBasis]);
   const allRecovery = preparedResults.length > 0 && preparedResults.every((result) => result.periodMetric.kind === 'RECOVERY');
@@ -263,6 +265,10 @@ const BacktestView: React.FC<BacktestViewProps> = ({
           </article>
         ))}
       </div>}
+
+      {preparedResults.length > 0 && (
+        <BacktestDrawdownRecovery assets={preparedResults} valueBasis={displayBasis} />
+      )}
 
       {preparedResults.length > 0 && <p className="w-full max-w-analysis text-fine-print leading-relaxed text-apple-ink-muted-48">
         투자 결과에는 매수 수수료와 ISA 만기 세금 추정치가 포함됩니다. 매도 수수료, 배당소득세, 일반계좌 양도소득세는 포함되지 않습니다.

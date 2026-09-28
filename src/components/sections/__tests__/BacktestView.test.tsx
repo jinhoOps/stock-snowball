@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
 import { useState } from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import BacktestResultsView, { type BacktestViewProps as BacktestResultsProps, type ComparisonAssetResult } from '../BacktestView';
 import { prepareBacktestDisplayResult } from '../../../core/ValueBasis';
 import { SnowballEngine } from '../../../core/SnowballEngine';
+import { calculateProductPerformanceMetrics } from '../../../core/ProductPerformance';
 import BacktestAssetSelector, { type BacktestAssetSelectorProps } from '../BacktestAssetSelector';
 
 type BacktestViewProps = BacktestResultsProps & BacktestAssetSelectorProps;
@@ -306,6 +307,69 @@ describe('BacktestView', () => {
       '포트폴리오 최종 자산 (납입 포함)',
       '변동성',
     ]);
+  });
+
+  it('shows each selected asset’s maximum drawdown recovery dates and calendar days', () => {
+    const recoveredPoints = [
+      { date: '2024-01-01', value: 100 },
+      { date: '2024-01-03', value: 80 },
+      { date: '2024-01-08', value: 105 },
+    ];
+    const ongoingPoints = [
+      { date: '2024-01-01', value: 100 },
+      { date: '2024-01-03', value: 70 },
+      { date: '2024-01-08', value: 90 },
+    ];
+    const results: ComparisonAssetResult[] = [
+      { ...basisResult, product: { points: recoveredPoints, metrics: calculateProductPerformanceMetrics(recoveredPoints) } },
+      { ...basisResult, assetId: 'QQQ', product: { points: ongoingPoints, metrics: calculateProductPerformanceMetrics(ongoingPoints) } },
+    ];
+    render(<BacktestView {...baseProps} comparisonAssets={['QQQ']} results={results} />);
+
+    const region = screen.getByRole('region', { name: '전고점 회복 기간' });
+    const spy = within(region).getByRole('group', { name: 'SPY 회복 기간' });
+    const qqq = within(region).getByRole('group', { name: 'QQQ 회복 기간' });
+    expect(spy.textContent).toContain('7일');
+    expect(spy.textContent).toContain('2024-01-01 → 2024-01-03 → 2024-01-08');
+    expect(qqq.textContent).toContain('미회복 · 7일 경과');
+    expect(qqq.textContent).toContain('2024-01-01 → 2024-01-03 → 2024-01-08');
+    expect(region.textContent).toContain('최대낙폭');
+    expect(region.textContent).toContain('최저점 대비 회복률과는 다른 지표');
+  });
+
+  it('recomputes recovery from the displayed value basis', () => {
+    const points = [
+      { date: '2024-01-01', value: 100 },
+      { date: '2024-07-01', value: 80 },
+      { date: '2025-01-01', value: 105 },
+    ];
+    const result: ComparisonAssetResult = {
+      ...basisResult,
+      product: { points, metrics: calculateProductPerformanceMetrics(points) },
+    };
+    const props = {
+      ...baseProps, results: [result], inflationRate: 0.1,
+      goldData: [
+        { date: '2024-01-01', price: 2_000, dividendYield: 0 },
+        { date: '2024-07-01', price: 2_000, dividendYield: 0 },
+        { date: '2025-01-01', price: 2_200, dividendYield: 0 },
+      ],
+    };
+    const { rerender } = render(<BacktestView {...props} />);
+    const recoveryItem = () => screen.getByRole('group', { name: 'SPY 회복 기간' });
+    expect(recoveryItem().textContent).toContain('회복 · 366일');
+
+    rerender(<BacktestView {...props} valueBasis="REAL" />);
+    expect(recoveryItem().textContent).toContain('미회복 · 366일 경과');
+
+    rerender(<BacktestView {...props} valueBasis="GOLD" />);
+    expect(recoveryItem().textContent).toContain('미회복 · 366일 경과');
+    expect(screen.getByRole('region', { name: '전고점 회복 기간' }).textContent).toContain('금 기준');
+  });
+
+  it('distinguishes a rising asset from an unrecovered asset', () => {
+    render(<BacktestView {...baseProps} results={[basisResult]} />);
+    expect(screen.getByRole('group', { name: 'SPY 회복 기간' }).textContent).toContain('낙폭 없음');
   });
 
   it('uses the prepared REAL product metrics and portfolio principal in the primary strip', () => {

@@ -14,9 +14,13 @@ test('Nasdaq family shows 1x, 2x, and 3x actual-history comparison', async ({ pa
   await page.getByRole('button', { name: '백테스트 모드' }).click();
   await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
 
-  await expect(page.getByText('QQQ', { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText('QLD', { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText('TQQQ', { exact: true }).filter({ visible: true })).toBeVisible();
+  const results = page.getByRole('region', { name: '과거 자산 비교', exact: true });
+  for (const asset of ['QQQ', 'QLD', 'TQQQ']) {
+    const performance = testInfo.project.name === 'desktop-chromium'
+      ? results.getByRole('table').getByText(asset, { exact: true })
+      : results.getByRole('heading', { name: asset, exact: true });
+    await expect(performance).toBeVisible();
+  }
   await expect(page.getByText('2배·3배는 하루의 목표이며, 전체 기간 수익률의 약속이 아닙니다.')).toBeVisible();
 
   await expect(page.getByRole('button', { name: '투자 결과' })).toHaveAttribute('aria-pressed', 'true');

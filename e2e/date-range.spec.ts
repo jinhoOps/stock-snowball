@@ -166,8 +166,14 @@ test('short crisis windows show recovery instead of annualized rates', async ({ 
 });
 
 
-test('shared dates match the portfolio amount when a long simulation is capped', async ({ page }) => {
+test('shared results retain the full selected history beyond thirty years', async ({ page }) => {
   await page.getByRole('group', { name: '기간 프리셋' }).getByRole('button', { name: '전체', exact: true }).click();
+  const manifest = JSON.parse(readFileSync(new URL('../src/data/indices/manifest.json', import.meta.url), 'utf8'));
+  const { startDate, endDate } = manifest.assets.SPY;
+  const range = `${startDate} ~ ${endDate}`;
+  expect(await appliedDates(page)).toEqual({ startDate, endDate });
+  await expect(page.getByRole('button', { name: '백테스트 기간 변경' })).toContainText(range);
+  await expect(page.getByRole('region', { name: '백테스트 적용 조건' })).toContainText(range);
   const share = page.locator('[aria-hidden="true"]').filter({ hasText: 'Backtest Result' }).first();
-  await expect(share).toContainText('1993-01-29 ~ 2023-01-27');
+  await expect(share).toContainText(range);
 });
