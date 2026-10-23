@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { openBacktest, appliedConditions } from './helpers';
 
 async function appliedDates(page: Page) {
   return page.evaluate(() => {
@@ -11,7 +12,7 @@ async function appliedDates(page: Page) {
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/stock-snowball/');
-  await page.getByRole('button', { name: '과거 백테스트 모드' }).click();
+  await openBacktest(page);
 });
 
 test('date edits are atomic and invalid drafts cannot affect results', async ({ page }, info) => {
@@ -173,7 +174,7 @@ test('shared results retain the full selected history beyond thirty years', asyn
   const range = `${startDate} ~ ${endDate}`;
   expect(await appliedDates(page)).toEqual({ startDate, endDate });
   await expect(page.getByRole('button', { name: '백테스트 기간 변경' })).toContainText(range);
-  await expect(page.getByRole('region', { name: '백테스트 적용 조건' })).toContainText(range);
+  await expect(appliedConditions(page)).toContainText(range);
   const share = page.locator('[aria-hidden="true"]').filter({ hasText: 'Backtest Result' }).first();
   await expect(share).toContainText(range);
 });

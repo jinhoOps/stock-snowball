@@ -263,3 +263,10 @@
 @media (prefers-reduced-motion: reduce) {
   .snow-toy { animation: none; }
 }
+
+/* Mobile result bar slides up only while the headline result is scrolled away. */
+.mobile-result-bar { transform: translate3d(0, 110%, 0); transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+.mobile-result-bar.is-visible { transform: translate3d(0, 0, 0); }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-result-bar { transition: none; }
+}

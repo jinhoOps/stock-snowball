@@ -15,13 +15,10 @@ import { getCommonCoverage, getFamilyDurationPresets, LEVERAGE_FAMILIES } from '
 
 interface SimulationControlsProps {
   mode: SimulationMode;
-  setMode: (m: SimulationMode) => void;
   params: SimulationParams;
   onUpdate: (p: Partial<SimulationParams>) => void;
   currency: 'KRW' | 'USD';
-  setCurrency: (c: 'KRW' | 'USD') => void;
   exchangeRate: number;
-  onOpenAdvanced: () => void;
   selectedAssets: HistoricalAssetType[];
   rangeNotice?: string | null;
   backtestAssetSelection?: React.ReactNode;
@@ -64,21 +61,19 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
       <NumericInput value={props.params.principal} onChange={(value) => updateParam('principal', value)} />
     </Field>
 
-    <div className="flex min-w-0 flex-col gap-4">
-      <Field label={`${isValueAveraging ? '월간 목표 증가액' : '납입액'} (${props.currency})`} htmlFor="monthly-investment-input"
-        hint={<BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showExchangeRate />}>
-        <NumericInput value={contributionInput} onChange={(value) => props.onUpdate({ contribution: value,
-          ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
-        })} />
-      </Field>
-      {isValueAveraging ? <p className="ui-field-hint">매월 목표 자산에 부족한 금액만 매수합니다.</p> : <div className="ui-field">
-        <span className="ui-field-label">납입 주기</span>
-        <SegmentedControl label="납입 주기" value={props.params.cycle} fullWidth size="compact"
-          options={[{ value: 'DAILY', label: '일' }, { value: 'WEEKLY', label: '주' }, { value: 'MONTHLY', label: '월' }]}
-          onChange={(cycle) => updateParam('cycle', cycle)} />
-      </div>}
-    </div>
+    <Field label={`${isValueAveraging ? '월간 목표 증가액' : '납입액'} (${props.currency})`} htmlFor="monthly-investment-input"
+      hint={<BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showExchangeRate />}>
+      <NumericInput value={contributionInput} onChange={(value) => props.onUpdate({ contribution: value,
+        ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
+      })} />
+    </Field>
 
+    {isValueAveraging ? <p className="ui-field-hint self-center">매월 목표 자산에 부족한 금액만 매수합니다.</p> : <div className="ui-field">
+      <span className="ui-field-label">납입 주기</span>
+      <SegmentedControl label="납입 주기" value={props.params.cycle} fullWidth size="compact"
+        options={[{ value: 'DAILY', label: '일' }, { value: 'WEEKLY', label: '주' }, { value: 'MONTHLY', label: '월' }]}
+        onChange={(cycle) => updateParam('cycle', cycle)} />
+    </div>}
   </>);
 
   const projectionPeriod = (
@@ -122,39 +117,33 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     </fieldset>
   );
 
-  return (
-    <div className="mb-10 flex w-full max-w-content flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          label="계산 모드"
-          value={props.mode}
-          onChange={props.setMode}
-          options={[
-            { value: 'PROJECTION', label: '스노우볼', ariaLabel: '스노우볼 모드' },
-            { value: 'BACKTEST', label: '백테스트', ariaLabel: '과거 백테스트 모드' },
-          ]}
-        />
-        <SegmentedControl label="표시 통화" value={props.currency} onChange={props.setCurrency}
-          options={[{ value: 'KRW', label: 'KRW' }, { value: 'USD', label: 'USD' }]} size="compact" />
-      </div>
-
-      {props.mode === 'BACKTEST' && props.backtestAssetSelection}
-      <Surface className="w-full text-left">
-        {props.mode === 'BACKTEST' ? <div className="flex flex-col gap-6">
-          {backtestPeriod}
-          <HistoricalScenarioPicker coverage={historicalCoverage}
-            startDate={startDate} endDate={endDate}
-            onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })} />
-          <div className="border-t border-apple-hairline pt-6">
-            <h3 className="mb-4 text-body font-semibold text-apple-ink">투자 조건</h3>
-            <div className="grid items-start gap-6 md:grid-cols-2">{investmentFields}</div>
+  if (props.mode === 'BACKTEST') {
+    return (
+      <div className="flex w-full min-w-0 flex-col gap-4">
+        {props.backtestAssetSelection}
+        <Surface className="w-full text-left">
+          <div className="flex flex-col gap-6">
+            {backtestPeriod}
+            <HistoricalScenarioPicker coverage={historicalCoverage}
+              startDate={startDate} endDate={endDate}
+              onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })} />
+            <div className="border-t border-apple-hairline pt-6">
+              <h3 className="mb-4 text-body font-semibold text-apple-ink">투자 조건</h3>
+              <div className="grid items-start gap-6 md:grid-cols-2 lg:grid-cols-1">{investmentFields}</div>
+            </div>
           </div>
-        </div> : <div className="grid items-start gap-6 md:grid-cols-3">
-          {investmentFields}
-          {projectionPeriod}
-        </div>}
-      </Surface>
-    </div>
+        </Surface>
+      </div>
+    );
+  }
+
+  return (
+    <Surface className="w-full text-left">
+      <div className="grid items-start gap-x-6 gap-y-5 md:grid-cols-2 lg:grid-cols-4">
+        {investmentFields}
+        {projectionPeriod}
+      </div>
+    </Surface>
   );
 };
 

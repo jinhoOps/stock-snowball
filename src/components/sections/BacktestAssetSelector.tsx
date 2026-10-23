@@ -60,7 +60,7 @@ export default function BacktestAssetSelector({ primaryAsset, comparisonAssets, 
         <span className="text-caption text-apple-secondary">{selectedAssets.length} / 3개 선택</span>
       </div>
       <p id="asset-selection-limit" className="mt-2 text-fine-print leading-relaxed text-apple-secondary">기준 종목을 선택하고, 함께 비교할 종목을 최대 2개 추가하세요. 최소 1개는 유지합니다.</p>
-      <div role="group" aria-label="선택 자산" ref={selectedGroupRef} className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div role="group" aria-label="선택 자산" ref={selectedGroupRef} className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
         {selectedAssets.map((asset) => {
           const isPrimary = asset === primaryAsset;
           return <div key={asset} data-selected-asset={asset} tabIndex={-1} role="group" aria-label={`${asset} ${isPrimary ? '기준 종목' : '비교 종목'}`} className="rounded-card border border-apple-hairline bg-apple-canvas p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary">
@@ -121,7 +121,7 @@ export default function BacktestAssetSelector({ primaryAsset, comparisonAssets, 
       <div className="mt-5 border-t border-apple-hairline pt-5">
         <h4 className="text-caption-strong text-apple-ink">레버리지 가족으로 한 번에 선택</h4>
         <p className="mt-1 text-fine-print leading-relaxed text-apple-secondary">현재 선택을 같은 기초자산의 상품 묶음으로 바꿉니다. 선택된 가족을 다시 누르면 기준 종목만 남습니다.</p>
-        <div role="group" aria-label="레버리지 가족" className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div role="group" aria-label="레버리지 가족" className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-2">
           {(Object.keys(LEVERAGE_FAMILIES) as LeverageFamilyId[]).map((familyId) => {
             const family = LEVERAGE_FAMILIES[familyId];
             const selected = completeFamily?.id === familyId;

@@ -159,29 +159,6 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       ) : null}
 
 
-      {successfulResults.length > 0 && <div className="flex w-full max-w-analysis flex-col justify-between gap-3 sm:flex-row sm:items-start">
-        <SegmentedControl
-          label="결과 보기"
-          value={resultView}
-          options={[{ value: 'PORTFOLIO', label: '투자 결과' }, { value: 'NORMALIZED', label: '시작값 100' }]}
-          onChange={onResultViewChange}
-        />
-        <SegmentedControl
-          label="가치 기준"
-          value={displayBasis}
-          options={[
-            { value: 'NOMINAL', label: '명목' },
-            { value: 'REAL', label: '실질' },
-            { value: 'GOLD', label: '금 기준', disabled: Boolean(goldBasisError), disabledReason: goldBasisError ?? undefined },
-          ]}
-          onChange={onValueBasisChange}
-        />
-      </div>}
-
-      {successfulResults.length > 0 && displayBasis === 'GOLD' && !goldBasisError && (
-        <p className="-mt-5 w-full max-w-analysis text-right text-fine-print text-apple-ink-muted-48">시작일 금 가치 기준</p>
-      )}
-
       {preparedResults.length > 0 ? (
         <BacktestAnalysisChart
           primaryAsset={primaryAsset}
@@ -191,6 +168,31 @@ const BacktestView: React.FC<BacktestViewProps> = ({
           resultView={resultView}
           valueBasis={displayBasis}
           marketTrend={marketTrend}
+          controls={<>
+            <SegmentedControl
+              label="결과 보기"
+              size="compact"
+              value={resultView}
+              options={[{ value: 'PORTFOLIO', label: '투자 결과' }, { value: 'NORMALIZED', label: '시작값 100' }]}
+              onChange={onResultViewChange}
+            />
+            <div className="flex flex-col items-end gap-1">
+              <SegmentedControl
+                label="가치 기준"
+                size="compact"
+                value={displayBasis}
+                options={[
+                  { value: 'NOMINAL', label: '명목' },
+                  { value: 'REAL', label: '실질' },
+                  { value: 'GOLD', label: '금 기준', disabled: Boolean(goldBasisError), disabledReason: goldBasisError ?? undefined },
+                ]}
+                onChange={onValueBasisChange}
+              />
+              {displayBasis === 'GOLD' && !goldBasisError && (
+                <p className="text-fine-print text-apple-ink-muted-48">시작일 금 가치 기준</p>
+              )}
+            </div>
+          </>}
         />
       ) : null}
 

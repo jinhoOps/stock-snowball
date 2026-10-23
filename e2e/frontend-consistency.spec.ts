@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { openBacktest } from './helpers';
 import { readFile } from 'node:fs/promises';
 
 async function expectNoPageOverflow(page: Page) {
@@ -20,7 +21,7 @@ test.beforeEach(async ({ page }) => {
 
 test('projection uses aligned fields, readable metrics and full-size choices', async ({ page }, testInfo) => {
   expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
-  for (const control of [page.getByRole('button', { name: '고급 설정 열기' }), page.getByRole('link', { name: 'Stock Snowball 홈' })]) {
+  for (const control of [page.getByRole('button', { name: '고급 설정 열기' }), page.locator('a[aria-label="Stock Snowball 홈"]')]) {
     const duration = await control.evaluate((element) => parseFloat(getComputedStyle(element).transitionDuration));
     expect(duration).toBeLessThanOrEqual(0.001);
   }
@@ -81,7 +82,7 @@ test('settings stays above navigation and preserves the focus and draft lifecycl
 });
 
 test('backtest and long scenario names reflow without losing controls', async ({ page }, testInfo) => {
-  await page.getByRole('button', { name: '과거 백테스트 모드' }).click();
+  await openBacktest(page);
   const metrics = page.getByRole('region', { name: 'SPY 핵심 지표 · 명목 기준' });
   await expect(metrics.locator('.ui-metric')).toHaveCount(4);
   await expect(metrics.locator('.ui-metric-value').first()).toHaveCSS('font-size', '24px');

@@ -13,7 +13,6 @@ afterEach(cleanup);
 describe('SimulationControls', () => {
   const baseProjectionProps = {
     mode: 'PROJECTION' as const,
-    setMode: () => undefined,
     params: {
       principal: 10_000_000,
       contribution: 30_000,
@@ -30,27 +29,19 @@ describe('SimulationControls', () => {
     },
     onUpdate: () => undefined,
     currency: 'KRW' as const,
-    setCurrency: () => undefined,
     exchangeRate: 1450,
-    onOpenAdvanced: () => undefined,
     selectedAssets: ['QQQ' as const],
   };
 
   it('exposes named single-choice controls and sends the selected values', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn();
-    const setMode = vi.fn();
-    const setCurrency = vi.fn();
-    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} setMode={setMode} setCurrency={setCurrency} />);
+    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} />);
 
-    await user.click(within(screen.getByRole('group', { name: '계산 모드' })).getByRole('button', { name: '과거 백테스트 모드' }));
-    await user.click(within(screen.getByRole('group', { name: '표시 통화' })).getByRole('button', { name: 'USD' }));
     const cycle = within(screen.getByRole('group', { name: '납입 주기' }));
     expect(cycle.getByRole('button', { name: '일' }).getAttribute('aria-pressed')).toBe('true');
     await user.click(cycle.getByRole('button', { name: '월' }));
 
-    expect(setMode).toHaveBeenCalledWith('BACKTEST');
-    expect(setCurrency).toHaveBeenCalledWith('USD');
     expect(onUpdate).toHaveBeenCalledWith({ cycle: 'MONTHLY' });
     expect(screen.getByLabelText('초기 자산 (KRW)').getAttribute('aria-describedby')).toBeTruthy();
   });
@@ -58,8 +49,7 @@ describe('SimulationControls', () => {
   it('renders family duration presets for an exact selected leverage family', () => {
     const markup = renderToStaticMarkup(React.createElement(SimulationControls, {
       mode: 'BACKTEST',
-      setMode: () => undefined,
-      params: {
+        params: {
         principal: 10_000_000,
         contribution: 30_000,
         cycle: 'DAILY',
@@ -75,10 +65,8 @@ describe('SimulationControls', () => {
       },
       onUpdate: () => undefined,
       currency: 'KRW',
-      setCurrency: () => undefined,
-      exchangeRate: 1450,
-      onOpenAdvanced: () => undefined,
-      selectedAssets: ['QQQ', 'QLD', 'TQQQ'],
+        exchangeRate: 1450,
+        selectedAssets: ['QQQ', 'QLD', 'TQQQ'],
     }));
 
     expect(markup).toContain('1년');

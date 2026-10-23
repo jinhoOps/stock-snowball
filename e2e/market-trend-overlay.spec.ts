@@ -1,12 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openBacktest } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
 });
 
-const openBacktest = async (page: Page) => {
+const gotoBacktest = async (page: Page) => {
   await page.goto('/stock-snowball/');
-  await page.getByRole('button', { name: '백테스트 모드' }).click();
+  await openBacktest(page);
 };
 
 const selectPrimaryAsset = async (page: Page, assetId: string) => {
@@ -45,7 +46,7 @@ test('Nasdaq family exposes completed-week market values in both result views', 
     }
   });
 
-  await openBacktest(page);
+  await gotoBacktest(page);
   await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
   await page.getByRole('button', { name: '시장 추세' }).click();
 
@@ -91,7 +92,7 @@ test('Nasdaq family exposes completed-week market values in both result views', 
 });
 
 test('S&P 500 primary asset shows its static market overlay', async ({ page }, testInfo) => {
-  await openBacktest(page);
+  await gotoBacktest(page);
   await selectPrimaryAsset(page, 'SPY');
   await page.getByRole('button', { name: '시장 추세' }).click();
 
@@ -105,7 +106,7 @@ test('S&P 500 primary asset shows its static market overlay', async ({ page }, t
 });
 
 test('KOSPI primary asset shows its static market overlay', async ({ page }, testInfo) => {
-  await openBacktest(page);
+  await gotoBacktest(page);
   await selectPrimaryAsset(page, 'KOSPI');
   await page.getByRole('button', { name: '시장 추세' }).click();
 
@@ -119,7 +120,7 @@ test('KOSPI primary asset shows its static market overlay', async ({ page }, tes
 });
 
 test('unmapped AMD primary asset does not add a market overlay', async ({ page }) => {
-  await openBacktest(page);
+  await gotoBacktest(page);
   await selectPrimaryAsset(page, 'AMD');
 
   await expect(page.getByRole('button', { name: '시장 추세' })).toHaveCount(0);

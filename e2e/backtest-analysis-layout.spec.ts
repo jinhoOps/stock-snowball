@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { openBacktest } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
   await page.goto('/stock-snowball/');
-  await page.getByRole('button', { name: '백테스트 모드' }).click();
+  await openBacktest(page);
 });
 
 test('backtest foregrounds four metrics and one chart while preserving dates', async ({ page }, testInfo) => {
@@ -14,7 +15,7 @@ test('backtest foregrounds four metrics and one chart while preserving dates', a
     }
   });
 
-  await expect(page.getByText('백테스트 최종 자산', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: '백테스트 최종 자산' })).toBeVisible();
   const primaryMetrics = page.getByRole('region', { name: /SPY 핵심 지표 · 명목 기준/ });
   for (const label of ['누적수익률', '연평균수익률 (CAGR)', '최대낙폭 (MDD)', '투자원금']) {
     await expect(primaryMetrics.getByText(label, { exact: true })).toBeVisible();

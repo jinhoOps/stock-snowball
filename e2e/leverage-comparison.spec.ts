@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openBacktest } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
@@ -11,7 +12,7 @@ const settleVisualEffects = async (page: Page) => {
 
 test('Nasdaq family shows 1x, 2x, and 3x actual-history comparison', async ({ page }, testInfo) => {
   await page.goto('/stock-snowball/');
-  await page.getByRole('button', { name: '백테스트 모드' }).click();
+  await openBacktest(page);
   await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
 
   const results = page.getByRole('region', { name: '과거 자산 비교', exact: true });
@@ -41,19 +42,9 @@ test('Nasdaq family shows 1x, 2x, and 3x actual-history comparison', async ({ pa
 
 test('AMD family explains unavailable long periods and supports gold basis', async ({ page }, testInfo) => {
   await page.goto('/stock-snowball/');
-  await page.getByRole('button', { name: '백테스트 모드' }).click();
+  await openBacktest(page);
   await page.getByRole('button', { name: 'AMD 레버리지 가족 선택' }).click();
 
-  const titleWordLineCount = await page.getByRole('heading', { name: '과거가 보여주는 부의 지도.' }).evaluate((heading) => {
-    const textNode = heading.firstChild;
-    const start = textNode?.textContent?.indexOf('지도.') ?? -1;
-    if (!textNode || start < 0) return 0;
-    const range = document.createRange();
-    range.setStart(textNode, start);
-    range.setEnd(textNode, start + '지도.'.length);
-    return new Set(Array.from(range.getClientRects(), (rect) => Math.round(rect.top))).size;
-  });
-  expect(titleWordLineCount).toBe(1);
   await expect(page.getByRole('button', { name: '5년' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '10년' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '5년' })).toHaveAttribute('aria-describedby', 'family-preset-disabled-reason');

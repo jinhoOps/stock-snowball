@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { MarketTrendOverlay } from '../../core/MarketTrend';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import type { HistoricalAssetType, ValueBasis } from '../../types/finance';
@@ -21,6 +21,8 @@ export interface BacktestAnalysisChartProps {
   resultView: 'PORTFOLIO' | 'NORMALIZED';
   valueBasis: ValueBasis;
   marketTrend?: MarketTrendOverlay | null;
+  /** View switches (result view, value basis) shown in the chart header. */
+  controls?: ReactNode;
 }
 
 const BASIS_LABEL: Record<ValueBasis, string> = {
@@ -37,6 +39,7 @@ const BacktestAnalysisChart = ({
   resultView,
   valueBasis,
   marketTrend,
+  controls,
 }: BacktestAnalysisChartProps) => {
   const [mode, setMode] = useState<BacktestAnalysisMode>('ASSET');
   const [showMarketTrend, setShowMarketTrend] = useState(false);
@@ -53,7 +56,8 @@ const BacktestAnalysisChart = ({
 
   return (
     <section className="ui-surface ui-surface-compact w-full max-w-analysis text-left" aria-labelledby="backtest-chart-heading">
-      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="mb-4 flex flex-col gap-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h3 id="backtest-chart-heading" className="text-title-sm text-apple-ink font-display">
             {mode === 'ASSET' ? '자산별 과거 성과 비교' : '저장 시나리오 비교'}
@@ -92,6 +96,8 @@ const BacktestAnalysisChart = ({
             </Button>
           ) : null}
         </div>
+      </div>
+      {controls ? <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">{controls}</div> : null}
       </div>
       <div className="h-[360px] sm:h-[480px]">
         {mode === 'ASSET' ? (

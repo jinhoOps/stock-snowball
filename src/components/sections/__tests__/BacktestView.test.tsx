@@ -554,7 +554,7 @@ describe('BacktestView', () => {
     expect(onResultViewChange).toHaveBeenCalledWith('NORMALIZED');
   });
 
-  it('orders summary metrics, controls, chart, detail, and sharing as one analysis flow', () => {
+  it('orders summary metrics, chart with its view controls, detail, and sharing as one analysis flow', () => {
     render(
       <BacktestView
         {...baseProps}
@@ -566,7 +566,6 @@ describe('BacktestView', () => {
     const orderedNodes = [
       screen.getByRole('group', { name: '선택 자산' }),
       screen.getByRole('region', { name: 'SPY 핵심 지표 · 명목 기준' }),
-      screen.getByRole('group', { name: '결과 보기' }),
       screen.getByRole('region', { name: '자산별 과거 성과 비교' }),
       screen.getByTestId('product-performance-summary'),
       screen.getByRole('button', { name: '공유(이미지)' }),
@@ -578,6 +577,9 @@ describe('BacktestView', () => {
         & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
+    const chart = screen.getByRole('region', { name: '자산별 과거 성과 비교' });
+    expect(within(chart).getByRole('group', { name: '결과 보기' })).toBeTruthy();
+    expect(within(chart).getByRole('group', { name: '가치 기준' })).toBeTruthy();
   });
 });
 

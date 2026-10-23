@@ -5,11 +5,13 @@ interface AnimatedCounterProps {
   value: number;
   formatter?: (value: number) => string;
   className?: string;
+  /** Set false for duplicate displays of a value that is already announced elsewhere. */
+  announce?: boolean;
 }
 
 const defaultFormatter = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-const AnimatedCounter = ({ value, formatter = defaultFormatter, className }: AnimatedCounterProps) => {
+const AnimatedCounter = ({ value, formatter = defaultFormatter, className, announce = true }: AnimatedCounterProps) => {
   const prefersReducedMotion = usePrefersReducedMotion();
   const visualRef = useRef<HTMLSpanElement>(null);
   const displayedValue = useRef(value);
@@ -46,8 +48,8 @@ const AnimatedCounter = ({ value, formatter = defaultFormatter, className }: Ani
 
   return (
     <span className={className} style={{ display: 'inline-block', fontVariantNumeric: 'tabular-nums' }}>
-      <span ref={visualRef} aria-hidden="true" />
-      <span className="sr-only" aria-live="polite" aria-atomic="true">{formatter(value)}</span>
+      <span ref={visualRef} aria-hidden={announce ? 'true' : undefined} />
+      {announce && <span className="sr-only" aria-live="polite" aria-atomic="true">{formatter(value)}</span>}
     </span>
   );
 };

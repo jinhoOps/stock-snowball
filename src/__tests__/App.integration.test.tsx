@@ -43,9 +43,17 @@ vi.mock('../hooks/useScenarios', () => ({
 }));
 
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
-vi.mock('../components/layout/GlobalNav', () => ({ default: () => null }));
-vi.mock('../components/sections/ProductHero', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+vi.mock('../components/layout/GlobalNav', () => ({
+  default: ({ onModeChange, onCurrencyChange }: {
+    onModeChange: (mode: 'BACKTEST' | 'PROJECTION') => void;
+    onCurrencyChange: (currency: 'KRW' | 'USD') => void;
+  }) => (
+    <>
+      <button onClick={() => onModeChange('BACKTEST')}>open backtest</button>
+      <button onClick={() => onModeChange('PROJECTION')}>open projection</button>
+      <button onClick={() => onCurrencyChange('USD')}>display USD</button>
+    </>
+  ),
 }));
 vi.mock('../components/charts/SnowballChart', () => ({
   default: ({
@@ -91,26 +99,19 @@ vi.mock('../components/common/ShareCard', () => ({ default: ({ contribution, con
 }));
 vi.mock('../components/sections/SimulationControls', () => ({
   default: ({
-    setMode,
     backtestAssetSelection,
     params,
     rangeNotice,
     selectedAssets,
     onUpdate,
-    setCurrency,
   }: {
-    setMode: (mode: 'BACKTEST' | 'PROJECTION') => void;
     backtestAssetSelection?: React.ReactNode;
     params: { startDate?: string; endDate?: string };
     rangeNotice?: string | null;
     selectedAssets: HistoricalAssetType[];
     onUpdate: (params: { startDate: string; endDate: string }) => void;
-    setCurrency: (currency: 'KRW' | 'USD') => void;
   }) => (
     <>
-      <button onClick={() => setMode('BACKTEST')}>open backtest</button>
-      <button onClick={() => setMode('PROJECTION')}>open projection</button>
-      <button onClick={() => setCurrency('USD')}>display USD</button>
       <button onClick={() => {
         const coverage = getCommonCoverage(selectedAssets, getHistoricalCoverage);
         onUpdate({ startDate: coverage.startDate, endDate: coverage.endDate });
