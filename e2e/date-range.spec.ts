@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { openBacktest, appliedConditions } from './helpers';
+import { openBacktest, appliedConditions, openAssetPicker } from './helpers';
 
 async function appliedDates(page: Page) {
   return page.evaluate(() => {
@@ -127,7 +127,8 @@ test('economic crises stay visible and apply complete historical windows', async
 });
 
 test('family comparisons retain crisis presets and respect their common coverage', async ({ page }) => {
-  await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
+  await openAssetPicker(page);
+  await page.getByRole('button', { name: '나스닥 레버리지 묶음 선택' }).click();
   const scenarios = page.getByRole('region', { name: '경제 위기 시나리오' });
   await expect(scenarios).toBeVisible();
   await expect(scenarios.getByRole('button', { name: '닷컴 버블 붕괴 기간 적용' })).toBeHidden();
@@ -136,7 +137,8 @@ test('family comparisons retain crisis presets and respect their common coverage
   await scenarios.getByRole('button', { name: '2022 금리 인상 기간 적용' }).click();
   expect(await appliedDates(page)).toEqual({ startDate: '2022-01-03', endDate: '2022-10-12' });
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await page.getByRole('button', { name: 'AMD 레버리지 가족 선택' }).click();
+  await openAssetPicker(page);
+  await page.getByRole('button', { name: 'AMD 레버리지 묶음 선택' }).click();
   await expect(scenarios.getByRole('button', { name: '2022 금리 인상 기간 적용' })).toBeDisabled();
   await scenarios.getByRole('button', { name: '2025 관세 충격 기간 적용' }).click();
   expect(await appliedDates(page)).toEqual({ startDate: '2025-04-02', endDate: '2025-04-08' });

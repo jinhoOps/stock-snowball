@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openBacktest } from './helpers';
+import { openBacktest, openAssetPicker } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
@@ -23,23 +23,23 @@ test('backtest foregrounds four metrics and one chart while preserving dates', a
   await expect(primaryMetrics.getByText(/최종.*자산/)).toHaveCount(0);
   await expect(page.getByRole('img', { name: /과거 백테스트 결과 다중 자산 비교 차트/ })).toHaveCount(1);
 
+  await openAssetPicker(page);
   for (const family of ['나스닥', 'AMD', 'Tesla', '반도체']) {
-    await expect(page.getByRole('button', { name: new RegExp(`${family} 레버리지 가족 선택`) })).toBeVisible();
+    await expect(page.getByRole('button', { name: new RegExp(`${family} 레버리지 묶음 선택`) })).toBeVisible();
   }
 
   const period = page.getByRole('button', { name: '백테스트 기간 변경' });
   await expect(period).toContainText('2010-01-01 ~ 2024-01-01');
 
-  const individualPicker = page.locator('summary').filter({ hasText: '비교 종목 추가' });
-  await individualPicker.focus();
-  await page.keyboard.press('Enter');
+  // The picker is one disclosure: keyboard toggles it closed and open again.
+  const picker = page.getByRole('button', { name: /종목 추가 · 레버리지 비교/ });
   const qqqPickerButton = page.getByRole('button', { name: 'QQQ 개별 자산 선택', exact: true });
   await expect(qqqPickerButton).toBeVisible();
-  await individualPicker.focus();
+  await picker.focus();
   await page.keyboard.press('Space');
   await expect(qqqPickerButton).toHaveCount(0);
-  await individualPicker.focus();
-  await page.keyboard.press('Space');
+  await picker.focus();
+  await page.keyboard.press('Enter');
   await expect(qqqPickerButton).toBeVisible();
   await qqqPickerButton.click();
   await expect(period).toContainText('2010-01-01 ~ 2024-01-01');

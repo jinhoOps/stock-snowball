@@ -88,6 +88,15 @@ const contrastRatio = (foreground: string, background: string): number => {
 
 afterEach(cleanup);
 
+const openAssetPicker = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: /종목 추가 · 레버리지 비교/ }));
+/** The same result under a second ticker, so the comparison table and mobile cards render. */
+const withQqq = (result: ComparisonAssetResult): ComparisonAssetResult[] => [result, { ...result, assetId: 'QQQ' } as ComparisonAssetResult];
+const showTooltipIn = async (user: ReturnType<typeof userEvent.setup>, container: HTMLElement) => {
+  await user.hover(within(container).getByRole('button', { name: '정보 보기' }));
+  return screen.getByRole('tooltip').textContent ?? '';
+};
+
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', class {
     observe() {}
@@ -147,7 +156,8 @@ describe('BacktestView', () => {
     const onFamilySelect = vi.fn();
     render(<BacktestView {...baseProps} onFamilySelect={onFamilySelect} />);
 
-    await user.click(screen.getByRole('button', { name: '나스닥 레버리지 가족 선택' }));
+    await openAssetPicker(user);
+    await user.click(screen.getByRole('button', { name: '나스닥 레버리지 묶음 선택' }));
 
     expect(onFamilySelect).toHaveBeenCalledWith('NASDAQ');
   });
@@ -184,7 +194,7 @@ describe('BacktestView', () => {
 
     expect(screen.getByRole('button', { name: '금 기준' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByTestId('leverage-insight').textContent).toBe(nominalInsight);
-    expect(screen.getByText('명목 상품 성과')).toBeTruthy();
+    expect(screen.getByText('레버리지 상품의 실제 성과 · 명목 기준')).toBeTruthy();
   });
 
   it('disables gold basis and exposes the coverage reason', () => {
@@ -250,11 +260,12 @@ describe('BacktestView', () => {
       },
     };
 
-    render(<BacktestView {...baseProps} results={[result]} />);
+    render(<BacktestView {...baseProps} comparisonAssets={['QQQ']} results={withQqq(result)} />);
 
-    expect(screen.getAllByText('$110')).toHaveLength(2);
+    // Table row and mobile card for each of the two assets.
+    expect(screen.getAllByText('$110')).toHaveLength(4);
     expect(screen.queryByText('$121')).toBeNull();
-    expect(screen.getByLabelText('차트 최종값: SPY 110')).toBeTruthy();
+    expect(screen.getByLabelText(/차트 최종값: SPY 110\b/)).toBeTruthy();
     expect(screen.getByText(/ISA 만기 세금 추정치가 포함됩니다/)).toBeTruthy();
   });
 
@@ -289,14 +300,16 @@ describe('BacktestView', () => {
     expect(screen.getByLabelText('차트 종목 색상').dataset.colors).toBe('#a61b1b');
   });
 
-  it('foregrounds product return, CAGR, and MDD with the selected period context', () => {
-    render(<BacktestView {...baseProps} results={[basisResult]} />);
+  it('foregrounds product return, CAGR, and MDD with the selected period context', async () => {
+    const user = userEvent.setup();
+    render(<BacktestView {...baseProps} comparisonAssets={['QQQ']} results={withQqq(basisResult)} />);
 
     const summary = screen.getByTestId('product-performance-summary');
     expect(summary.textContent).toContain('선택 기간 성과 비교');
-    expect(summary.textContent).toContain('2024-01-01 ~ 2025-01-01');
-    expect(summary.textContent).toContain('수익률·CAGR·MDD: 배당 재투자 포함 · 납입액 영향 제외');
-    expect(summary.textContent).toContain('최종 자산: 납입 포함');
+    const context = await showTooltipIn(user, summary);
+    expect(context).toContain('2024-01-01 ~ 2025-01-01');
+    expect(context).toContain('배당 재투자를 포함하고 납입액 영향을 제외');
+    expect(context).toContain('최종 자산은 납입을 포함');
 
     const headings = screen.getAllByRole('columnheader').map((heading) => heading.textContent);
     expect(headings).toEqual([
@@ -309,7 +322,19 @@ describe('BacktestView', () => {
     ]);
   });
 
-  it('shows each selected asset’s maximum drawdown recovery dates and calendar days', () => {
+  it('shows a single asset’s extra metrics instead of a comparison table that would repeat the headline', () => {
+    render(<BacktestView {...baseProps} results={[basisResult]} />);
+
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('article', { name: 'SPY 상품 성과' })).toBeNull();
+    const extra = screen.getByLabelText('추가 지표');
+    expect(extra.textContent).toContain('포트폴리오 IRR (납입 포함)');
+    expect(extra.textContent).toContain('9.98%');
+    expect(extra.textContent).toContain('변동성');
+  });
+
+  it('shows each selected asset’s maximum drawdown recovery dates and calendar days', async () => {
+    const user = userEvent.setup();
     const recoveredPoints = [
       { date: '2024-01-01', value: 100 },
       { date: '2024-01-03', value: 80 },
@@ -333,11 +358,13 @@ describe('BacktestView', () => {
     expect(spy.textContent).toContain('2024-01-01 → 2024-01-03 → 2024-01-08');
     expect(qqq.textContent).toContain('미회복 · 7일 경과');
     expect(qqq.textContent).toContain('2024-01-01 → 2024-01-03 → 2024-01-08');
-    expect(region.textContent).toContain('최대낙폭');
-    expect(region.textContent).toContain('최저점 대비 회복률과는 다른 지표');
+    const explanation = await showTooltipIn(user, region);
+    expect(explanation).toContain('최대낙폭');
+    expect(explanation).toContain('최저점 대비 회복률과는 다른 지표');
   });
 
-  it('recomputes recovery from the displayed value basis', () => {
+  it('recomputes recovery from the displayed value basis', async () => {
+    const user = userEvent.setup();
     const points = [
       { date: '2024-01-01', value: 100 },
       { date: '2024-07-01', value: 80 },
@@ -364,7 +391,7 @@ describe('BacktestView', () => {
 
     rerender(<BacktestView {...props} valueBasis="GOLD" />);
     expect(recoveryItem().textContent).toContain('미회복 · 366일 경과');
-    expect(screen.getByRole('region', { name: '전고점 회복 기간' }).textContent).toContain('금 기준');
+    expect(await showTooltipIn(user, screen.getByRole('region', { name: '전고점 회복 기간' }))).toContain('금 기준');
   });
 
   it('distinguishes a rising asset from an unrecovered asset', () => {
@@ -415,7 +442,7 @@ describe('BacktestView', () => {
   });
 
   it('labels mobile product metrics independently from the contribution-inclusive portfolio value', () => {
-    render(<BacktestView {...baseProps} results={[basisResult]} />);
+    render(<BacktestView {...baseProps} comparisonAssets={['QQQ']} results={withQqq(basisResult)} />);
 
     const mobileCard = screen.getByRole('article', { name: 'SPY 상품 성과' });
     expect(mobileCard.textContent).toContain('누적수익률');
@@ -441,14 +468,16 @@ describe('BacktestView', () => {
     render(
       <BacktestView
         {...baseProps}
-        results={[basisResult]}
+        comparisonAssets={['QQQ']}
+        results={withQqq(basisResult)}
         valueBasis="REAL"
         inflationRate={0.1}
       />,
     );
 
     expect(screen.getByLabelText(/차트 최종값: SPY 99\.980431/)).toBeTruthy();
-    expect(screen.getAllByText('$100')).toHaveLength(3);
+    // Two table rows, two mobile cards, and the primary strip's principal.
+    expect(screen.getAllByText('$100')).toHaveLength(5);
     expect(screen.getAllByText('-0.02%').length).toBeGreaterThanOrEqual(2);
   });
 
@@ -456,7 +485,8 @@ describe('BacktestView', () => {
     render(
       <BacktestView
         {...baseProps}
-        results={[basisResult]}
+        comparisonAssets={['QQQ']}
+        results={withQqq(basisResult)}
         valueBasis="GOLD"
         resultView="NORMALIZED"
         goldData={[
@@ -467,7 +497,7 @@ describe('BacktestView', () => {
     );
 
     expect(screen.getByLabelText(/차트 최종값: SPY (99\.999|100)/)).toBeTruthy();
-    expect(screen.getAllByText('$100')).toHaveLength(3);
+    expect(screen.getAllByText('$100')).toHaveLength(5);
     expect(screen.getAllByText('0.00%').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('시작일 금 가치 기준')).toBeTruthy();
   });
@@ -500,11 +530,11 @@ describe('BacktestView', () => {
     expect(picker.textContent).toContain('SPY');
     expect(picker.textContent).toContain('QLD');
 
-    const disclosure = screen.getByText('비교 종목 추가').closest('details');
-    expect(disclosure?.hasAttribute('open')).toBe(false);
+    const trigger = screen.getByRole('button', { name: /종목 추가 · 레버리지 비교/ });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByRole('button', { name: 'AMD 개별 자산 선택' })).toBeNull();
 
-    await user.click(screen.getByText('비교 종목 추가'));
+    await openAssetPicker(user);
     expect(screen.getByRole('button', { name: 'AMD 개별 자산 선택' })).toBeTruthy();
   });
 
@@ -521,7 +551,7 @@ describe('BacktestView', () => {
       />,
     );
 
-    await user.click(screen.getByText('비교 종목 추가'));
+    await openAssetPicker(user);
     const unavailableAsset = screen.getByRole('button', { name: 'AMD 개별 자산 선택' });
     expect(unavailableAsset.hasAttribute('disabled')).toBe(true);
     expect(unavailableAsset.getAttribute('title')).toContain('최대 3개');
@@ -587,7 +617,7 @@ it('lets family members be toggled in the individual list even at the limit', as
   const user = userEvent.setup();
   const onComparisonAssetsChange = vi.fn();
   render(<BacktestView {...baseProps} primaryAsset="QQQ" comparisonAssets={['QLD', 'TQQQ']} onComparisonAssetsChange={onComparisonAssetsChange} />);
-  await user.click(screen.getByText('비교 종목 추가'));
+  await openAssetPicker(user);
   await user.click(screen.getByRole('button', { name: 'QLD 개별 자산 해제' }));
   expect(onComparisonAssetsChange).toHaveBeenCalledWith(['TQQQ']);
 });

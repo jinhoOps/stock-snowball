@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openBacktest } from './helpers';
+import { openBacktest, openAssetPicker } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
@@ -13,7 +13,8 @@ const settleVisualEffects = async (page: Page) => {
 test('Nasdaq family shows 1x, 2x, and 3x actual-history comparison', async ({ page }, testInfo) => {
   await page.goto('/stock-snowball/');
   await openBacktest(page);
-  await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
+  await openAssetPicker(page);
+  await page.getByRole('button', { name: '나스닥 레버리지 묶음 선택' }).click();
 
   const results = page.getByRole('region', { name: '과거 자산 비교', exact: true });
   for (const asset of ['QQQ', 'QLD', 'TQQQ']) {
@@ -43,7 +44,8 @@ test('Nasdaq family shows 1x, 2x, and 3x actual-history comparison', async ({ pa
 test('AMD family explains unavailable long periods and supports gold basis', async ({ page }, testInfo) => {
   await page.goto('/stock-snowball/');
   await openBacktest(page);
-  await page.getByRole('button', { name: 'AMD 레버리지 가족 선택' }).click();
+  await openAssetPicker(page);
+  await page.getByRole('button', { name: 'AMD 레버리지 묶음 선택' }).click();
 
   await expect(page.getByRole('button', { name: '5년' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '10년' })).toBeDisabled();

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openBacktest, appliedConditions } from './helpers';
+import { openBacktest, appliedConditions, openAssetPicker } from './helpers';
 
 test('sets up assets, dates and amounts before reviewing the applied conditions', async ({ page }, info) => {
   await page.addInitScript(() => localStorage.setItem('exchange_rate', '1000'));
@@ -28,7 +28,7 @@ test('sets up assets, dates and amounts before reviewing the applied conditions'
   await assets.getByLabel('새 기준 종목').selectOption('QQQ');
   await expect(assets.getByRole('group', { name: 'QQQ 기준 종목', exact: true })).toBeFocused();
   await expect(dates).toContainText('2010-01-01 ~ 2024-01-01');
-  await assets.getByText('비교 종목 추가', { exact: true }).click();
+  await openAssetPicker(page);
   await assets.getByRole('button', { name: 'SCHD 개별 자산 선택' }).click();
   await expect(summary).toContainText('QQQ 기준 · SCHD 비교');
   await expect(dates).toContainText('2011-10-20 ~ 2024-01-01');
@@ -44,7 +44,7 @@ test('sets up assets, dates and amounts before reviewing the applied conditions'
   await expect(summary).toContainText('초기 $2,000 + 매월 $30');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
-  await assets.getByText('비교 종목 추가', { exact: true }).click();
+  await openAssetPicker(page);
   await assets.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'test-results/visual-review/backtest-setup-' + info.project.name + '.png' });
   if (await summary.isVisible()) {
@@ -57,7 +57,8 @@ test('family members can be removed, promoted and toggled in one selection flow'
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/stock-snowball/');
   await openBacktest(page);
-  const family = page.getByRole('button', { name: '나스닥 레버리지 가족 선택' });
+  await openAssetPicker(page);
+  const family = page.getByRole('button', { name: '나스닥 레버리지 묶음 선택' });
   await family.click();
   await expect(family).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'TQQQ 기준으로 설정' }).click();
@@ -65,7 +66,7 @@ test('family members can be removed, promoted and toggled in one selection flow'
   await page.getByRole('button', { name: 'TQQQ 기준 자산 제거' }).click();
   await expect(page.getByRole('region', { name: /QQQ 핵심 지표/ })).toBeVisible();
   await expect(family).toHaveAttribute('aria-pressed', 'false');
-  await page.getByText('비교 종목 추가', { exact: true }).click();
+  await openAssetPicker(page);
   const individual = page.getByRole('group', { name: '개별 자산 선택' });
   await individual.getByRole('button', { name: 'TQQQ 개별 자산 선택' }).click();
   await expect(family).toHaveAttribute('aria-pressed', 'true');

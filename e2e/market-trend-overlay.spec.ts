@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { openBacktest } from './helpers';
+import { openBacktest, openAssetPicker } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
@@ -47,7 +47,8 @@ test('Nasdaq family exposes completed-week market values in both result views', 
   });
 
   await gotoBacktest(page);
-  await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
+  await openAssetPicker(page);
+  await page.getByRole('button', { name: '나스닥 레버리지 묶음 선택' }).click();
   await page.getByRole('button', { name: '시장 추세' }).click();
 
   await expect(page.getByText('주 자산 QQQ 대응 · 나스닥100 시장 추세')).toBeVisible();

@@ -929,8 +929,8 @@ function App() {
           <div className="w-full max-w-content">
             <div className="ui-surface ui-surface-default mb-10 flex flex-col items-start justify-between gap-6 xl:flex-row xl:items-center">
               <div className="flex-1 w-full">
-                <h2 className="text-title-sm text-apple-ink mb-2 font-display">시나리오 저장 및 비교군 추가</h2>
-                <p className="break-keep text-caption text-apple-ink-muted-48 font-text">현재 설정을 저장하고 비교 차트에 즉시 추가하여 분석하세요.</p>
+                <h2 className="text-title-sm text-apple-ink mb-2 font-display">시나리오 저장</h2>
+                <p className="break-keep text-caption text-apple-ink-muted-48 font-text">지금 조건을 저장하면 차트에서 바로 비교할 수 있어요.</p>
               </div>
               <form className="flex w-full items-end gap-3 xl:w-auto" onSubmit={(event) => { event.preventDefault(); void handleSaveScenario(); }}>
                 <div className="ui-field min-w-0 flex-1">

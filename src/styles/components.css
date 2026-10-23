@@ -54,7 +54,14 @@
   .ui-metric-highlighted { @apply border-apple-primary/40 bg-apple-primary/5; }
   .ui-metric-label { @apply relative z-10 mb-3 text-caption-strong text-apple-ink-muted-48; }
   .ui-metric-value { @apply relative z-10 font-display text-title-md tabular-nums; word-break: keep-all; overflow-wrap: anywhere; }
-  .ui-metric-detail { @apply relative z-10 mt-2 text-fine-print text-apple-ink-muted-48; }
+  .ui-metric-detail { @apply relative z-10 mt-2 text-fine-print leading-relaxed text-apple-ink-muted-48; }
+  .ui-disclosure { @apply border-t border-apple-hairline pt-1; }
+  .ui-disclosure-trigger {
+    @apply flex min-h-control w-full items-center gap-3 rounded-md py-2 text-left transition-colors motion-reduce:transition-none;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2;
+  }
+  .ui-disclosure-trigger:hover .ui-disclosure-chevron { @apply text-apple-primary; }
+  .ui-disclosure-chevron { @apply shrink-0 text-apple-ink-muted-48 transition-transform duration-200 motion-reduce:transition-none; }
   .ui-notice { @apply rounded-md border px-4 py-3 text-left text-caption; }
   .ui-notice-info { @apply border-apple-primary/20 bg-apple-primary/5 text-apple-ink; }
   .ui-notice-error { @apply border-apple-error/20 bg-apple-error/5 text-apple-error; }
