@@ -355,9 +355,12 @@ describe('BacktestView', () => {
     const spy = within(region).getByRole('group', { name: 'SPY 회복 기간' });
     const qqq = within(region).getByRole('group', { name: 'QQQ 회복 기간' });
     expect(spy.textContent).toContain('7일');
-    expect(spy.textContent).toContain('2024-01-01 → 2024-01-03 → 2024-01-08');
+    const datesIn = (group: HTMLElement) => within(group).getAllByRole('definition').map((item) => item.textContent);
+    expect(within(spy).getByText('회복일')).toBeTruthy();
+    expect(datesIn(spy)).toEqual(['2024-01-01', '2024-01-03', '2024-01-08']);
     expect(qqq.textContent).toContain('미회복 · 7일 경과');
-    expect(qqq.textContent).toContain('2024-01-01 → 2024-01-03 → 2024-01-08');
+    expect(within(qqq).getByText('마지막 관측일')).toBeTruthy();
+    expect(datesIn(qqq)).toEqual(['2024-01-01', '2024-01-03', '2024-01-08']);
     const explanation = await showTooltipIn(user, region);
     expect(explanation).toContain('최대낙폭');
     expect(explanation).toContain('최저점 대비 회복률과는 다른 지표');

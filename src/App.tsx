@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Github, Trash2, ArrowUpRight, SlidersHorizontal } from 'lucide-react';
+import { Github, Trash2, ArrowUpRight, SlidersHorizontal, Snowflake } from 'lucide-react';
 import Button from './components/common/Button';
 import { Input } from './components/common/Field';
 import Surface from './components/common/Surface';
@@ -48,17 +48,10 @@ import {
 } from './data/leverageFamilies';
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
 import { usePrefersReducedMotion } from './lib/animation/usePrefersReducedMotion';
+import { SERIES_PALETTE } from './styles/chartPalette';
 
-// Fixed colors for scenarios to avoid re-renders
-const SCENARIO_COLORS = [
-  '#0066cc', // Frost Blue
-  '#1d1d1f', // Near black
-  '#5ac8fa', // Sky Frost
-  '#424245', // Graphite
-  '#0a84ff', // Bright Frost
-  '#6e6e73', // Slate
-  '#64d2ff', // Light Sky
-];
+// The current scenario is Frost Blue; saved scenarios take the next hues, with red last so a saved plan does not read as a loss.
+const SCENARIO_COLORS = [SERIES_PALETTE[0], ...SERIES_PALETTE.slice(2), SERIES_PALETTE[1]];
 
 const CYCLE_LABEL = { DAILY: '매일', WEEKLY: '매주', MONTHLY: '매월' } as const;
 
@@ -808,7 +801,7 @@ function App() {
 
                 {resultHeadline}
 
-                <Surface className="min-h-[360px] w-full sm:h-[480px]">
+                <Surface tone="raised" className="min-h-[360px] w-full sm:h-[480px]">
                   <SnowballChart
                     scenarios={chartScenarios}
                     mode={mode}
@@ -835,7 +828,7 @@ function App() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                           {selectedPoint.points.map((p, i) => (
-                            <div key={i} className="ui-surface ui-surface-compact flex flex-col">
+                            <div key={i} className="ui-surface ui-surface-compact ui-surface-quiet flex flex-col">
                               <div className="flex items-center gap-2 mb-2">
                                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
                                 <span className="text-caption text-apple-ink-muted-48 truncate">{p.name}</span>
@@ -955,7 +948,13 @@ function App() {
             {loading ? (
               <p className="font-text text-apple-ink-muted-48">불러오는 중...</p>
             ) : scenarios.length === 0 ? (
-              <p className="text-apple-ink-muted-48 font-text">저장된 시나리오가 없습니다.</p>
+              <div className="ui-surface ui-surface-default ui-surface-quiet flex flex-col items-center gap-3 py-10 text-center">
+                <span aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-full bg-apple-surface-white text-apple-primary shadow-card">
+                  <Snowflake size={22} />
+                </span>
+                <p className="text-body-strong text-apple-ink">아직 저장한 시나리오가 없어요</p>
+                <p className="max-w-sm break-keep text-caption text-apple-secondary">위에서 이름을 붙여 저장하면 여기에 쌓이고, 차트에 겹쳐서 비교할 수 있어요.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <AnimatePresence>

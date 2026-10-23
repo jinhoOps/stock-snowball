@@ -304,9 +304,9 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         <aside data-testid="leverage-insight" className="ui-surface ui-surface-default w-full max-w-analysis">
           <h3 className="text-body-strong text-apple-ink">레버리지 상품의 실제 성과 · 명목 기준</h3>
           <p className="mt-2 text-caption text-apple-ink-muted-80">2배·3배는 하루의 목표이며, 전체 기간 수익률의 약속이 아닙니다.</p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-x-8 sm:grid-cols-2">
             {leverageInsights.map((insight) => (
-              <Surface key={insight.assetId} padding="compact" className="bg-apple-canvas-parchment">
+              <div key={insight.assetId} className="border-t border-apple-hairline py-4">
                 <div className="mb-3 flex items-center gap-2 font-display text-body-strong text-apple-ink">{insight.assetId}<MetricBadge multiple={insight.targetMultiple} /></div>
                 <dl className="grid grid-cols-2 gap-3 text-caption">
                   <div><dt className="text-apple-ink-muted-48">기초자산</dt><dd className="font-semibold">{percentage(insight.underlyingReturn)}</dd></div>
@@ -314,7 +314,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                   <div><dt className="text-apple-ink-muted-48">단순 {insight.targetMultiple}× 참고값</dt><dd className="font-semibold">{percentage(insight.simpleReference)}</dd></div>
                   <div><dt className="text-apple-ink-muted-48">차이</dt><dd className="font-semibold">{(insight.difference * 100).toFixed(2)}%p</dd></div>
                 </dl>
-              </Surface>
+              </div>
             ))}
           </div>
         </aside>

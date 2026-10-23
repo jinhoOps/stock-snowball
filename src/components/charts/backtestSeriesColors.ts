@@ -1,14 +1,7 @@
 import type { HistoricalAssetType } from '../../types/finance';
+import { SERIES_PALETTE } from '../../styles/chartPalette';
 
-const ACCESSIBLE_SERIES_PALETTE = [
-  '#1d4ed8', // cobalt
-  '#b42318', // vermilion
-  '#007a6e', // teal
-  '#6d28d9', // violet
-  '#b45309', // amber
-  '#4d7c0f', // green
-  '#a21caf', // magenta
-] as const;
+const ACCESSIBLE_SERIES_PALETTE = SERIES_PALETTE;
 
 const BRAND_SERIES_COLORS: Partial<Record<HistoricalAssetType, string>> = {
   QQQ: '#006b6e',

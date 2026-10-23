@@ -55,10 +55,10 @@ const BacktestAnalysisChart = ({
   }, [mode, valueBasis, currency, scenarioSeries]);
 
   return (
-    <section className="ui-surface ui-surface-compact w-full max-w-analysis text-left" aria-labelledby="backtest-chart-heading">
+    <section className="ui-surface ui-surface-compact ui-surface-raised w-full max-w-analysis text-left" aria-labelledby="backtest-chart-heading">
       <div className="mb-4 flex flex-col gap-3">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h3 id="backtest-chart-heading" className="text-title-sm text-apple-ink font-display">
             {mode === 'ASSET' ? '자산별 과거 성과 비교' : '저장 시나리오 비교'}
           </h3>
@@ -73,7 +73,7 @@ const BacktestAnalysisChart = ({
             </p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {hasScenarioComparison ? (
             <SegmentedControl
               label="백테스트 차트 종류"
@@ -117,7 +117,7 @@ const BacktestAnalysisChart = ({
         )}
       </div>
       {mode === 'SCENARIO' && scenarioPoint ? (
-        <Surface padding="compact" className="mt-4">
+        <Surface padding="compact" tone="quiet" className="mt-4">
           <div className="mb-4 flex items-center justify-between border-b border-apple-hairline pb-2">
             <h4 className="text-body-strong text-apple-ink font-display">경과 개월수 기준 상세</h4>
             <Button

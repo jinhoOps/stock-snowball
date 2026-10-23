@@ -52,7 +52,7 @@ const BacktestPrimaryMetrics = ({
       </h2>
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metrics.map((metric) => (
-          <MetricCard key={metric.label} label={metric.label} value={metric.value} detail={metric.detail} />
+          <MetricCard key={metric.label} label={metric.label} value={metric.value} detail={metric.detail} valueClassName="text-title-sm" />
         ))}
       </dl>
     </section>

@@ -52,6 +52,8 @@
   .ui-segmented[data-indicator] .ui-segment[aria-pressed='true'] { @apply bg-transparent; transition-delay: 140ms; transition-duration: 180ms; }
 
   .ui-surface { @apply min-w-0 rounded-card border border-apple-hairline bg-apple-surface-pearl; }
+  .ui-surface-raised { @apply border-apple-hairline/70 bg-apple-surface-white shadow-card; }
+  .ui-surface-quiet { @apply border-transparent bg-apple-canvas-parchment; }
   .ui-surface-default { @apply p-5 sm:p-6; }
   .ui-surface-compact { @apply p-4; }
   .ui-surface-none { @apply p-0; }

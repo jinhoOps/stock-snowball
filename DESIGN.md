@@ -33,6 +33,8 @@ RGB 채널 값의 원본은 `src/index.css`의 `:root`에 둔다. Tailwind는 `r
 
 브랜드, 상태, 차트 색상은 역할을 구분한다. 파란색은 조작과 선택 상태에 사용하며, 오류·성공 색상에는 설명·부호·아이콘을 함께 제공한다. 차트는 여러 데이터 계열을 구별해야 하므로 전용 색상과 선 패턴을 유지할 수 있다. 같은 시나리오의 색은 범례·선·상세 정보에서 일치시킨다.
 
+시리즈 색은 `src/styles/chartPalette.ts`의 `SERIES_PALETTE` 하나에서 가져온다. 첫 색은 Frost Blue라 기본 결과선은 항상 브랜드 색이다. 저장 시나리오는 빨강을 마지막으로 미뤄 손실처럼 읽히지 않게 한다. 종목 고유 색(QQQ, TSLA 등)은 `backtestSeriesColors.ts`가 관리한다.
+
 SVG에서 쓰는 `--apple-primary`, `--apple-ink`, `--apple-ink-muted-48`, `--apple-gray-400`, `--apple-divider-soft`, `--apple-hairline`과 시장선 `--market-*`는 `rgb(var(--color-…))` 형태의 완전한 색이다. RGB 채널만 전달하여 SVG의 `stroke`·`fill`을 무효화하지 않는다. 시장 지수·이동평균 색상은 `--color-market-*`가 관리하고 시나리오 계열은 차트의 기존 색상 매핑을 따른다.
 
 ## 레이아웃과 간격
@@ -96,9 +98,9 @@ SVG에서 쓰는 `--apple-primary`, `--apple-ink`, `--apple-ink-muted-48`, `--ap
 | `Button` | 네이티브 button props, `variant="primary\|secondary\|ghost\|danger"`, `size="default\|compact\|icon"` | 동작 우선순위, 크기, focus·disabled 상태 |
 | `SegmentedControl` | `label`, `value`, `options`, `onChange`, `size="default\|compact"`, `fullWidth` | 이름이 있는 단일 선택 그룹과 선택 상태 |
 | `Field` | `label`, `htmlFor`, `hint?`, `error?`, 단일 입력 `children`, `className?` | 입력 레이블과 도움말·오류 연결 |
-| `Surface` | `padding="default\|compact\|none"`, `children`, HTML 속성 | 카드 표면·테두리·반경·내부 간격 |
+| `Surface` | `padding="default\|compact\|none"`, `tone="raised\|default\|quiet"`, `children`, HTML 속성 | 카드 표면·테두리·반경·내부 간격과 표면 위계 |
 | `Notice` | `tone="info\|error"`, `children`, HTML 속성 | 안내와 오류의 일관된 표시 |
-| `MetricCard` | `label`, `value`, `detail?`, `badge?`, `highlighted?`, `children?`, HTML 속성 | 지표 레이블, 값, 표면의 공통 구조 |
+| `MetricCard` | `label`, `value`, `detail?`, `badge?`, `highlighted?`, `valueClassName?`, `children?`, HTML 속성 | 지표 레이블, 값, 표면의 공통 구조 |
 | `Sheet` | `open`, `onClose`, `title`, `children`, `footer?` | 포털·모달 이름·focus·스크롤·닫기 동작 |
 | `Disclosure` | `title`, `summary?`, `defaultOpen?`, `icon?`, `headingLevel?`, `children` | 선택적 구간의 유일한 펼치기 형태. 접힌 상태에서도 `summary`로 현재 선택을 보여준다 |
 
@@ -116,11 +118,11 @@ SVG에서 쓰는 `--apple-primary`, `--apple-ink`, `--apple-ink-muted-48`, `--ap
 
 입력 높이는 48px로 통일한다. 숫자 입력의 정규화·단위·최솟값·최댓값은 기존 동작을 보존한다. 날짜 범위 오류나 데이터 부족은 입력 가까이에 `Notice`로 설명하고 사용 가능한 다음 동작을 제공한다.
 
-`Surface`는 `rounded-card`, hairline 테두리, pearl 바탕을 기본으로 한다. 기본 padding은 `p-5 sm:p-6`, compact는 `p-4`, none은 `p-0`이다. 카드 그림자가 필요하면 `shadow-card`처럼 약하게 사용한다. frosted blur는 내비게이션·모달처럼 뒤 화면과 겹치는 표면에 우선 적용한다.
+`Surface`는 `rounded-card`, hairline 테두리, pearl 바탕을 기본으로 한다. 기본 padding은 `p-5 sm:p-6`, compact는 `p-4`, none은 `p-0`이다. 표면은 3단계다. `raised`(흰 바탕 + `shadow-card`)는 결과 그 자체인 차트에만, `default`는 입력·지표·저장 시나리오 카드에, `quiet`(parchment 바탕, 테두리 없음)는 카드 안의 세부 카드·빈 상태처럼 물러나야 하는 곳에 쓴다. 카드 안에 다시 테두리 카드를 넣지 않는다. 묶음 안의 항목은 구분선으로 나눈다. frosted blur는 내비게이션·모달처럼 뒤 화면과 겹치는 표면에 우선 적용한다.
 
 ### 지표와 시나리오
 
-`MetricCard`는 레이블, 주요 값, 보조 정보 순으로 읽힌다. `dt`·`dd`를 포함하므로 지표 묶음은 `dl` 안에 놓는다. 기본 값은 `text-title-md`를 사용하고 강조 지표만 브랜드 색을 사용한다. 시뮬레이션 KPI와 백테스트 KPI는 같은 표면·레이블·값의 위계를 공유하며 각 계산식과 애니메이션 훅은 유지한다.
+`MetricCard`는 레이블, 주요 값, 보조 정보 순으로 읽힌다. 좁은 열에 4개가 놓이는 백테스트 핵심 지표는 금액이 한 줄에 들어가도록 `valueClassName="text-title-sm"`(20px)을 쓴다. `dt`·`dd`를 포함하므로 지표 묶음은 `dl` 안에 놓는다. 기본 값은 `text-title-md`를 사용하고 강조 지표만 브랜드 색을 사용한다. 시뮬레이션 KPI와 백테스트 KPI는 같은 표면·레이블·값의 위계를 공유하며 각 계산식과 애니메이션 훅은 유지한다.
 
 저장 시나리오의 선택, 비교 포함·제외, 삭제는 각각 이름이 있는 독립된 조작이다. 클릭 가능한 카드 안에 다른 버튼을 중첩하지 않는다. 현재 선택과 비교 상태는 키보드와 보조 기술에서도 구분할 수 있어야 한다.
 
@@ -169,6 +171,12 @@ SVG에서 쓰는 `--apple-primary`, `--apple-ink`, `--apple-ink-muted-48`, `--ap
 선택 컨트롤은 파란 알약 하나가 선택한 옵션으로 미끄러지고, 알약을 잴 수 없는 환경에서는 선택된 버튼이 직접 바탕을 칠한다. `Disclosure`는 열 때만 높이가 자라며 닫을 때는 즉시 접힌다. 선택 카드와 세그먼트는 누르는 동안 살짝 작아진다.
 
 KPI 카드는 호버·탭하면 카드마다 다른 눈 장식이 한 번 재생된다. 투자 원금은 눈이 쌓였다 녹고, 총 수익금은 눈덩이가 굴러가며 커지고, 연 수익률은 눈송이가 반짝인다.
+
+## 빈 상태와 회복 기간
+
+저장된 시나리오가 없으면 `quiet` 표면에 눈송이 아이콘, 한 줄 제목, 다음 동작 안내를 둔다. 빈 상태 문구는 "없습니다"로 끝내지 않고 무엇을 하면 채워지는지 말한다.
+
+전고점 회복 기간은 전고점 → 최저점 → 회복일(또는 마지막 관측일)을 한 줄 타임라인으로 보여준다. 하락 구간(빨강)과 회복 구간(초록) 길이는 일수에 비례하고, 미회복은 점선으로 끝점 없이 그린다. 날짜는 줄바꿈하지 않는다.
 
 ## 공유 이미지의 밀도 예외
 

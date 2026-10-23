@@ -789,7 +789,7 @@ describe('App backtest selection', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'saved comparison 비교하기' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('backtest-scenario-colors').textContent).toBe('#0066cc|#1d1d1f');
+      expect(screen.getByTestId('backtest-scenario-colors').textContent).toBe('#0066cc|#007a6e');
     });
     expect(screen.getByTestId('backtest-scenario-colors').textContent).not.toMatch(/#FF9500|#34C759/i);
   });

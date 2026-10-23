@@ -14,6 +14,17 @@ async function expectTouchTargets(buttons: Locator) {
   }
 }
 
+/** The selected option is painted by the sliding pill, which must sit exactly on the pressed button. */
+async function selectedFill(group: Locator, button: Locator) {
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  const pill = group.locator('.ui-segment-indicator');
+  await expect.poll(async () => {
+    const [pillBox, buttonBox] = [await pill.boundingBox(), await button.boundingBox()];
+    return Boolean(pillBox && buttonBox && Math.abs(pillBox.x - buttonBox.x) < 1.5 && Math.abs(pillBox.width - buttonBox.width) < 1.5);
+  }).toBe(true);
+  return pill.evaluate((element) => getComputedStyle(element).backgroundColor);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/stock-snowball/');
@@ -39,8 +50,8 @@ test('projection uses aligned fields, readable metrics and full-size choices', a
   const percentCard = page.locator('.ui-metric').filter({ hasText: '내부수익률 (IRR)' });
   await expect(percentCard).toContainText('%');
   await expect(percentCard).not.toContainText(/약|원|\$/);
-  const selectedColor = await page.getByRole('group', { name: '납입 주기' }).getByRole('button', { name: '일', exact: true })
-    .evaluate((element) => getComputedStyle(element).backgroundColor);
+  const cycle = page.getByRole('group', { name: '납입 주기' });
+  const selectedColor = await selectedFill(cycle, cycle.getByRole('button', { name: '일', exact: true }));
   await expect(page.getByRole('button', { name: '저장 및 비교', exact: true })).toHaveCSS('background-color', selectedColor);
   expect(await page.locator('canvas').count()).toBe(0); // Reduced motion also suppresses celebration overlays.
   await expectNoPageOverflow(page);
@@ -65,8 +76,7 @@ test('settings stays above navigation and preserves the focus and draft lifecycl
   const account = dialog.getByRole('group', { name: '계좌 유형 선택' });
   await expectTouchTargets(account.getByRole('button'));
   await account.getByRole('button', { name: 'ISA 절세 계좌 선택' }).click();
-  await expect(account.getByRole('button', { name: 'ISA 절세 계좌 선택' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(account.getByRole('button', { name: 'ISA 절세 계좌 선택' })).toHaveCSS('background-color', 'rgb(0, 102, 204)');
+  expect(await selectedFill(account, account.getByRole('button', { name: 'ISA 절세 계좌 선택' }))).toBe('rgb(0, 102, 204)');
   const apply = dialog.getByRole('button', { name: '설정 적용' });
   await apply.focus();
   await page.keyboard.press('Tab');
@@ -88,7 +98,8 @@ test('backtest and long scenario names reflow without losing controls', async ({
   await openBacktest(page);
   const metrics = page.getByRole('region', { name: 'SPY 핵심 지표 · 명목 기준' });
   await expect(metrics.locator('.ui-metric')).toHaveCount(4);
-  await expect(metrics.locator('.ui-metric-value').first()).toHaveCSS('font-size', '24px');
+  // Four metrics share a narrow column, so their values use the 20px step to keep amounts on one line.
+  await expect(metrics.locator('.ui-metric-value').first()).toHaveCSS('font-size', '20px');
   await expectTouchTargets(page.getByRole('group', { name: '가치 기준' }).getByRole('button'));
   await expect(page.getByRole('button', { name: '백테스트 기간 변경' })).toContainText('2010-01-01 ~ 2024-01-01');
   await page.getByLabel('초기 자산 (KRW)').fill('100000000000');
