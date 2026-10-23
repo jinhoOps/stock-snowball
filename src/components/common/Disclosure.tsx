@@ -1,4 +1,6 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { animate } from 'animejs/animation';
+import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
 import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -18,6 +20,25 @@ export default function Disclosure({ title, summary, defaultOpen = false, icon, 
   const id = useId();
   const [open, setOpen] = useState(defaultOpen);
   const Heading = headingLevel;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const toggled = useRef(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  // Opening grows the content from nothing and fades it in. Closing hides at once, so nothing lingers.
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!open || !toggled.current || prefersReducedMotion || !content || !content.scrollHeight) return undefined;
+    const reveal = animate(content, {
+      height: [0, content.scrollHeight],
+      opacity: [0, 1],
+      translateY: [-4, 0],
+      duration: 320,
+      ease: 'outCubic',
+      onComplete: () => { content.style.height = ''; content.style.overflow = ''; },
+    });
+    content.style.overflow = 'hidden';
+    return () => { reveal.revert(); content.style.overflow = ''; };
+  }, [open, prefersReducedMotion]);
   return (
     <section aria-labelledby={`${id}-title`} className={clsx('ui-disclosure', className)}>
       <Heading className="m-0">
@@ -25,7 +46,7 @@ export default function Disclosure({ title, summary, defaultOpen = false, icon, 
           type="button"
           aria-expanded={open}
           aria-controls={`${id}-content`}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => { toggled.current = true; setOpen((value) => !value); }}
           className="ui-disclosure-trigger"
         >
           {icon && <span aria-hidden="true" className="shrink-0 text-apple-ink-muted-48">{icon}</span>}
@@ -36,7 +57,7 @@ export default function Disclosure({ title, summary, defaultOpen = false, icon, 
           <ChevronDown size={18} aria-hidden="true" className={clsx('ui-disclosure-chevron', open && 'rotate-180')} />
         </button>
       </Heading>
-      <div id={`${id}-content`} hidden={!open} className="pb-1 pt-3">
+      <div ref={contentRef} id={`${id}-content`} hidden={!open} className="pb-1 pt-3">
         {children}
       </div>
     </section>

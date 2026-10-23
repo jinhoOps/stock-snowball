@@ -22,7 +22,7 @@ function CrisisCard({ preset, coverage, active, onSelect, descriptionId }: {
       aria-describedby={descriptionId}
       onClick={onSelect}
       className={clsx(
-        'flex min-h-control w-full flex-col items-start rounded-card border p-4 text-left transition-colors motion-reduce:transition-none',
+        'flex min-h-control w-full flex-col items-start rounded-card border p-4 text-left transition-[color,background-color,border-color,transform] duration-150 enabled:active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2',
         'disabled:cursor-not-allowed disabled:opacity-50',
         active
