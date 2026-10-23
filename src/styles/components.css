@@ -53,7 +53,7 @@
   .ui-metric { @apply relative flex flex-col items-start overflow-hidden text-left; }
   .ui-metric-highlighted { @apply border-apple-primary/40 bg-apple-primary/5; }
   .ui-metric-label { @apply relative z-10 mb-3 text-caption-strong text-apple-ink-muted-48; }
-  .ui-metric-value { @apply relative z-10 font-display text-title-md tabular-nums; overflow-wrap: anywhere; }
+  .ui-metric-value { @apply relative z-10 font-display text-title-md tabular-nums; word-break: keep-all; overflow-wrap: anywhere; }
   .ui-metric-detail { @apply relative z-10 mt-2 text-fine-print text-apple-ink-muted-48; }
   .ui-notice { @apply rounded-md border px-4 py-3 text-left text-caption; }
   .ui-notice-info { @apply border-apple-primary/20 bg-apple-primary/5 text-apple-ink; }

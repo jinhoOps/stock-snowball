@@ -63,7 +63,7 @@ test('backtest foregrounds four metrics and one chart while preserving dates', a
 
   const interactionLayer = scenarioComparison.locator('rect[fill="transparent"]').last();
   await expect(interactionLayer).toBeVisible();
-  await interactionLayer.hover({ position: { x: 50, y: 50 } });
+  await interactionLayer.click({ position: { x: 50, y: 50 } });
   await expect(page.getByRole('heading', { name: '경과 개월수 기준 상세' })).toBeVisible();
   expect(duplicateKeyWarnings).toEqual([]);
 

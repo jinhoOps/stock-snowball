@@ -8,6 +8,7 @@ import ShareImageButton from '../common/ShareImageButton';
 import { BigNumberHelper } from '../common/BigNumberHelper';
 import { Snowflake } from 'lucide-react';
 import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
+import { keepUnitTogether } from '../../lib/format/keepUnitTogether';
 
 interface KPIGridProps {
   totalAsset: number;
@@ -123,7 +124,7 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
     return () => scope.revert();
   }, [hoveredCardIndex, prefersReducedMotion]);
 
-  const formatCurrency = (value: number) => SnowballEngine.formatBigNumber(value, currency, currency === 'KRW');
+  const formatCurrency = (value: number) => keepUnitTogether(SnowballEngine.formatBigNumber(value, currency, currency === 'KRW'));
   const formatPercent = (value: number) => value.toFixed(2);
   const kpis = [
     { label: '최종 예상 자산', value: totalAsset, formatter: formatCurrency, isHighlighted: true },

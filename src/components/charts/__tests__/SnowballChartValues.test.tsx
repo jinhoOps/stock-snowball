@@ -107,4 +107,16 @@ describe('SnowballChart date-aligned values', () => {
       ],
     }));
   });
+
+  it('pins details only when the chart is clicked, not while hovering', () => {
+    // Catches the regression where hovering opened a page-lengthening detail panel that never closed.
+    const onPointSelect = vi.fn<(selection: SnowballChartSelection) => void>();
+    const { container } = render(<SnowballChart scenarios={[projection]} mode="PROJECTION" onPointSelect={onPointSelect} />);
+    move(container, 30 / 365);
+    expect(onPointSelect).not.toHaveBeenCalled();
+    fireEvent.click(container.querySelector('rect[fill="transparent"]')!, { clientX: 72 + 696 * (30 / 365), clientY: 100 });
+    expect(onPointSelect).toHaveBeenCalledWith(expect.objectContaining({
+      points: [expect.objectContaining({ id: 'projection', value: 130 })],
+    }));
+  });
 });

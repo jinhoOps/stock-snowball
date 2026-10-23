@@ -242,3 +242,24 @@
     transform: none;
   }
 }
+
+/* Floating snowball toy: an icy sphere that bobs gently so it is easy to notice. */
+.snow-toy { animation: snow-toy-bob 3.6s ease-in-out infinite; -webkit-tap-highlight-color: transparent; }
+.snow-toy:hover .snow-toy-ball { box-shadow: 0 6px 18px rgb(var(--color-primary) / 0.28), inset -4px -6px 10px rgb(var(--color-primary) / 0.18); }
+.snow-toy-ball {
+  background:
+    radial-gradient(circle at 32% 28%, rgb(255 255 255) 0 18%, transparent 19%),
+    radial-gradient(circle at 68% 66%, rgb(var(--color-primary) / 0.12) 0 10%, transparent 11%),
+    radial-gradient(circle at 35% 30%, rgb(255 255 255), rgb(222 236 252) 55%, rgb(176 208 242));
+  box-shadow: 0 4px 14px rgb(var(--color-primary) / 0.2), inset -4px -6px 10px rgb(var(--color-primary) / 0.15);
+  transition: box-shadow 200ms ease;
+}
+
+@keyframes snow-toy-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snow-toy { animation: none; }
+}

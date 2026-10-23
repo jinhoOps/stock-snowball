@@ -2,6 +2,7 @@ import type { ProductPeriodMetric } from '../../core/ProductPerformance';
 import type { HistoricalAssetType, ValueBasis } from '../../types/finance';
 import MetricCard from '../common/MetricCard';
 import { SnowballEngine } from '../../core/SnowballEngine';
+import { keepUnitTogether } from '../../lib/format/keepUnitTogether';
 
 export interface BacktestPrimaryMetricsProps {
   assetId: HistoricalAssetType;
@@ -41,7 +42,7 @@ const BacktestPrimaryMetrics = ({
     { label: '누적수익률', value: percent(cumulativeReturn) },
     { label: period.kind === 'RECOVERY' ? '최저점 대비 회복률' : '연평균수익률 (CAGR)', value: period.value === null ? '—' : percent(period.value), detail: period.kind === 'RECOVERY' ? '1년 미만 · 최저점에서 종료일까지의 상품 반등률' : period.value === null ? '산출 불가' : undefined },
     { label: '최대낙폭 (MDD)', value: drawdown(mdd) },
-    { label: '투자원금', value: SnowballEngine.formatBigNumber(investedPrincipal, currency) },
+    { label: '투자원금', value: keepUnitTogether(SnowballEngine.formatBigNumber(investedPrincipal, currency)) },
   ];
 
   return (

@@ -78,6 +78,7 @@ const config: Config = {
         field: '48px',
       },
       zIndex: {
+        toy: '30',
         nav: '40',
         overlay: '60',
         dialog: '70',

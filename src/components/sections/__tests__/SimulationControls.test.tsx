@@ -103,7 +103,7 @@ describe('SimulationControls', () => {
     render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params,
       strategyType: 'VALUE_AVERAGING', strategyTargetGrowth: 50_000,
     }} />);
-    expect((screen.getByLabelText('월간 목표 증가액 (KRW)') as HTMLInputElement).value).toBe('50000');
+    expect((screen.getByLabelText('월간 목표 증가액 (KRW)') as HTMLInputElement).value).toBe('50,000');
     expect(screen.queryByRole('group', { name: '납입 주기' })).toBeNull();
   });
 

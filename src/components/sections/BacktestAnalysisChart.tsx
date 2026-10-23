@@ -106,9 +106,6 @@ const BacktestAnalysisChart = ({
             scenarios={scenarioSeries}
             mode="BACKTEST"
             comparisonMode
-            onPointHover={(selection) => {
-              if (selection) setScenarioPoint(selection);
-            }}
             onPointSelect={setScenarioPoint}
           />
         )}

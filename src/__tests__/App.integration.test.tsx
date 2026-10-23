@@ -665,7 +665,7 @@ describe('App backtest selection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     await waitFor(() => expect(screen.getByTestId('prepared-final-value').textContent).toBe('110'));
-    expect(screen.getByText('110원')).toBeTruthy();
+    expect(screen.getByText('110원', { ignore: 'script, style, [aria-hidden="true"]' })).toBeTruthy();
     expect(screen.getByTestId('backtest-metric-values').textContent).toContain('110.000000|0.209527');
     expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('기본 시나리오:110.000000:100.000000');
     expect(screen.queryByRole('button', { name: 'legacy real toggle' })).toBeNull();

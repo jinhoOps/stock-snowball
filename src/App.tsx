@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import { Github, Trash2, ArrowUpRight } from 'lucide-react';
 import Button from './components/common/Button';
@@ -7,6 +7,10 @@ import Surface from './components/common/Surface';
 import Notice from './components/common/Notice';
 import type { ScenarioDocument } from './db/schema';
 import confetti from 'canvas-confetti';
+import SnowToy from './components/common/SnowToy';
+import AnimatedCounter from './components/common/AnimatedCounter';
+import { MILESTONES_KRW, useMilestoneCelebration } from './lib/celebration/useMilestoneCelebration';
+import { keepUnitTogether } from './lib/format/keepUnitTogether';
 import GlobalNav from './components/layout/GlobalNav';
 import ProductHero from './components/sections/ProductHero';
 import SnowballChart, { type SnowballChartSelection } from './components/charts/SnowballChart';
@@ -44,8 +48,6 @@ import {
 } from './data/leverageFamilies';
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
 import { usePrefersReducedMotion } from './lib/animation/usePrefersReducedMotion';
-
-const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
 
 // Fixed colors for scenarios to avoid re-renders
 const SCENARIO_COLORS = [
@@ -94,7 +96,7 @@ const describeBacktestRangeAdjustment = (
 function App() {
   const prefersReducedMotion = usePrefersReducedMotion();
   const { scenarios, addScenario, removeScenario, loading } = useScenarios();
-  const lastCelebratedMilestone = useRef<number>(0);
+  const resultNumberRef = useRef<HTMLDivElement>(null);
 
   // Basic State
   const [mode, setMode] = useState<SimulationMode>('PROJECTION');
@@ -168,6 +170,7 @@ function App() {
   );
 
   const handleFamilySelect = (familyId: LeverageFamilyId) => {
+    noteUserEdit();
     const selection = applyFamilySelection(backtestParams, familyId, getHistoricalCoverage);
     setBacktestRangeNotice(describeBacktestRangeAdjustment(backtestParams, selection));
     setBacktestParams((previous) => ({
@@ -180,6 +183,7 @@ function App() {
   };
 
   const handleComparisonAssetsChange = (assets: HistoricalAssetType[], primaryAsset?: HistoricalAssetType) => {
+    noteUserEdit();
     const selection = normalizeBacktestSelection({
       primaryAsset: primaryAsset ?? backtestParams.assetType,
       comparisonAssets: assets,
@@ -197,6 +201,7 @@ function App() {
   };
   
   const handleUpdateParams = (newParams: Partial<SimulationParams>) => {
+    noteUserEdit();
     const applyLimits = (params: SimulationParams, changes: Partial<SimulationParams>): SimulationParams => {
       const merged = { ...params, ...changes };
       if ((changes.assetType !== undefined && changes.assetType !== params.assetType)
@@ -459,24 +464,17 @@ function App() {
     ? '내부수익률 (IRR)'
     : '연복리 수익률 (CAGR)';
   
-  // Milestone Celebration Effect
-  useEffect(() => {
-    const currentAsset = activeResult.postTaxValue;
-    const milestoneReached = MILESTONES.findLast((m: number) => currentAsset >= m);
-    
-    if (milestoneReached && milestoneReached > lastCelebratedMilestone.current) {
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#0066cc', '#5AC8FA', '#FFFFFF'],
-        disableForReducedMotion: true
-      });
-      lastCelebratedMilestone.current = milestoneReached;
-    } else if (!milestoneReached) {
-      lastCelebratedMilestone.current = 0;
-    }
-  }, [activeResult.postTaxValue, mode]);
+  // Celebrate only milestones the user reaches by editing inputs (see useMilestoneCelebration).
+  const resultValueKrw = currency === 'KRW' ? activeResult.postTaxValue : activeResult.postTaxValue * exchangeRate;
+  const noteUserEdit = useMilestoneCelebration(resultValueKrw, resultNumberRef);
+  const formatResultAmount = useCallback(
+    (value: number) => keepUnitTogether(SnowballEngine.formatBigNumber(value, currency, true)),
+    [currency],
+  );
+  const formatResultDualAmount = useCallback(
+    (value: number) => SnowballEngine.formatDualCurrency(value, currency, exchangeRate, true, true),
+    [currency, exchangeRate],
+  );
 
   const chartScenarios = useMemo(() => {
     if (mode === 'BACKTEST' && backtestRangeError) return [];
@@ -771,17 +769,21 @@ function App() {
                     params={backtestParams} selectedAssets={selectedBacktestAssets} currency={currency} />}
                   {!backtestRangeError && <div className="mb-10 text-center flex flex-col items-center">
                     <div className="flex items-center gap-3 mb-4">
-                      <span className="text-caption-strong text-apple-ink-muted-48 tracking-tight uppercase font-display">
+                      <span className="text-caption-strong text-apple-ink-muted-48 font-display">
                         {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후)` : '백테스트 최종 자산'}
                       </span>
                     </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
-                        {SnowballEngine.formatBigNumber(mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, true)}
-                      </span>
-                      <span className="text-body-strong text-apple-ink-muted-48 mt-1 font-display tracking-tight">
-                        {SnowballEngine.formatDualCurrency(mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true, true)}
-                      </span>
+                    <div ref={resultNumberRef} className="flex flex-col items-center">
+                      <AnimatedCounter
+                        value={mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue}
+                        formatter={formatResultAmount}
+                        className="break-keep text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight"
+                      />
+                      <AnimatedCounter
+                        value={mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue}
+                        formatter={formatResultDualAmount}
+                        className="text-body-strong text-apple-ink-muted-48 mt-1 font-display tracking-tight"
+                      />
                     </div>
                   </div>}
 
@@ -799,7 +801,6 @@ function App() {
                       comparisonMode={comparingScenarioIds.length > 0}
                       showRealValue={mode === 'PROJECTION' && showRealValue}
                       onShowRealValueChange={mode === 'PROJECTION' ? setShowRealValue : undefined}
-                      onPointHover={(d) => d && setSelectedPoint(d)}
                       onPointSelect={setSelectedPoint}
                     />
                   </Surface>}
@@ -848,7 +849,7 @@ function App() {
                       cagrLabel={cagrLabel}
                       currency={currency}
                       exchangeRate={exchangeRate}
-                      isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
+                      isMilestoneReached={currency === 'KRW' && MILESTONES_KRW.some(m => activeResult.postTaxValue >= m)}
                       onShare={handleShare}
                       isExporting={isExporting}
                       shareError={shareError}
@@ -951,6 +952,8 @@ function App() {
           </div>
         </section>
       </main>
+
+      <SnowToy />
 
       <footer className="bg-apple-canvas-parchment border-t border-apple-hairline py-12 px-4 sm:px-6 text-center">
         <div className="max-w-content mx-auto">

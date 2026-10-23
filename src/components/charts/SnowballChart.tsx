@@ -93,7 +93,7 @@ const SnowballChartInner: React.FC<{
   showRealValue?: boolean;
   onPointSelect?: SnowballChartProps['onPointSelect'];
   onPointHover?: SnowballChartProps['onPointHover'];
-}> = React.memo(({ scenarios, width, height, comparisonMode, showRealValue, onPointHover }) => {
+}> = React.memo(({ scenarios, width, height, comparisonMode, showRealValue, onPointSelect, onPointHover }) => {
   const margin = useMemo(() => ({
     top: 24, 
     right: width > 520 ? 32 : 16, 
@@ -164,7 +164,7 @@ const SnowballChartInner: React.FC<{
       if (xLeft < 0 || xLeft > innerWidth) {
         hideTooltip();
         if (onPointHover) onPointHover(null);
-        return;
+        return null;
       }
       
       const x0 = xScale.invert(xLeft);
@@ -185,7 +185,7 @@ const SnowballChartInner: React.FC<{
       if (tooltipPoints.length === 0) {
         hideTooltip();
         onPointHover?.(null);
-        return;
+        return null;
       }
 
       const tooltipPayload = {
@@ -201,6 +201,7 @@ const SnowballChartInner: React.FC<{
       });
 
       if (onPointHover) onPointHover(tooltipPayload);
+      return tooltipPayload;
     },
     [showTooltip, hideTooltip, xScale, valueScale, processedScenarios, margin.left, innerWidth, onPointHover, comparisonMode]
   );
@@ -292,6 +293,11 @@ const SnowballChartInner: React.FC<{
           <Bar
             x={0} y={0} width={innerWidth} height={innerHeight} fill="transparent"
             onTouchStart={handleTooltip} onTouchMove={handleTooltip} onMouseMove={handleTooltip}
+            onClick={onPointSelect ? (event) => {
+              const selection = handleTooltip(event);
+              if (selection) onPointSelect(selection);
+            } : undefined}
+            style={onPointSelect ? { cursor: 'pointer' } : undefined}
             onMouseLeave={() => { hideTooltip(); if (onPointHover) onPointHover(null); }}
           />
 

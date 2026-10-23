@@ -211,7 +211,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
           <table className="w-full border-collapse text-left">
             <thead><tr className="border-b border-apple-hairline bg-apple-canvas-parchment/50">
               {['자산', '누적수익률', periodHeading, '최대낙폭 (MDD)', '포트폴리오 최종 자산 (납입 포함)', '변동성'].map((heading, index) => (
-                <th key={heading} className={`p-4 text-micro-legal font-bold uppercase tracking-widest text-apple-ink-muted-48 ${index > 0 ? 'text-center' : ''}`}>{heading}</th>
+                <th key={heading} className={`p-4 text-caption-strong text-apple-ink-muted-48 ${index > 0 ? 'text-center' : ''}`}>{heading}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -308,7 +308,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       )}
 
       {onShare ? (
-        <ShareImageButton variant="primary" onClick={onShare} isExporting={isExporting} error={shareError} />
+        <ShareImageButton onClick={onShare} isExporting={isExporting} error={shareError} />
       ) : null}
     </section>
   );
