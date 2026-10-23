@@ -57,12 +57,12 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
 
   const investmentFields = (<>
     <Field label={`초기 자산 (${props.currency})`} htmlFor="principal-input"
-      hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} />}>
+      hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} />}>
       <NumericInput value={props.params.principal} onChange={(value) => updateParam('principal', value)} />
     </Field>
 
     <Field label={`${isValueAveraging ? '월간 목표 증가액' : '납입액'} (${props.currency})`} htmlFor="monthly-investment-input"
-      hint={<BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showExchangeRate />}>
+      hint={<BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} showExchangeRate />}>
       <NumericInput value={contributionInput} onChange={(value) => props.onUpdate({ contribution: value,
         ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
       })} />

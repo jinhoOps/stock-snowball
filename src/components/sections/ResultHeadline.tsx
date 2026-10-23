@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import AnimatedCounter from '../common/AnimatedCounter';
 
 interface ResultHeadlineProps {
@@ -7,11 +7,13 @@ interface ResultHeadlineProps {
   formatAmount: (value: number) => string;
   formatSecondary: (value: number) => string;
   align?: 'center' | 'start';
+  /** Short context under the number, such as the assumptions it was calculated with. */
+  children?: ReactNode;
 }
 
 /** The one number the page is about. Celebrations and the mobile result bar anchor to it. */
 const ResultHeadline = forwardRef<HTMLDivElement, ResultHeadlineProps>(function ResultHeadline(
-  { label, value, formatAmount, formatSecondary, align = 'center' },
+  { label, value, formatAmount, formatSecondary, align = 'center', children },
   ref,
 ) {
   const alignment = align === 'center' ? 'items-center text-center' : 'items-center text-center lg:items-start lg:text-left';
@@ -30,6 +32,7 @@ const ResultHeadline = forwardRef<HTMLDivElement, ResultHeadlineProps>(function 
           className="mt-1 font-display text-body-strong tracking-tight text-apple-ink-muted-48"
         />
       </div>
+      {children}
     </section>
   );
 });

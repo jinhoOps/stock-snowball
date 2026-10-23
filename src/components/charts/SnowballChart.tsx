@@ -387,7 +387,7 @@ const SnowballChartInner: React.FC<{
 const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparisonMode, showRealValue, onShowRealValueChange, onPointSelect, onPointHover }) => {
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex-1 min-h-[300px] relative">
+      <div className="relative h-[300px] sm:h-auto sm:min-h-[300px] sm:flex-1">
         <ParentSize>
           {({ width, height }) => (
             <SnowballChartInner 

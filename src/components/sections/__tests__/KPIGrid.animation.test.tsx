@@ -19,15 +19,12 @@ vi.mock('animejs/scope', () => ({
 }));
 
 const baseProps = {
-  totalAsset: 100_000,
   initialPrincipal: 10_000,
   totalContribution: 50_000,
   totalReturn: 50_000,
   returnPercentage: 100,
   cagr: 7.5,
   currency: 'USD' as const,
-  exchangeRate: 1450,
-  isMilestoneReached: true,
   onShare: vi.fn(),
 };
 
@@ -47,10 +44,19 @@ afterEach(() => {
 });
 
 describe('KPIGrid Anime.js migration', () => {
+  it('explains principal as initial plus accumulated deposits without repeating the final asset or a dollar estimate', () => {
+    stubMotionPreference(true);
+    render(<KPIGrid {...baseProps} currency="KRW" initialPrincipal={10_000_000} totalContribution={88_180_000} totalReturn={43_200_000} />);
+    const principalCard = screen.getByText('투자 원금').closest('.kpi-card') as HTMLElement;
+    expect(principalCard.textContent?.replace(/\u00a0/g, ' ')).toContain('초기 1,000만 원 + 적립 7,818만 원');
+    expect(screen.queryByText(/최종/)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/약 \$/);
+  });
+
   it('preserves a small KRW balance and the monetary sign of a loss', () => {
     stubMotionPreference(true);
-    render(<KPIGrid {...baseProps} currency="KRW" totalAsset={5000} totalReturn={-5000} returnPercentage={-50} />);
-    const assetCard = screen.getByText('최종 예상 자산').closest('.kpi-card') as HTMLElement;
+    render(<KPIGrid {...baseProps} currency="KRW" initialPrincipal={5000} totalContribution={5000} totalReturn={-5000} returnPercentage={-50} />);
+    const assetCard = screen.getByText('투자 원금').closest('.kpi-card') as HTMLElement;
     const returnCard = screen.getByText('총 수익금').closest('.kpi-card') as HTMLElement;
     expect(assetCard.querySelector('dd [aria-live]')?.textContent).toBe('5,000원');
     expect(returnCard.querySelector('dd [aria-live]')?.textContent).toBe('-5,000원');
@@ -81,7 +87,7 @@ describe('KPIGrid Anime.js migration', () => {
     stubMotionPreference(false);
 
     const { unmount } = render(<KPIGrid {...baseProps} />);
-    fireEvent.mouseEnter(screen.getByText('총 투자 원금').closest('.kpi-card') as HTMLElement);
+    fireEvent.mouseEnter(screen.getByText('투자 원금').closest('.kpi-card') as HTMLElement);
 
     expect(createScope).toHaveBeenCalledTimes(1);
     expect(createScope.mock.calls[0][0].root).toBeInstanceOf(HTMLDivElement);
@@ -98,14 +104,13 @@ describe('KPIGrid Anime.js migration', () => {
 
     render(<KPIGrid {...baseProps} />);
 
-    const rollingSnowballCard = screen.getByText('총 투자 원금').closest('.kpi-card') as HTMLElement;
-    const snowAccumulationCard = screen.getByText('누적 적립금').closest('.kpi-card') as HTMLElement;
+    const rollingSnowballCard = screen.getByText('총 수익금').closest('.kpi-card') as HTMLElement;
+    const snowAccumulationCard = screen.getByText('투자 원금').closest('.kpi-card') as HTMLElement;
     fireEvent.mouseEnter(rollingSnowballCard);
     fireEvent.mouseEnter(snowAccumulationCard);
 
     expect(createScope).not.toHaveBeenCalled();
     expect(animate).not.toHaveBeenCalled();
-    expect(screen.getByText('Milestone')).toBeTruthy();
     expect(rollingSnowballCard.querySelector('.kpi-rolling-snowball')?.classList.contains('opacity-100')).toBe(true);
     expect(rollingSnowballCard.querySelector('.kpi-rolling-snowball')?.classList.contains('translate-x-[450%]')).toBe(true);
     expect(snowAccumulationCard.querySelector('.kpi-snow-overlay')?.classList.contains('opacity-100')).toBe(true);
@@ -123,7 +128,7 @@ describe('KPIGrid Anime.js migration', () => {
     stubMotionPreference(false);
 
     render(<KPIGrid {...baseProps} />);
-    fireEvent.mouseEnter(screen.getByText('총 투자 원금').closest('.kpi-card') as HTMLElement);
+    fireEvent.mouseEnter(screen.getByText('투자 원금').closest('.kpi-card') as HTMLElement);
     fireEvent.click(screen.getByRole('button', { name: '공유(이미지)' }));
 
     expect(baseProps.onShare).toHaveBeenCalledTimes(1);

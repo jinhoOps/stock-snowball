@@ -80,16 +80,19 @@ vi.mock('../components/charts/SnowballChart', () => ({
 }));
 vi.mock('../components/sections/KPIGrid', () => ({
   default: ({
-    totalAsset,
+    totalContribution,
+    totalReturn,
     cagr,
     cagrLabel,
   }: {
-    totalAsset: number;
+    totalContribution: number;
+    totalReturn: number;
     cagr: number | null;
     cagrLabel?: string;
   }) => (
     <div data-testid="projection-kpis">
-      <output data-testid="kpi-values">{totalAsset.toFixed(6)}|{cagr?.toFixed(6) ?? '-'}</output>
+      {/* Principal plus return is the final asset the grid describes. */}
+      <output data-testid="kpi-values">{(totalContribution + totalReturn).toFixed(6)}|{cagr?.toFixed(6) ?? '-'}</output>
       <output data-testid="kpi-rate-label">{cagrLabel}</output>
     </div>
   ),

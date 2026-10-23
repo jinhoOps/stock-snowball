@@ -15,6 +15,7 @@ function SettingsHarness({ mode = 'PROJECTION', initialParams = DEFAULT_PROJECTI
   return <>
     <button onClick={() => setOpen(true)}>설정 열기</button>
     <output aria-label="적용된 납입 주기">{params.cycle}</output>
+    <output aria-label="적용된 계좌 유형">{params.accountType}</output>
     <AdvancedSettingsSheet mode={mode} isOpen={open} onClose={() => setOpen(false)} params={params}
       onUpdate={(next) => setParams((previous) => ({ ...previous, ...next }))}
       exchangeRate={rate} setExchangeRate={setRate} onReset={() => undefined} />
@@ -26,17 +27,24 @@ it('discards draft selections on cancel and updates them only when applied', asy
   render(<SettingsHarness />);
   const opener = screen.getByRole('button', { name: '설정 열기' });
   await user.click(opener);
-  const cycle = () => within(screen.getByRole('group', { name: '납입 주기' }));
-  await user.click(cycle().getByRole('button', { name: '월' }));
-  expect(screen.getByLabelText('적용된 납입 주기').textContent).toBe('DAILY');
+  const account = () => within(screen.getByRole('group', { name: '계좌 유형 선택' }));
+  await user.click(account().getByRole('button', { name: 'ISA 절세 계좌 선택' }));
+  expect(screen.getByLabelText('적용된 계좌 유형').textContent).toBe('GENERAL');
   await user.click(screen.getByRole('button', { name: '취소' }));
   expect(document.activeElement).toBe(opener);
   await user.click(opener);
-  expect(cycle().getByRole('button', { name: '일' }).getAttribute('aria-pressed')).toBe('true');
-  await user.click(cycle().getByRole('button', { name: '월' }));
+  expect(account().getByRole('button', { name: '일반 계좌 선택' }).getAttribute('aria-pressed')).toBe('true');
+  await user.click(account().getByRole('button', { name: 'ISA 절세 계좌 선택' }));
   await user.click(screen.getByRole('button', { name: '설정 적용' }));
   expect(screen.queryByRole('dialog')).toBeNull();
-  expect(screen.getByLabelText('적용된 납입 주기').textContent).toBe('MONTHLY');
+  expect(screen.getByLabelText('적용된 계좌 유형').textContent).toBe('ISA');
+});
+
+it('leaves the contribution cycle to the main inputs', async () => {
+  const user = userEvent.setup();
+  render(<SettingsHarness />);
+  await user.click(screen.getByRole('button', { name: '설정 열기' }));
+  expect(screen.queryByRole('group', { name: '납입 주기' })).toBeNull();
 });
 
 it('offers only settings that affect a historical backtest', async () => {

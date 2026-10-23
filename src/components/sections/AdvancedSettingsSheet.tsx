@@ -102,11 +102,7 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
             <option value="VALUE_AVERAGING">가치 분할 매수 (Value Averaging)</option>
           </Select>
         </Field>}
-        {isValueAveraging ? <p className="ui-field-hint">매월 목표 자산에 부족한 금액만 매수합니다. 월간 목표 증가액은 기본 입력에서 조정합니다.</p> : <div className="ui-field">
-          <span className="ui-field-label">납입 주기</span>
-          <SegmentedControl label="납입 주기" value={localParams.cycle} onChange={(cycle) => updateParam('cycle', cycle)} fullWidth
-            options={[{ value: 'DAILY', label: '일' }, { value: 'WEEKLY', label: '주' }, { value: 'MONTHLY', label: '월' }]} />
-        </div>}
+        {isValueAveraging && <p className="ui-field-hint">매월 목표 자산에 부족한 금액만 매수합니다. 월간 목표 증가액은 기본 입력에서 조정합니다.</p>}
         <Field htmlFor="exchange-rate-input" label="기준 환율 (KRW/USD)" hint="원화·달러 전환 및 시나리오 비교에 적용합니다.">
           <Input type="number" min="1" value={localExchangeRate} onChange={(event) => setLocalExchangeRate(Math.max(1, Number(event.target.value)))} />
         </Field>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Github, Trash2, ArrowUpRight } from 'lucide-react';
+import { Github, Trash2, ArrowUpRight, SlidersHorizontal } from 'lucide-react';
 import Button from './components/common/Button';
 import { Input } from './components/common/Field';
 import Surface from './components/common/Surface';
@@ -8,7 +8,7 @@ import Notice from './components/common/Notice';
 import type { ScenarioDocument } from './db/schema';
 import confetti from 'canvas-confetti';
 import SnowToy from './components/common/SnowToy';
-import { MILESTONES_KRW, useMilestoneCelebration } from './lib/celebration/useMilestoneCelebration';
+import { useMilestoneCelebration } from './lib/celebration/useMilestoneCelebration';
 import { keepUnitTogether } from './lib/format/keepUnitTogether';
 import GlobalNav from './components/layout/GlobalNav';
 import ResultHeadline from './components/sections/ResultHeadline';
@@ -59,6 +59,8 @@ const SCENARIO_COLORS = [
   '#6e6e73', // Slate
   '#64d2ff', // Light Sky
 ];
+
+const CYCLE_LABEL = { DAILY: '매일', WEEKLY: '매주', MONTHLY: '매월' } as const;
 
 export const resetBacktestSelection = () => ({
   params: { ...DEFAULT_BACKTEST_PARAMS },
@@ -701,6 +703,14 @@ function App() {
   const { cardRef: shareCardRef, isExporting, error: shareError, exportImage: handleShare } = useImageExport(scenarioName);
 
   const headlineValue = mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue;
+  const projectionAssumptions = [
+    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.assetType === 'CUSTOM' ? '' : ` (${projectionParams.assetType} 과거 수익률)`}`,
+    isValueAveragingProjection
+      ? `매월 목표 +${SnowballEngine.formatBigNumber(projectionParams.strategyTargetGrowth ?? projectionParams.contribution, currency, true)}`
+      : `${CYCLE_LABEL[projectionParams.cycle]} ${SnowballEngine.formatBigNumber(projectionParams.contribution, currency, true)}${projectionParams.strategyType === 'STEP_UP' ? ` (매년 +${(projectionParams.strategyIncreaseRate * 100).toFixed(0)}%)` : ''}`,
+    `${projectionParams.years}년`,
+    projectionParams.accountType === 'ISA' ? 'ISA' : '일반 계좌',
+  ].join(' · ');
   const resultHeadline = backtestRangeError ? null : (
     <ResultHeadline
       ref={setResultHeadlineElement}
@@ -709,7 +719,19 @@ function App() {
       formatAmount={formatResultAmount}
       formatSecondary={formatResultDualAmount}
       align={mode === 'BACKTEST' ? 'start' : 'center'}
-    />
+    >
+      {mode === 'PROJECTION' && (
+        <button
+          type="button"
+          onClick={() => setIsAdvancedOpen(true)}
+          aria-label={`계산 가정 ${projectionAssumptions}. 고급 설정에서 바꾸기`}
+          className="mt-2 inline-flex min-h-control max-w-full items-center gap-2 rounded-pill px-3 text-caption text-apple-ink-muted-48 transition-colors hover:bg-apple-surface-pearl hover:text-apple-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary motion-reduce:transition-none"
+        >
+          <span className="break-keep">{projectionAssumptions}</span>
+          <SlidersHorizontal size={14} aria-hidden="true" className="shrink-0" />
+        </button>
+      )}
+    </ResultHeadline>
   );
 
   return (
@@ -777,7 +799,7 @@ function App() {
 
                 {resultHeadline}
 
-                <Surface className="h-[360px] w-full sm:h-[480px]">
+                <Surface className="min-h-[360px] w-full sm:h-[480px]">
                   <SnowballChart
                     scenarios={chartScenarios}
                     mode={mode}
@@ -822,7 +844,6 @@ function App() {
                 </AnimatePresence>
 
                 <KPIGrid
-                  totalAsset={activeResult.postTaxValue}
                   initialPrincipal={activeParams.principal}
                   totalContribution={activeResult.totalContribution}
                   totalReturn={totalReturn}
@@ -830,8 +851,6 @@ function App() {
                   cagr={cagr}
                   cagrLabel={cagrLabel}
                   currency={currency}
-                  exchangeRate={exchangeRate}
-                  isMilestoneReached={currency === 'KRW' && MILESTONES_KRW.some(m => activeResult.postTaxValue >= m)}
                   onShare={handleShare}
                   isExporting={isExporting}
                   shareError={shareError}

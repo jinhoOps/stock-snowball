@@ -62,11 +62,11 @@ test('settings stays above navigation and preserves the focus and draft lifecycl
     return element.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
   })).toBe(true);
 
-  const cycle = dialog.getByRole('group', { name: '납입 주기' });
-  await expectTouchTargets(cycle.getByRole('button'));
-  await cycle.getByRole('button', { name: '월', exact: true }).click();
-  await expect(cycle.getByRole('button', { name: '월', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(cycle.getByRole('button', { name: '월', exact: true })).toHaveCSS('background-color', 'rgb(0, 102, 204)');
+  const account = dialog.getByRole('group', { name: '계좌 유형 선택' });
+  await expectTouchTargets(account.getByRole('button'));
+  await account.getByRole('button', { name: 'ISA 절세 계좌 선택' }).click();
+  await expect(account.getByRole('button', { name: 'ISA 절세 계좌 선택' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(account.getByRole('button', { name: 'ISA 절세 계좌 선택' })).toHaveCSS('background-color', 'rgb(0, 102, 204)');
   const apply = dialog.getByRole('button', { name: '설정 적용' });
   await apply.focus();
   await page.keyboard.press('Tab');
@@ -78,7 +78,10 @@ test('settings stays above navigation and preserves the focus and draft lifecycl
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(opener).toBeFocused();
-  await expect(page.getByRole('group', { name: '납입 주기' }).getByRole('button', { name: '일', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  // Escape discards the draft: reopening shows the original account type.
+  await opener.click();
+  await expect(dialog.getByRole('group', { name: '계좌 유형 선택' }).getByRole('button', { name: '일반 계좌 선택' })).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
 });
 
 test('backtest and long scenario names reflow without losing controls', async ({ page }, testInfo) => {

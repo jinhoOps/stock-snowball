@@ -5,13 +5,11 @@ import { SnowballEngine } from '../../core/SnowballEngine';
 import AnimatedCounter from '../common/AnimatedCounter';
 import MetricCard from '../common/MetricCard';
 import ShareImageButton from '../common/ShareImageButton';
-import { BigNumberHelper } from '../common/BigNumberHelper';
 import { Snowflake } from 'lucide-react';
 import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
 import { keepUnitTogether } from '../../lib/format/keepUnitTogether';
 
 interface KPIGridProps {
-  totalAsset: number;
   initialPrincipal: number;
   totalContribution: number;
   totalReturn: number;
@@ -19,8 +17,6 @@ interface KPIGridProps {
   cagr: number | null;
   cagrLabel?: string;
   currency: 'USD' | 'KRW';
-  exchangeRate?: number;
-  isMilestoneReached?: boolean;
   onShare?: () => void;
   isExporting?: boolean;
   shareError?: string | null;
@@ -30,22 +26,19 @@ interface KPICardProps {
   label: string;
   value: number | null;
   formatter: (value: number) => string;
-  isPercentage?: boolean;
+  detail?: string;
   subValue?: number;
   subFormatter?: (value: number) => string;
   index: number;
-  isHighlighted?: boolean;
-  currency: 'USD' | 'KRW';
-  exchangeRate: number;
-  isMilestoneReached?: boolean;
+  className?: string;
   prefersReducedMotion: boolean;
   onHoverChange: (index: number | null) => void;
 }
 
-const KPICard = ({ label, value, formatter, isPercentage, subValue, subFormatter, index, isHighlighted, currency, exchangeRate, isMilestoneReached, prefersReducedMotion, onHoverChange }: KPICardProps) => {
+const KPICard = ({ label, value, formatter, detail, subValue, subFormatter, index, className = '', prefersReducedMotion, onHoverChange }: KPICardProps) => {
   const [isHovered, setIsHovered] = useState(false);
-  const showRollingSnowball = !isHighlighted && index % 2 !== 0;
-  const showSnowAccumulation = !isHighlighted && index % 2 === 0;
+  const showRollingSnowball = index % 2 !== 0;
+  const showSnowAccumulation = index % 2 === 0;
 
   const setHoverState = (nextIsHovered: boolean) => {
     setIsHovered(nextIsHovered);
@@ -56,31 +49,20 @@ const KPICard = ({ label, value, formatter, isPercentage, subValue, subFormatter
     <MetricCard
       label={label}
       value={value === null ? <span aria-label="연환산 수익률 계산 불가">—</span> : <AnimatedCounter value={value} formatter={formatter} />}
-      highlighted={isHighlighted}
-      detail={!isPercentage && value !== null ? <BigNumberHelper value={value} currency={currency} exchangeRate={exchangeRate} showDual onlyEstimate /> : undefined}
-      badge={<>
-        {subValue !== undefined && subFormatter && (
-          <span className="inline-flex items-center rounded-pill bg-apple-primary/5 px-3 py-1 text-caption-strong text-apple-primary">
-            {subValue >= 0 ? '+' : ''}<AnimatedCounter value={subValue} formatter={subFormatter} />%
-          </span>
-        )}
-        {isHighlighted && isMilestoneReached && (
-          <span className="kpi-milestone inline-block rounded-pill bg-apple-primary px-3 py-1 text-fine-print font-semibold text-apple-on-primary">Milestone</span>
-        )}
-      </>}
+      detail={detail}
+      badge={subValue !== undefined && subFormatter ? (
+        <span className="inline-flex items-center rounded-pill bg-apple-primary/5 px-3 py-1 text-caption-strong text-apple-primary">
+          {subValue >= 0 ? '+' : ''}<AnimatedCounter value={subValue} formatter={subFormatter} />%
+        </span>
+      ) : undefined}
       data-kpi-index={index}
-      className="kpi-card animate-apple-rise transition-colors duration-300 motion-reduce:transition-none hover:border-apple-primary/40"
+      className={`kpi-card animate-apple-rise transition-colors duration-300 motion-reduce:transition-none hover:border-apple-primary/40 ${className}`}
       onMouseEnter={() => setHoverState(true)}
       onMouseLeave={() => setHoverState(false)}
       onPointerDown={() => setHoverState(true)}
       onPointerCancel={() => setHoverState(false)}
       onPointerUp={() => setHoverState(false)}
     >
-      {isHighlighted && (
-        <div className={`kpi-hidden-snowflake absolute inset-0 flex items-center justify-center pointer-events-none text-apple-primary/10 ${prefersReducedMotion && isHovered ? 'opacity-100' : 'opacity-0'}`}>
-          <Snowflake size={150} strokeWidth={1} />
-        </div>
-      )}
       {showRollingSnowball && (
         <div className={`kpi-rolling-snowball absolute bottom-1.5 left-0 text-apple-primary/60 z-10 pointer-events-none ${prefersReducedMotion && isHovered ? 'opacity-100 translate-x-[450%]' : 'opacity-0'}`}>
           <Snowflake size={20} strokeWidth={2.5} />
@@ -98,12 +80,15 @@ const KPICard = ({ label, value, formatter, isPercentage, subValue, subFormatter
           </div>
         </div>
       )}
-      {isHighlighted && <div className="absolute top-0 left-0 w-full h-1 bg-apple-primary" />}
     </MetricCard>
   );
 };
 
-const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalContribution, totalReturn, returnPercentage, cagr, cagrLabel = '연복리 수익률 (CAGR)', currency, exchangeRate = 1450, isMilestoneReached, onShare, isExporting, shareError }) => {
+/**
+ * Supporting numbers under the headline result: what went in, what it earned, and the yearly rate.
+ * The final amount itself lives in the headline, so it is not repeated here.
+ */
+const KPIGrid: React.FC<KPIGridProps> = ({ initialPrincipal, totalContribution, totalReturn, returnPercentage, cagr, cagrLabel = '연복리 수익률 (CAGR)', currency, onShare, isExporting, shareError }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const [hoveredCardIndex, setHoveredCardIndex] = useState<number | null>(null);
@@ -114,7 +99,6 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
     const scope = createScope({ root: rootRef.current });
     scope.add(() => {
       const card = `.kpi-card[data-kpi-index="${hoveredCardIndex}"]`;
-      waapi.animate(`${card} .kpi-hidden-snowflake`, { opacity: 1, scale: 1.5, rotate: 180, duration: 2000, delay: 3300, ease: 'ease-out' });
       waapi.animate(`${card} .kpi-rolling-snowball`, { translateX: ['0%', '450%'], rotate: [0, 720], opacity: [0, 1, 1, 0], duration: 2500, delay: 3300, ease: 'linear' });
       waapi.animate(`${card} .kpi-snow-overlay`, { opacity: 1, duration: 2000, delay: 3300, ease: 'ease-out' });
       waapi.animate(`${card} .kpi-snow-base`, { height: 32, duration: 3000, delay: 3300, ease: 'ease-out' });
@@ -126,18 +110,24 @@ const KPIGrid: React.FC<KPIGridProps> = ({ totalAsset, initialPrincipal, totalCo
 
   const formatCurrency = (value: number) => keepUnitTogether(SnowballEngine.formatBigNumber(value, currency, currency === 'KRW'));
   const formatPercent = (value: number) => value.toFixed(2);
+  const formatShort = (value: number) => SnowballEngine.formatBigNumber(value, currency, true);
+  const accumulated = totalContribution - initialPrincipal;
   const kpis = [
-    { label: '최종 예상 자산', value: totalAsset, formatter: formatCurrency, isHighlighted: true },
-    { label: '총 투자 원금', value: totalContribution, formatter: formatCurrency },
-    { label: '누적 적립금', value: totalContribution - initialPrincipal, formatter: formatCurrency },
+    {
+      label: '투자 원금',
+      value: totalContribution,
+      formatter: formatCurrency,
+      detail: accumulated > 0 ? `초기 ${formatShort(initialPrincipal)} + 적립 ${formatShort(accumulated)}` : undefined,
+      className: 'col-span-2 sm:col-span-1',
+    },
     { label: '총 수익금', value: totalReturn, formatter: formatCurrency, subValue: returnPercentage, subFormatter: formatPercent },
-    { label: cagrLabel, value: cagr, isPercentage: true, formatter: (value: number) => `${formatPercent(value)}%` },
+    { label: cagrLabel, value: cagr, formatter: (value: number) => `${formatPercent(value)}%` },
   ];
 
   return (
-    <div ref={rootRef} className="flex flex-col items-center w-full max-w-content mt-8">
-      <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
-        {kpis.map((kpi, index) => <KPICard key={`${kpi.label}-${index}`} {...kpi} index={index} currency={currency} exchangeRate={exchangeRate} isMilestoneReached={isMilestoneReached} prefersReducedMotion={prefersReducedMotion} onHoverChange={setHoveredCardIndex} />)}
+    <div ref={rootRef} className="flex w-full max-w-content flex-col items-center">
+      <dl className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        {kpis.map((kpi, index) => <KPICard key={`${kpi.label}-${index}`} {...kpi} index={index} prefersReducedMotion={prefersReducedMotion} onHoverChange={setHoveredCardIndex} />)}
       </dl>
       {onShare && (
         <ShareImageButton onClick={onShare} isExporting={isExporting} error={shareError} className="kpi-share-button animate-apple-rise mt-8" />
