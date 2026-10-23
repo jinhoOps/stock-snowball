@@ -8,7 +8,7 @@ import Notice from './components/common/Notice';
 import type { ScenarioDocument } from './db/schema';
 import confetti from 'canvas-confetti';
 import SnowToy from './components/common/SnowToy';
-import { useMilestoneCelebration } from './lib/celebration/useMilestoneCelebration';
+import { MILESTONES_KRW, milestoneLevel, useMilestoneCelebration } from './lib/celebration/useMilestoneCelebration';
 import { keepUnitTogether } from './lib/format/keepUnitTogether';
 import GlobalNav from './components/layout/GlobalNav';
 import ResultHeadline from './components/sections/ResultHeadline';
@@ -474,7 +474,13 @@ function App() {
   
   // Celebrate only milestones the user reaches by editing inputs (see useMilestoneCelebration).
   const resultValueKrw = currency === 'KRW' ? activeResult.postTaxValue : activeResult.postTaxValue * exchangeRate;
-  const noteUserEdit = useMilestoneCelebration(resultValueKrw, resultNumberRef);
+  const [milestoneSticker, setMilestoneSticker] = useState<{ id: number; label: string } | null>(null);
+  const showMilestoneSticker = useCallback((milestoneKrw: number) => {
+    setMilestoneSticker({ id: Date.now(), label: `${SnowballEngine.formatBigNumber(milestoneKrw, 'KRW', true)} 돌파` });
+  }, []);
+  const noteUserEdit = useMilestoneCelebration(resultValueKrw, resultNumberRef, showMilestoneSticker);
+  // The toy snowball grows a little with each milestone the current result has passed.
+  const toyGrowth = (MILESTONES_KRW.indexOf(milestoneLevel(resultValueKrw)) + 1) / MILESTONES_KRW.length;
   const formatResultAmount = useCallback(
     (value: number) => keepUnitTogether(SnowballEngine.formatBigNumber(value, currency, true)),
     [currency],
@@ -718,6 +724,9 @@ function App() {
       value={headlineValue}
       formatAmount={formatResultAmount}
       formatSecondary={formatResultDualAmount}
+      resetKey={`${currency}-${showRealValue}`}
+      milestone={milestoneSticker}
+      onMilestoneDone={() => setMilestoneSticker(null)}
       align={mode === 'BACKTEST' ? 'start' : 'center'}
     >
       {mode === 'PROJECTION' && (
@@ -1001,7 +1010,7 @@ function App() {
           returnPercentage={returnPercentage}
         />
       )}
-      <SnowToy />
+      <SnowToy growth={toyGrowth} />
 
       <footer className="bg-apple-canvas-parchment border-t border-apple-hairline px-4 pb-28 pt-12 text-center sm:px-6 lg:pb-12">
         <div className="max-w-content mx-auto">

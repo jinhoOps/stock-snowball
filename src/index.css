@@ -255,6 +255,18 @@
   transition: box-shadow 200ms ease;
 }
 
+.snow-toy-size { transition: transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+/* Two coal eyes that show up for a moment after a full combo. */
+.snow-toy-face i { position: absolute; top: 40%; width: 4px; height: 4px; border-radius: 9999px; background: rgb(var(--color-ink) / 0.75); }
+.snow-toy-face i:first-child { left: 34%; }
+.snow-toy-face i:last-child { right: 34%; }
+.snow-toy-hint { animation: snow-toy-hint 6s ease both; }
+@keyframes snow-toy-hint {
+  0% { opacity: 0; transform: translateY(6px) scale(0.96); }
+  6%, 92% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
 @keyframes snow-toy-bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
@@ -262,6 +274,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .snow-toy { animation: none; }
+  .snow-toy-size { transition: none; }
 }
 
 /* Mobile result bar slides up only while the headline result is scrolled away. */
@@ -269,4 +282,10 @@
 .mobile-result-bar.is-visible { transform: translate3d(0, 0, 0); }
 @media (prefers-reduced-motion: reduce) {
   .mobile-result-bar { transition: none; }
+}
+
+/* Chart lines glide to new values when only the numbers change (same point count). */
+.chart-morph { transition: d 560ms cubic-bezier(0.22, 1, 0.36, 1) 160ms, opacity 240ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .chart-morph { transition: none; }
 }

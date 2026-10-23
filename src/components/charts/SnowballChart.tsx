@@ -1,4 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
+import { DRAW_CLASS, useLineDraw } from '../../lib/animation/useLineDraw';
 import { Group } from '@visx/group';
 import { LinePath, Bar, Area } from '@visx/shape';
 import { curveMonotoneX } from '@visx/curve';
@@ -212,6 +213,10 @@ const SnowballChartInner: React.FC<{
     return val.toLocaleString();
   };
 
+  const linesRef = useRef<SVGGElement>(null);
+  const shape = `${comparisonMode}|${processedScenarios.map((s) => `${s.id}:${s.points.length}`).join(',')}`;
+  useLineDraw(linesRef, shape, width >= 10);
+
   if (width < 10) return null;
 
   return (
@@ -245,11 +250,13 @@ const SnowballChartInner: React.FC<{
                 fill={s.color}
                 fillOpacity={0.12}
                 curve={curveMonotoneX}
+                className="chart-morph"
               />
             )
           ))}
 
           {/* 2. Main Lines */}
+          <g ref={linesRef}>
           {processedScenarios.map(s => (
             <React.Fragment key={`lines-${s.id}`}>
               {/* Cumulative Contribution Line (Dashed) */}
@@ -262,6 +269,7 @@ const SnowballChartInner: React.FC<{
                   strokeWidth={2}
                   strokeDasharray="4,4"
                   curve={curveMonotoneX}
+                  className="chart-morph"
                 />
               )}
               {/* Asset Growth Line (Nominal) */}
@@ -272,6 +280,7 @@ const SnowballChartInner: React.FC<{
                 stroke={s.color}
                 strokeWidth={3}
                 curve={curveMonotoneX}
+                className={`chart-morph ${DRAW_CLASS}`}
                 style={{ filter: `drop-shadow(0 0 6px ${s.color}33)`, opacity: showRealValue ? 0.3 : 1 }}
               />
               {/* Real Value Line (Inflation Adjusted) */}
@@ -284,10 +293,12 @@ const SnowballChartInner: React.FC<{
                   strokeWidth={3}
                   strokeDasharray="2,2"
                   curve={curveMonotoneX}
+                  className="chart-morph"
                 />
               )}
             </React.Fragment>
           ))}
+          </g>
 
           {/* 3. Interaction */}
           <Bar

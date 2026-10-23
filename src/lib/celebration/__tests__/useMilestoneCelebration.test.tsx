@@ -8,8 +8,9 @@ const celebrateMilestone = vi.fn();
 vi.mock('../effects', () => ({ celebrateMilestone: (...args: unknown[]) => celebrateMilestone(...args) }));
 
 const resultRef = createRef<HTMLElement>();
+const onCelebrate = vi.fn();
 const render = (initial: number) => renderHook(
-  ({ value }) => useMilestoneCelebration(value, resultRef),
+  ({ value }) => useMilestoneCelebration(value, resultRef, onCelebrate),
   { initialProps: { value: initial } },
 );
 
@@ -17,6 +18,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   sessionStorage.clear();
   celebrateMilestone.mockClear();
+  onCelebrate.mockClear();
 });
 afterEach(() => vi.useRealTimers());
 
@@ -37,6 +39,8 @@ describe('useMilestoneCelebration', () => {
     expect(celebrateMilestone).not.toHaveBeenCalled();
     act(() => { vi.advanceTimersByTime(1); });
     expect(celebrateMilestone).toHaveBeenCalledTimes(1);
+    expect(celebrateMilestone).toHaveBeenCalledWith(null, 100_000_000);
+    expect(onCelebrate).toHaveBeenCalledWith(100_000_000);
   });
 
   it('waits for a slider drag to settle and judges only the final value', () => {

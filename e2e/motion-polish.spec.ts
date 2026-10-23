@@ -11,7 +11,7 @@ test('numbers settle smoothly and settings remain usable with motion enabled', a
   const samples = await value.evaluate(async element => {
     const values: string[] = [];
     const startedAt = performance.now();
-    while (performance.now() - startedAt < 500) {
+    while (performance.now() - startedAt < 900) {
       await new Promise(requestAnimationFrame);
       values.push(element.querySelector('[aria-hidden="true"]')!.textContent!);
     }

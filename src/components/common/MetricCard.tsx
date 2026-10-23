@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode, Ref } from 'react';
 import clsx from 'clsx';
 import Surface from './Surface';
 
@@ -8,6 +8,7 @@ interface MetricCardProps extends HTMLAttributes<HTMLDivElement> {
   detail?: ReactNode;
   badge?: ReactNode;
   highlighted?: boolean;
+  ref?: Ref<HTMLDivElement>;
 }
 
 export default function MetricCard({ label, value, detail, badge, highlighted, className, children, ...props }: MetricCardProps) {

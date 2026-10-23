@@ -34,9 +34,17 @@ const markCelebrated = (milestone: number) => {
  * Page load, mode switches, loaded scenarios and currency changes move the baseline silently.
  * Each milestone is celebrated at most once per browser session.
  *
+ * Bigger milestones get bigger celebrations (see `celebrationTier`).
+ *
  * Returns a function to call whenever the user edits a simulation input.
  */
-export function useMilestoneCelebration(valueKrw: number, resultRef: RefObject<HTMLElement | null>) {
+export function useMilestoneCelebration(
+  valueKrw: number,
+  resultRef: RefObject<HTMLElement | null>,
+  onCelebrate?: (milestoneKrw: number) => void,
+) {
+  const onCelebrateRef = useRef(onCelebrate);
+  onCelebrateRef.current = onCelebrate;
   const baselineLevel = useRef(milestoneLevel(valueKrw));
   const latestValue = useRef(valueKrw);
   const userChangePending = useRef(false);
@@ -59,7 +67,8 @@ export function useMilestoneCelebration(valueKrw: number, resultRef: RefObject<H
       baselineLevel.current = level;
       if (level > previous && !readCelebrated().includes(level)) {
         markCelebrated(level);
-        celebrateMilestone(resultRef.current);
+        celebrateMilestone(resultRef.current, level);
+        onCelebrateRef.current?.(level);
       }
     }, SETTLE_MS);
   }, [resultRef]);
