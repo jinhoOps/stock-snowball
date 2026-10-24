@@ -1,6 +1,24 @@
 import { Decimal } from 'decimal.js';
 import { AccountType, FeeConfig, TaxConfig, SimulationResult, SimulationRangeResult, StrategyConfig, AssetType, BacktestHistoryPoint, DEFAULT_TAX_CONFIG } from '../types/finance';
 import { calculateMoneyWeightedReturn } from './MoneyWeightedReturn';
+import {
+  MONTE_CARLO_PATHS,
+  MONTE_CARLO_STEP_DAYS,
+  RANGE_LOWER_QUANTILE,
+  RANGE_UPPER_QUANTILE,
+  BAND_SMOOTHING_RADIUS,
+  createNormalSource,
+  smoothInLogSpace,
+  sortedQuantile,
+} from './MonteCarlo';
+
+interface SamplePoint {
+  date: Date;
+  day: number;
+  exchangeRate: Decimal;
+  contribution: Decimal;
+  buyFees: Decimal;
+}
 
 
 // Decimal 설정: 금융 연산을 위해 정밀도를 높게 설정 (기본 20 -> 40)
@@ -288,7 +306,8 @@ export class SnowballEngine {
 
   /**
    * 상세 시뮬레이션을 수행합니다. (일 단위 반복 연산)
-   * 3가지 시나리오(Pessimistic, Average, Optimistic)를 동시에 연산합니다.
+   * average는 고정 수익률(중앙 경로)을 Decimal로 정밀 계산하고,
+   * pessimistic·optimistic은 같은 현금흐름에 시장 수익률만 무작위로 바꾼 고정 시드 몬테카를로의 10%·90% 분위수입니다.
    */
   static simulateRange(
     principal: number,
@@ -345,12 +364,9 @@ export class SnowballEngine {
 
     const initialNominal = new Decimal(principal).minus(new Decimal(principal).times(buyFeeRate));
     
-    // 3가지 시나리오용 상태
-    const states = {
-      pessimistic: { currentNominal: initialNominal, results: [] as SimulationResult[] },
-      average: { currentNominal: initialNominal, results: [] as SimulationResult[] },
-      optimistic: { currentNominal: initialNominal, results: [] as SimulationResult[] },
-    };
+    const average = { currentNominal: initialNominal, results: [] as SimulationResult[] };
+    const pessimisticResults: SimulationResult[] = [];
+    const optimisticResults: SimulationResult[] = [];
 
     let currentExchangeRate = new Decimal(exchangeRateConfig.base);
     // Inputs use the asset currency; cost basis and paid fees use historical KRW.
@@ -361,9 +377,42 @@ export class SnowballEngine {
     // 일일 성장 연산 (Projection 모드에서는 과거 낙폭을 재현하지 않고 고정 CAGR 기반 성장)
     const dailyGrowth = this.dailyGrowthFactor(annualRate);
     
-    // Illustrative volatility envelope, not a calibrated probability interval.
-    const zScore = 1.645;
+    // Range: lognormal market returns with the same median growth, on the same cash flows as the median path.
+    // Every money's own holding period gets its own uncertainty, so late contributions can lose money too.
+    // Draws are taken step by step for all paths, so a longer horizon keeps the earlier draws unchanged.
     const annualVolatility = getVolatility(_assetType);
+    const dailyLogGrowth = annualRate <= -1 ? -Infinity : Math.log1p(annualRate) / 365;
+    const dailyGrowthNumber = Math.exp(dailyLogGrowth);
+    const paths = new Float64Array(MONTE_CARLO_PATHS).fill(initialNominal.toNumber());
+    const sortedPaths = new Float64Array(MONTE_CARLO_PATHS);
+    const bandPoints: SamplePoint[] = [];
+    const lowerBand: number[] = [];
+    const upperBand: number[] = [];
+
+    // Value after selling fees and tax at one sample point, for any scenario's holdings.
+    const toResult = (nominal: Decimal, point: SamplePoint): SimulationResult => {
+      const currentNominalInKrw = nominal.times(point.exchangeRate);
+      const sellFees = currentNominalInKrw.times(sellFeeRate);
+      const totalFeesWithSell = point.buyFees.plus(sellFees);
+      const totalGains = currentNominalInKrw.minus(point.contribution).minus(sellFees);
+      const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
+      const postTaxValue = currentNominalInKrw.minus(sellFees).minus(estimatedTax);
+      const realValue = postTaxValue.dividedBy(dailyInflationGrowth.pow(point.day));
+      return {
+        date: point.date,
+        nominalValue: currentNominalInKrw.toNumber(),
+        realValue: realValue.toNumber(),
+        totalContribution: point.contribution.toNumber(),
+        totalGains: totalGains.toNumber(),
+        totalFees: totalFeesWithSell.toNumber(),
+        estimatedTax: estimatedTax.toNumber(),
+        postTaxValue: postTaxValue.toNumber(),
+      };
+    };
+    const nextNormal = createNormalSource();
+    // Contributions since the last market step, grown at the median rate until the step ends.
+    let pendingContribution = 0;
+    let lastStepDay = 0;
 
     for (let d = 0; d <= totalDays; d++) {
       const date = new Date(startDate);
@@ -372,10 +421,8 @@ export class SnowballEngine {
       // Initial principal only at day zero. Later points include that date's
       // closing growth and cash contribution, including the final date.
       if (d > 0) {
-        const volatilityStep = annualVolatility * zScore * (Math.sqrt(d / 365) - Math.sqrt((d - 1) / 365));
-        states.average.currentNominal = states.average.currentNominal.times(dailyGrowth);
-        states.pessimistic.currentNominal = states.pessimistic.currentNominal.times(dailyGrowth).times(Math.exp(-volatilityStep));
-        states.optimistic.currentNominal = states.optimistic.currentNominal.times(dailyGrowth).times(Math.exp(volatilityStep));
+        average.currentNominal = average.currentNominal.times(dailyGrowth);
+        pendingContribution *= dailyGrowthNumber;
         currentExchangeRate = currentExchangeRate.times(dailyExchangeGrowth);
 
         const cycle = strategy.cycle || 'MONTHLY';
@@ -388,7 +435,7 @@ export class SnowballEngine {
           if (date.getUTCDate() === 1) {
             const monthsPassed = (date.getUTCFullYear() - startDate.getUTCFullYear()) * 12 + date.getUTCMonth() - startDate.getUTCMonth();
             const target = new Decimal(strategy.targetGrowth ?? strategy.baseAmount).times(monthsPassed).plus(principal);
-            contribution = Decimal.max(0, target.minus(states.average.currentNominal)).dividedBy(new Decimal(1).minus(buyFeeRate));
+            contribution = Decimal.max(0, target.minus(average.currentNominal)).dividedBy(new Decimal(1).minus(buyFeeRate));
           }
         } else if (contributionDue) {
           const increase = strategy.type === 'STEP_UP'
@@ -400,48 +447,71 @@ export class SnowballEngine {
         if (contribution.gt(0)) {
           const fee = contribution.times(buyFeeRate);
           const netContribution = contribution.minus(fee);
-          for (const state of Object.values(states)) state.currentNominal = state.currentNominal.plus(netContribution);
+          average.currentNominal = average.currentNominal.plus(netContribution);
+          pendingContribution += netContribution.toNumber();
           totalContributionInKrw = totalContributionInKrw.plus(contribution.times(currentExchangeRate));
           totalBuyFeesInKrw = totalBuyFeesInKrw.plus(fee.times(currentExchangeRate));
         }
       }
 
+      const isSample = d % intervalDays === 0 || d === totalDays;
+      if (d > 0 && (isSample || d - lastStepDay >= MONTE_CARLO_STEP_DAYS)) {
+        const days = d - lastStepDay;
+        const drift = dailyLogGrowth * days;
+        const spread = annualVolatility * Math.sqrt(days / 365);
+        // Antithetic pairs (z, −z) keep the range edges smooth with the same number of paths.
+        for (let path = 0; path < paths.length; path += 2) {
+          const shock = spread * nextNormal();
+          paths[path] = paths[path] * Math.exp(drift + shock) + pendingContribution;
+          paths[path + 1] = paths[path + 1] * Math.exp(drift - shock) + pendingContribution;
+        }
+        pendingContribution = 0;
+        lastStepDay = d;
+      }
+
       cashFlowHistory.push({
         date: date.toISOString().slice(0, 10),
-        value: states.average.currentNominal.times(currentExchangeRate).toNumber(),
+        value: average.currentNominal.times(currentExchangeRate).toNumber(),
         principal: totalContributionInKrw.toNumber(),
       });
 
       // 데이터 포인트 기록
-      if (d % intervalDays === 0 || d === totalDays) {
-        for (const key of ['pessimistic', 'average', 'optimistic'] as const) {
-          const state = states[key];
-          const currentNominalInKrw = state.currentNominal.times(currentExchangeRate);
-          const sellFees = currentNominalInKrw.times(sellFeeRate);
-          const totalFeesWithSell = totalBuyFeesInKrw.plus(sellFees);
-          const totalGains = currentNominalInKrw.minus(totalContributionInKrw).minus(sellFees);
-          const estimatedTax = this.calculateTax(totalGains, accountType, taxConfig);
-          const postTaxValue = currentNominalInKrw.minus(sellFees).minus(estimatedTax);
-          const realValue = postTaxValue.dividedBy(dailyInflationGrowth.pow(d));
-
-          state.results.push({
-            date: new Date(date),
-            nominalValue: currentNominalInKrw.toNumber(),
-            realValue: realValue.toNumber(),
-            totalContribution: totalContributionInKrw.toNumber(),
-            totalGains: totalGains.toNumber(),
-            totalFees: totalFeesWithSell.toNumber(),
-            estimatedTax: estimatedTax.toNumber(),
-            postTaxValue: postTaxValue.toNumber(),
-          });
-        }
+      if (isSample) {
+        const point: SamplePoint = {
+          date: new Date(date),
+          day: d,
+          exchangeRate: currentExchangeRate,
+          contribution: totalContributionInKrw,
+          buyFees: totalBuyFeesInKrw,
+        };
+        average.results.push(toResult(average.currentNominal, point));
+        bandPoints.push(point);
+        sortedPaths.set(paths);
+        sortedPaths.sort();
+        lowerBand.push(sortedQuantile(sortedPaths, RANGE_LOWER_QUANTILE));
+        upperBand.push(sortedQuantile(sortedPaths, RANGE_UPPER_QUANTILE));
       }
     }
-    cashFlowHistory.at(-1)!.value = states.average.results.at(-1)!.postTaxValue;
+
+    const smoothLower = smoothInLogSpace(lowerBand, BAND_SMOOTHING_RADIUS);
+    const smoothUpper = smoothInLogSpace(upperBand, BAND_SMOOTHING_RADIUS);
+    bandPoints.forEach((point, index) => {
+      pessimisticResults.push(toResult(new Decimal(smoothLower[index]), point));
+      optimisticResults.push(toResult(new Decimal(smoothUpper[index]), point));
+    });
+    cashFlowHistory.at(-1)!.value = average.results.at(-1)!.postTaxValue;
+
+    // Below the money put in after selling, before tax: tax only applies to gains, so it never decides a loss.
+    const principalInKrw = totalContributionInKrw.toNumber();
+    const keptAfterSale = currentExchangeRate.toNumber() * (1 - feeConfig.sellFeeRate);
+    let losingPaths = 0;
+    for (const value of paths) if (value * keptAfterSale < principalInKrw) losingPaths++;
+
     return {
-      pessimistic: states.pessimistic.results,
-      average: states.average.results,
-      optimistic: states.optimistic.results,
+      pessimistic: pessimisticResults,
+      average: average.results,
+      optimistic: optimisticResults,
+      lossProbability: principalInKrw > 0 ? losingPaths / paths.length : 0,
       irr: calculateMoneyWeightedReturn(cashFlowHistory, 365),
     };
   }

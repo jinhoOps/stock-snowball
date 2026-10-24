@@ -95,6 +95,26 @@ describe('SimulationControls', () => {
     expect(screen.queryByRole('group', { name: '납입 주기' })).toBeNull();
   });
 
+  it('steps the investment period by a year and jumps to common horizons', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} />);
+    await user.click(screen.getByRole('button', { name: '투자 기간 1년 늘리기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ years: 11 });
+    await user.click(screen.getByRole('button', { name: '투자 기간 1년 줄이기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ years: 9 });
+
+    const presets = within(screen.getByRole('group', { name: '자주 쓰는 투자 기간' }));
+    expect(presets.getByRole('button', { name: '10년' }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(presets.getByRole('button', { name: '20년' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ years: 20 });
+  });
+
+  it('stops the period stepper at the cycle limit', () => {
+    render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, years: 30 }} />);
+    expect((screen.getByRole('button', { name: '투자 기간 1년 늘리기' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('lets the existing parent normalization handle a cleared duration', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn();

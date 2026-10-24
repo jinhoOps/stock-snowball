@@ -88,6 +88,8 @@ export interface SimulationRangeResult {
   pessimistic: SimulationResult[];
   average: SimulationResult[];
   optimistic: SimulationResult[];
+  /** Share of simulated outcomes that end below the total money put in (0–1). */
+  lossProbability: number;
   /** Annual money-weighted return of the average scenario, using all cash-flow dates. */
   irr: number | null;
 }

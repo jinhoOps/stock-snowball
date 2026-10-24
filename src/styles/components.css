@@ -37,6 +37,25 @@
   .ui-field-label { @apply flex min-h-6 items-center gap-2 px-1 text-caption-strong text-apple-ink; }
   .ui-field-hint { @apply px-1 text-fine-print leading-relaxed text-apple-ink-muted-48; }
 
+  /* A number with − / + on either side; the pill takes focus for the input inside it. */
+  .ui-stepper {
+    @apply flex h-field min-w-0 items-center gap-1 rounded-pill border border-apple-hairline bg-apple-canvas p-1 transition-colors;
+    @apply focus-within:border-apple-primary focus-within:ring-2 focus-within:ring-apple-primary/20 motion-reduce:transition-none;
+  }
+  .ui-stepper .ui-input { @apply h-full flex-1 border-0 bg-transparent px-0 text-center font-display text-body-strong focus:ring-0; }
+  .ui-stepper-button {
+    @apply flex h-full min-w-11 shrink-0 items-center justify-center rounded-pill text-apple-ink-muted-64 transition-colors;
+    @apply hover:bg-white hover:text-apple-ink active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary motion-reduce:transition-none;
+    transition-property: color, background-color, transform;
+  }
+  /* Small one-tap shortcuts under a field, e.g. 10년 · 20년. */
+  .ui-quick-chip {
+    @apply min-h-control rounded-pill px-3 text-caption-strong text-apple-ink-muted-48 transition-colors;
+    @apply hover:bg-apple-canvas-parchment hover:text-apple-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary motion-reduce:transition-none;
+  }
+  .ui-quick-chip[aria-pressed='true'] { @apply bg-apple-primary/10 text-apple-primary; }
+
   .ui-segmented { @apply relative inline-flex max-w-full flex-wrap gap-1 rounded-pill border border-apple-hairline bg-apple-canvas-parchment p-1; }
   .ui-segment-indicator { @apply pointer-events-none absolute left-0 top-0 hidden rounded-pill bg-apple-primary; }
   .ui-segmented[data-indicator] .ui-segment-indicator { @apply block; }

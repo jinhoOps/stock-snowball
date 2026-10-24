@@ -1,4 +1,5 @@
 import React from 'react';
+import { Minus, Plus } from 'lucide-react';
 import { HistoricalAssetType, SimulationMode, SimulationParams } from '../../types/finance';
 import Button from '../common/Button';
 import { Field } from '../common/Field';
@@ -12,6 +13,9 @@ import { NumericInput } from '../common/NumericInput';
 import ScenarioPresetPicker, { getPresetScenarios } from '../common/ScenarioPresetPicker';
 import { getHistoricalCoverage } from '../../data/historicalAssets';
 import { getCommonCoverage, getFamilyDurationPresets, LEVERAGE_FAMILIES } from '../../data/leverageFamilies';
+
+/** One tap to the horizons people pick most; the stepper covers the years between. */
+const PERIOD_PRESETS = [5, 10, 20, 30];
 
 interface SimulationControlsProps {
   mode: SimulationMode;
@@ -76,18 +80,30 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     </div>}
   </>);
 
+  const maxYears = props.params.cycle === 'DAILY' ? 30 : 50;
+  const years = props.params.years;
+  const setYears = (next: number) => updateParam('years', Math.min(Math.max(next, 1), maxYears));
   const projectionPeriod = (
     <div className="ui-field">
-      <label htmlFor="years-range" className="ui-field-label">투자 기간 (년)</label>
-      <div className="flex h-field min-w-0 items-center gap-3">
-        <div className="flex h-field min-w-0 flex-1 items-center rounded-pill border border-apple-hairline bg-apple-canvas px-4">
-          <input id="years-range" type="range" min="1" max={props.params.cycle === 'DAILY' ? 30 : 50}
-            value={props.params.years} onChange={(event) => updateParam('years', Number(event.target.value))}
-            aria-label="투자 기간 조절" className="h-11 w-full cursor-pointer accent-apple-primary" />
-        </div>
-        <NumericInput id="years-number" aria-label="투자 기간 직접 입력" value={props.params.years}
-          onChange={(value) => updateParam('years', value)}
-          className="w-20 shrink-0 text-center" />
+      <label htmlFor="years-number" className="ui-field-label">투자 기간 (년)</label>
+      <div className="ui-stepper">
+        <button type="button" className="ui-stepper-button" aria-label="투자 기간 1년 줄이기"
+          disabled={years <= 1} onClick={() => setYears(years - 1)}>
+          <Minus size={18} aria-hidden="true" />
+        </button>
+        <NumericInput id="years-number" aria-label="투자 기간 직접 입력" value={years}
+          onChange={(value) => updateParam('years', value)} />
+        <button type="button" className="ui-stepper-button" aria-label="투자 기간 1년 늘리기"
+          disabled={years >= maxYears} onClick={() => setYears(years + 1)}>
+          <Plus size={18} aria-hidden="true" />
+        </button>
+      </div>
+      <div role="group" aria-label="자주 쓰는 투자 기간" className="flex flex-wrap gap-1">
+        {PERIOD_PRESETS.filter((preset) => preset <= maxYears).map((preset) => (
+          <button key={preset} type="button" className="ui-quick-chip" aria-pressed={years === preset} onClick={() => setYears(preset)}>
+            {preset}년
+          </button>
+        ))}
       </div>
     </div>
   );

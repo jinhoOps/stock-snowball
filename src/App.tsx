@@ -49,6 +49,7 @@ import {
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
 import { usePrefersReducedMotion } from './lib/animation/usePrefersReducedMotion';
 import { SERIES_PALETTE } from './styles/chartPalette';
+import { Tooltip } from './components/common/Tooltip';
 import { CYCLE_LABEL } from './lib/format/cycleLabel';
 
 // The current scenario is Frost Blue; saved scenarios take the next hues, with red last so a saved plan does not read as a loss.
@@ -714,6 +715,16 @@ function App() {
     `${projectionParams.years}년`,
     projectionParams.accountType === 'ISA' ? 'ISA' : '일반 계좌',
   ].join(' · ');
+  // The 10th–90th percentile range and the chance of ending below the money put in, on the headline's basis.
+  const projectionRange = mode === 'PROJECTION' ? (() => {
+    const pick = (result: SimulationResult) => (showRealValue ? result.realValue : result.postTaxValue);
+    const loss = activeSimulation.lossProbability;
+    return {
+      low: formatResultAmount(pick(activeSimulation.pessimistic.at(-1)!)),
+      high: formatResultAmount(pick(activeSimulation.optimistic.at(-1)!)),
+      loss: loss > 0 && loss < 0.01 ? '1% 미만' : `${Math.round(loss * 100)}%`,
+    };
+  })() : null;
   const resultHeadline = backtestRangeError ? null : (
     <ResultHeadline
       ref={setResultHeadlineElement}
@@ -726,6 +737,15 @@ function App() {
       onMilestoneDone={() => setMilestoneSticker(null)}
       align={mode === 'BACKTEST' ? 'start' : 'center'}
     >
+      {projectionRange && (
+        <div data-testid="projection-range" className="mt-2 flex flex-col items-center gap-x-1 break-keep text-caption text-apple-ink-muted-64 sm:flex-row sm:flex-wrap sm:justify-center">
+          <span>시장에 따라 {projectionRange.low} ~ {projectionRange.high}</span>
+          <span aria-hidden="true" className="hidden sm:inline">·</span>
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">원금 손실 가능성 {projectionRange.loss}
+          <Tooltip content="같은 수익률과 변동성으로 시장 흐름 4,000가지를 시뮬레이션해, 10번 중 8번이 들어오는 범위(하위 10%~상위 10%)를 보여줍니다. 원금 손실 가능성은 끝났을 때 누적 원금보다 적은 경우의 비율입니다. 과거 수익률이 미래를 보장하지 않습니다." />
+          </span>
+        </div>
+      )}
       {mode === 'PROJECTION' && (
         <button
           type="button"
@@ -839,7 +859,7 @@ function App() {
                               </div>
                               <span className="font-bold text-apple-ink text-body-strong mb-1">{SnowballEngine.formatBigNumber(p.value, currency)}</span>
                               {p.optimistic && p.pessimistic && (
-                                <span className="text-fine-print leading-relaxed text-apple-ink-muted-48">범위: {SnowballEngine.formatBigNumber(p.pessimistic, currency)} ~ {SnowballEngine.formatBigNumber(p.optimistic, currency)}</span>
+                                <span className="text-fine-print leading-relaxed text-apple-ink-muted-48">10~90% 범위: {SnowballEngine.formatBigNumber(p.pessimistic, currency)} ~ {SnowballEngine.formatBigNumber(p.optimistic, currency)}</span>
                               )}
                             </div>
                           ))}

@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback, useRef, useId } from 'react';
 import { DRAW_CLASS, useLineDraw } from '../../lib/animation/useLineDraw';
 import { Group } from '@visx/group';
 import { LinePath, Bar, Area } from '@visx/shape';
@@ -54,6 +54,8 @@ export interface SnowballChartProps {
 }
 
 const MS_PER_MONTH = 365 * 86_400_000 / 12;
+/** The value axis reaches at most this multiple of the median path, so a wide upper range cannot flatten the line. */
+const BAND_HEADROOM = 1.8;
 
 // Resolve each scenario by its own dates; values do not extend beyond its coverage.
 const findPointOnOrBefore = (points: readonly SnowballScenarioPoint[], targetTime: number): SnowballScenarioPoint | null => {
@@ -95,6 +97,7 @@ const SnowballChartInner: React.FC<{
   onPointSelect?: SnowballChartProps['onPointSelect'];
   onPointHover?: SnowballChartProps['onPointHover'];
 }> = React.memo(({ scenarios, width, height, comparisonMode, showRealValue, onPointSelect, onPointHover }) => {
+  const plotClipId = `chart-plot-${useId().replace(/:/g, '')}`;
   const margin = useMemo(() => ({
     top: 24, 
     right: width > 520 ? 32 : 16, 
@@ -149,7 +152,12 @@ const SnowballChartInner: React.FC<{
 
   const valueScale = useMemo(() => {
     if (allProcessedPoints.length === 0) return scaleLinear({ range: [innerHeight, 0], domain: [0, 1000000] });
-    const maxValue = Math.max(...allProcessedPoints.map(d => Math.max(d.value, d.optimistic || 0, d.contribution || 0))) * 1.1;
+    // Scale to the median path, not the range's long upper tail; the band is clipped where it runs past the top.
+    const maxValue = Math.max(...allProcessedPoints.map(d => Math.max(
+      d.value,
+      Math.min(d.optimistic || 0, d.value * BAND_HEADROOM),
+      d.contribution || 0,
+    ))) * 1.1;
     return scaleLinear({
       range: [innerHeight, 0],
       domain: [0, maxValue],
@@ -239,6 +247,8 @@ const SnowballChartInner: React.FC<{
           <GridColumns scale={xScale} height={innerHeight} stroke="var(--apple-divider-soft)" strokeDasharray="4,4" />
 
           {/* 1. Range Areas (Cone of Uncertainty) */}
+          <clipPath id={plotClipId}><rect width={innerWidth} height={innerHeight} /></clipPath>
+          <g clipPath={`url(#${plotClipId})`}>
           {processedScenarios.map(s => (
             s.transformedPoints.some(p => p.pessimistic !== undefined) && (
               <Area<any>
@@ -254,6 +264,7 @@ const SnowballChartInner: React.FC<{
               />
             )
           ))}
+          </g>
 
           {/* 2. Main Lines */}
           <g ref={linesRef}>
@@ -320,7 +331,7 @@ const SnowballChartInner: React.FC<{
                 <g key={`marker-${i}`}>
                   <circle cx={tooltipLeft} cy={valueScale(p.value)} r={5} fill="white" stroke={p.color} strokeWidth={2} fillOpacity={showRealValue ? 0.3 : 1} strokeOpacity={showRealValue ? 0.3 : 1} pointerEvents="none" />
                   {showRealValue && p.realValue && <circle cx={tooltipLeft} cy={valueScale(p.realValue)} r={5} fill="white" stroke={p.color} strokeWidth={2} pointerEvents="none" />}
-                  {p.optimistic && <circle cx={tooltipLeft} cy={valueScale(p.optimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
+                  {p.optimistic && valueScale(p.optimistic) >= 0 && <circle cx={tooltipLeft} cy={valueScale(p.optimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
                   {p.pessimistic && <circle cx={tooltipLeft} cy={valueScale(p.pessimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
                   {p.contribution && <circle cx={tooltipLeft} cy={valueScale(p.contribution)} r={3} fill="var(--apple-gray-400)" pointerEvents="none" />}
                 </g>
@@ -380,9 +391,9 @@ const SnowballChartInner: React.FC<{
                   )}
                   {p.optimistic && p.pessimistic && (
                     <div className="flex justify-between pl-3 text-fine-print leading-relaxed text-apple-ink-muted-48">
-                      <span>최저 {formatCurrency(p.pessimistic)}</span>
+                      <span>하위 10% {formatCurrency(p.pessimistic)}</span>
                       <span className="mx-1">~</span>
-                      <span>최고 {formatCurrency(p.optimistic)}</span>
+                      <span>상위 10% {formatCurrency(p.optimistic)}</span>
                     </div>
                   )}
                 </div>

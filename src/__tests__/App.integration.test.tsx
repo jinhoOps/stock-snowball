@@ -363,6 +363,11 @@ describe('App backtest selection', () => {
     expect(usd * 1000).toBeCloseTo(krw, 2);
   });
 
+  it('shows the likely range and the chance of ending below the money put in', () => {
+    render(<App />);
+    expect(screen.getByTestId('projection-range').textContent).toMatch(/시장에 따라 .+ ~ .+원금 손실 가능성 (\d+%|1% 미만)/);
+  });
+
   it('closes the selected projection detail once an edit changes the chart', async () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'select projection point' }));
