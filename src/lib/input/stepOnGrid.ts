@@ -40,7 +40,7 @@ export const CONTRIBUTION_PRESETS: Record<'KRW' | 'USD', Record<ContributionCycl
   KRW: {
     DAILY: [10_000, 30_000, 50_000, 100_000],
     WEEKLY: [50_000, 100_000, 200_000, 500_000],
-    MONTHLY: [300_000, 500_000, 1_000_000, 2_000_000],
+    MONTHLY: [500_000, 1_000_000, 2_000_000],
   },
   USD: {
     DAILY: [10, 20, 50, 100],
