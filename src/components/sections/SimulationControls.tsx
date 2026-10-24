@@ -1,5 +1,4 @@
 import React from 'react';
-import { Minus, Plus } from 'lucide-react';
 import { HistoricalAssetType, SimulationMode, SimulationParams } from '../../types/finance';
 import Button from '../common/Button';
 import { Field } from '../common/Field';
@@ -7,11 +6,13 @@ import HistoricalScenarioPicker from '../common/HistoricalScenarioPicker';
 import DateRangeControl from '../common/DateRangeControl';
 import SegmentedControl from '../common/SegmentedControl';
 import Surface from '../common/Surface';
+import Stepper from '../common/Stepper';
 import Notice from '../common/Notice';
 import { BigNumberHelper } from '../common/BigNumberHelper';
 import { NumericInput } from '../common/NumericInput';
 import ScenarioPresetPicker, { getPresetScenarios } from '../common/ScenarioPresetPicker';
 import { getHistoricalCoverage } from '../../data/historicalAssets';
+import { CONTRIBUTION_PRESETS, presetAmountLabel, stepAmount } from '../../lib/input/stepOnGrid';
 import { getCommonCoverage, getFamilyDurationPresets, LEVERAGE_FAMILIES } from '../../data/leverageFamilies';
 
 /** One tap to the horizons people pick most; the stepper covers the years between. */
@@ -59,18 +60,39 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     props.onUpdate({ [key]: value });
   };
 
+  const contributionName = isValueAveraging ? '월간 목표 증가액' : '납입액';
+  const contributionLabel = `${contributionName} (${props.currency})`;
+  const contributionPresets = CONTRIBUTION_PRESETS[props.currency][isValueAveraging ? 'MONTHLY' : props.params.cycle];
+  const setContribution = (value: number) => props.onUpdate({ contribution: value,
+    ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
+  });
+
   const investmentFields = (<>
     <Field label={`초기 자산 (${props.currency})`} htmlFor="principal-input"
-      hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} />}>
+      hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} simplified={false} />}>
       <NumericInput value={props.params.principal} onChange={(value) => updateParam('principal', value)} />
     </Field>
 
-    <Field label={`${isValueAveraging ? '월간 목표 증가액' : '납입액'} (${props.currency})`} htmlFor="monthly-investment-input"
-      hint={<BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} showExchangeRate />}>
-      <NumericInput value={contributionInput} onChange={(value) => props.onUpdate({ contribution: value,
-        ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
-      })} />
-    </Field>
+    <div className="ui-field">
+      <label htmlFor="monthly-investment-input" className="ui-field-label">{contributionLabel}</label>
+      <Stepper id="monthly-investment-input" aria-describedby="monthly-investment-input-hint"
+        decreaseLabel={`${contributionName} 줄이기`} increaseLabel={`${contributionName} 늘리기`}
+        canDecrease={contributionInput > 0}
+        onDecrease={() => setContribution(stepAmount(contributionInput, -1, props.currency))}
+        onIncrease={() => setContribution(stepAmount(contributionInput, 1, props.currency))}>
+        <NumericInput value={contributionInput} onChange={setContribution} />
+      </Stepper>
+      <div id="monthly-investment-input-hint" className="ui-field-hint">
+        <BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} showExchangeRate simplified={false} />
+      </div>
+      <div role="group" aria-label={`자주 쓰는 ${contributionName}`} className="flex flex-wrap gap-1">
+        {contributionPresets.map((preset) => (
+          <button key={preset} type="button" className="ui-quick-chip" aria-pressed={contributionInput === preset} onClick={() => setContribution(preset)}>
+            {presetAmountLabel(preset, props.currency)}
+          </button>
+        ))}
+      </div>
+    </div>
 
     {isValueAveraging ? <p className="ui-field-hint self-center">매월 목표 자산에 부족한 금액만 매수합니다.</p> : <div className="ui-field">
       <span className="ui-field-label">납입 주기</span>
@@ -86,18 +108,12 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
   const projectionPeriod = (
     <div className="ui-field">
       <label htmlFor="years-number" className="ui-field-label">투자 기간 (년)</label>
-      <div className="ui-stepper">
-        <button type="button" className="ui-stepper-button" aria-label="투자 기간 1년 줄이기"
-          disabled={years <= 1} onClick={() => setYears(years - 1)}>
-          <Minus size={18} aria-hidden="true" />
-        </button>
+      <Stepper decreaseLabel="투자 기간 1년 줄이기" increaseLabel="투자 기간 1년 늘리기"
+        canDecrease={years > 1} canIncrease={years < maxYears}
+        onDecrease={() => setYears(years - 1)} onIncrease={() => setYears(years + 1)}>
         <NumericInput id="years-number" aria-label="투자 기간 직접 입력" value={years}
           onChange={(value) => updateParam('years', value)} />
-        <button type="button" className="ui-stepper-button" aria-label="투자 기간 1년 늘리기"
-          disabled={years >= maxYears} onClick={() => setYears(years + 1)}>
-          <Plus size={18} aria-hidden="true" />
-        </button>
-      </div>
+      </Stepper>
       <div role="group" aria-label="자주 쓰는 투자 기간" className="flex flex-wrap gap-1">
         {PERIOD_PRESETS.filter((preset) => preset <= maxYears).map((preset) => (
           <button key={preset} type="button" className="ui-quick-chip" aria-pressed={years === preset} onClick={() => setYears(preset)}>

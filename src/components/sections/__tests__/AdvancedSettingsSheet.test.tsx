@@ -16,6 +16,9 @@ function SettingsHarness({ mode = 'PROJECTION', initialParams = DEFAULT_PROJECTI
     <button onClick={() => setOpen(true)}>설정 열기</button>
     <output aria-label="적용된 납입 주기">{params.cycle}</output>
     <output aria-label="적용된 계좌 유형">{params.accountType}</output>
+    <output aria-label="적용된 수익률">{params.rate}</output>
+    <output aria-label="적용된 물가상승률">{params.inflationRate}</output>
+    <output aria-label="적용된 환율">{rate}</output>
     <AdvancedSettingsSheet mode={mode} isOpen={open} onClose={() => setOpen(false)} params={params}
       onUpdate={(next) => setParams((previous) => ({ ...previous, ...next }))}
       exchangeRate={rate} setExchangeRate={setRate} onReset={() => undefined} />
@@ -73,4 +76,41 @@ it('displays the saved reference rate used by the projection', async () => {
   render(<SettingsHarness initialParams={{ ...DEFAULT_PROJECTION_PARAMS, assetType: 'SPY', annualRateOverride: 0.123 }} />);
   await user.click(screen.getByRole('button', { name: '설정 열기' }));
   expect(screen.getByLabelText('과거 데이터 기대 수익률').textContent).toContain('12.3%');
+});
+
+it('edits a custom rate without float tails, by typing or by 0.5%p steps', async () => {
+  const user = userEvent.setup();
+  render(<SettingsHarness initialParams={{ ...DEFAULT_PROJECTION_PARAMS, assetType: 'CUSTOM', rate: 0.07 }} />);
+  await user.click(screen.getByRole('button', { name: '설정 열기' }));
+  const rate = screen.getByLabelText('기대 수익률 (%)') as HTMLInputElement;
+  expect(rate.value).toBe('7');
+
+  await user.click(screen.getByRole('button', { name: '기대 수익률 0.5%p 높이기' }));
+  expect(rate.value).toBe('7.5');
+  await user.clear(rate);
+  expect(rate.value).toBe('');
+  await user.type(rate, '9.25');
+  await user.click(screen.getByRole('button', { name: '기대 수익률 0.5%p 낮추기' }));
+  expect(rate.value).toBe('9');
+  await user.click(screen.getByRole('button', { name: '설정 적용' }));
+  expect(screen.getByLabelText('적용된 수익률').textContent).toBe('0.09');
+});
+
+it('lets inflation and exchange rate fields be cleared and retyped', async () => {
+  const user = userEvent.setup();
+  render(<SettingsHarness />);
+  await user.click(screen.getByRole('button', { name: '설정 열기' }));
+  const inflation = screen.getByLabelText('물가상승률 (%)') as HTMLInputElement;
+  expect(inflation.value).toBe('3.25');
+  await user.clear(inflation);
+  await user.type(inflation, '2.9');
+  expect(inflation.value).toBe('2.9');
+
+  const exchange = screen.getByLabelText('기준 환율 (KRW/USD)') as HTMLInputElement;
+  await user.clear(exchange);
+  expect(exchange.value).toBe('');
+  await user.type(exchange, '1380.5');
+  await user.click(screen.getByRole('button', { name: '설정 적용' }));
+  expect(screen.getByLabelText('적용된 물가상승률').textContent).toBe('0.029');
+  expect(screen.getByLabelText('적용된 환율').textContent).toBe('1380.5');
 });

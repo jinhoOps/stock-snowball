@@ -3,10 +3,19 @@ import { RotateCcw } from 'lucide-react';
 import { StrategyType, AssetType, SimulationParams, SimulationMode, DEFAULT_TAX_CONFIG } from '../../types/finance';
 import { calculateMedianCAGR } from '../../data/historicalAssets';
 import Button from '../common/Button';
-import { Field, Input, Select } from '../common/Field';
+import { DecimalInput } from '../common/DecimalInput';
+import { Field, Select } from '../common/Field';
 import SegmentedControl from '../common/SegmentedControl';
 import Sheet from '../common/Sheet';
+import Stepper from '../common/Stepper';
 import { Tooltip } from '../common/Tooltip';
+import { stepOnGrid } from '../../lib/input/stepOnGrid';
+
+/** One tap of the expected-return stepper, in percentage points. */
+const RATE_STEP_PERCENT = 0.5;
+/** Percent shown in the field ↔ fraction stored in params, without float tails like 7.000000000000001. */
+const toPercent = (fraction: number) => Number((fraction * 100).toFixed(4));
+const toFraction = (percent: number) => Number((percent / 100).toFixed(6));
 
 interface AdvancedSettingsSheetProps {
   mode: SimulationMode;
@@ -82,8 +91,12 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
           </Select>
         </Field>
         {isProjection && (localParams.assetType === 'CUSTOM' ? (
-          <Field htmlFor="annual-rate-input" label="기대 수익률 (%)">
-            <Input type="number" step="0.1" value={localParams.rate * 100} onChange={(event) => updateParam('rate', Number(event.target.value) / 100)} />
+          <Field htmlFor="annual-rate-input" label="기대 수익률 (%)" hint="연평균 수익률입니다. 버튼은 0.5%p씩 움직입니다.">
+            <Stepper decreaseLabel="기대 수익률 0.5%p 낮추기" increaseLabel="기대 수익률 0.5%p 높이기"
+              onDecrease={() => updateParam('rate', toFraction(stepOnGrid(toPercent(localParams.rate), RATE_STEP_PERCENT, -1)))}
+              onIncrease={() => updateParam('rate', toFraction(stepOnGrid(toPercent(localParams.rate), RATE_STEP_PERCENT, 1)))}>
+              <DecimalInput allowNegative value={toPercent(localParams.rate)} onChange={(percent) => updateParam('rate', toFraction(percent))} />
+            </Stepper>
           </Field>
         ) : (
           <div className="ui-field">
@@ -104,7 +117,7 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
         </Field>}
         {isValueAveraging && <p className="ui-field-hint">매월 목표 자산에 부족한 금액만 매수합니다. 월간 목표 증가액은 기본 입력에서 조정합니다.</p>}
         <Field htmlFor="exchange-rate-input" label="기준 환율 (KRW/USD)" hint="원화·달러 전환 및 시나리오 비교에 적용합니다.">
-          <Input type="number" min="1" value={localExchangeRate} onChange={(event) => setLocalExchangeRate(Math.max(1, Number(event.target.value)))} />
+          <DecimalInput value={localExchangeRate} onChange={(rate) => setLocalExchangeRate(Math.max(1, rate))} />
         </Field>
         <div className="ui-field">
           <div className="ui-field-label">
@@ -116,7 +129,7 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
           <p className="ui-field-hint">{isProjection ? '세금은 계좌 유형에 따른 단순 추정치입니다.' : '백테스트는 매수 수수료와 종료 시 ISA 과세만 반영합니다.'}</p>
         </div>
         <Field htmlFor="inflation-rate-input" label="물가상승률 (%)" hint="자산을 계산 시작 시점의 구매력으로 환산할 때 적용합니다.">
-          <Input type="number" step="0.1" value={localParams.inflationRate * 100} onChange={(event) => updateParam('inflationRate', Number(event.target.value) / 100)} />
+          <DecimalInput allowNegative value={toPercent(localParams.inflationRate)} onChange={(percent) => updateParam('inflationRate', toFraction(percent))} />
         </Field>
         <div className="mt-2 border-t border-apple-hairline pt-6">
           <Button variant="danger" onClick={onReset} className="w-full">

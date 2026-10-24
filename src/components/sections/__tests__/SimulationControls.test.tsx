@@ -115,6 +115,44 @@ describe('SimulationControls', () => {
     expect((screen.getByRole('button', { name: '투자 기간 1년 늘리기' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('steps the contribution by about a tenth and offers amounts that fit the cycle', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    const { rerender } = render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} />);
+    expect(screen.getByLabelText('납입액 (KRW)').getAttribute('aria-describedby')).toBe('monthly-investment-input-hint');
+
+    await user.click(screen.getByRole('button', { name: '납입액 늘리기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 32_000 });
+    await user.click(screen.getByRole('button', { name: '납입액 줄이기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 28_000 });
+
+    const daily = within(screen.getByRole('group', { name: '자주 쓰는 납입액' }));
+    expect(daily.getByRole('button', { name: '3만' }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(daily.getByRole('button', { name: '10만' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 100_000 });
+
+    rerender(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, cycle: 'MONTHLY', contribution: 500_000 }}
+      currency="USD" onUpdate={onUpdate} />);
+    const monthly = within(screen.getByRole('group', { name: '자주 쓰는 납입액' }));
+    expect(monthly.getAllByRole('button').map((button) => button.textContent)).toEqual(['$200', '$500', '$1,000', '$2,000']);
+  });
+
+  it('keeps value-averaging targets in sync when stepped', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, strategyType: 'VALUE_AVERAGING', cycle: 'MONTHLY', strategyTargetGrowth: 500_000 }}
+      onUpdate={onUpdate} />);
+    await user.click(screen.getByRole('button', { name: '월간 목표 증가액 늘리기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 550_000, strategyTargetGrowth: 550_000 });
+    expect(within(screen.getByRole('group', { name: '자주 쓰는 월간 목표 증가액' })).getByRole('button', { name: '50만' })
+      .getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('disables the contribution minus button at zero', () => {
+    render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, contribution: 0 }} />);
+    expect((screen.getByRole('button', { name: '납입액 줄이기' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('lets the existing parent normalization handle a cleared duration', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn();

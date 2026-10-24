@@ -40,7 +40,8 @@ test('projection uses aligned fields, readable metrics and full-size choices', a
     await expectTouchTargets(page.getByRole('group', { name: group }).getByRole('button'));
   }
   const principal = page.getByLabel('초기 자산 (KRW)');
-  const contribution = page.getByLabel('납입액 (KRW)');
+  // The contribution field is a − value + stepper; its outer box is the 48px field.
+  const contribution = page.locator('.ui-stepper').filter({ has: page.getByLabel('납입액 (KRW)') });
   const principalBounds = await principal.boundingBox();
   const contributionBounds = await contribution.boundingBox();
   expect(principalBounds?.height).toBe(48);
