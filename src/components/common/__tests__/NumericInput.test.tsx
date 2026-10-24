@@ -47,4 +47,20 @@ describe('NumericInput', () => {
     expect(input.value).toBe('0');
     expect(onValue).toHaveBeenLastCalledWith(0);
   });
+
+  it('deletes the digit after a separator on forward delete', async () => {
+    const onValue = vi.fn();
+    render(<Controlled initial={1234} onValue={onValue} />);
+    const input = screen.getByRole('textbox', { name: '금액' }) as HTMLInputElement;
+    input.focus();
+    input.setSelectionRange(1, 1); // right before the comma in "1,234"
+    await userEvent.keyboard('{Delete}');
+    expect(input.value).toBe('134');
+    expect(onValue).toHaveBeenLastCalledWith(134);
+  });
+
+  it('shows a converted fractional amount as a whole number, never with commas in the decimals', () => {
+    render(<NumericInput aria-label="금액" value={7407.407407407408} onChange={() => {}} />);
+    expect((screen.getByRole('textbox', { name: '금액' }) as HTMLInputElement).value).toBe('7,407');
+  });
 });

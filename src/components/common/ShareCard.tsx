@@ -2,6 +2,7 @@ import React from 'react';
 import { Snowflake, ArrowRight } from 'lucide-react';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { ContributionCycle } from '../../types/finance';
+import { CYCLE_LABEL } from '../../lib/format/cycleLabel';
 
 interface ShareCardProps {
   scenarioName: string;
@@ -21,12 +22,6 @@ interface ShareCardProps {
   currency: 'KRW' | 'USD';
   cardRef: React.RefObject<HTMLDivElement | null>;
 }
-
-const CYCLE_LABEL: Record<ContributionCycle, string> = {
-  DAILY: '매일',
-  WEEKLY: '매주',
-  MONTHLY: '매월',
-};
 
 const ShareCard: React.FC<ShareCardProps> = ({
   scenarioName,

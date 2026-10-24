@@ -112,9 +112,10 @@ vi.mock('../components/sections/SimulationControls', () => ({
     params: { startDate?: string; endDate?: string };
     rangeNotice?: string | null;
     selectedAssets: HistoricalAssetType[];
-    onUpdate: (params: { startDate: string; endDate: string }) => void;
+    onUpdate: (params: { startDate?: string; endDate?: string; contribution?: number }) => void;
   }) => (
     <>
+      <button onClick={() => onUpdate({ contribution: 1_234_567 })}>raise contribution</button>
       <button onClick={() => {
         const coverage = getCommonCoverage(selectedAssets, getHistoricalCoverage);
         onUpdate({ startDate: coverage.startDate, endDate: coverage.endDate });
@@ -360,6 +361,23 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'display USD' }));
     const usd = Number(screen.getByTestId('kpi-values').textContent?.split('|')[0]);
     expect(usd * 1000).toBeCloseTo(krw, 2);
+  });
+
+  it('closes the selected projection detail once an edit changes the chart', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'select projection point' }));
+    expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'raise contribution' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: '닫기' })).toBeNull());
+  });
+
+  it('credits a loaded scenario rate to the saved scenario, not to past returns', () => {
+    scenarioState.scenarios = [savedScenario({ name: 'saved rate', simulationMode: 'PROJECTION', assetType: 'SPY', annualRate: 0.12 })];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'saved rate 불러오기' }));
+    expect(screen.getByText(/연 12\.0% \(저장한 수익률\)/)).toBeTruthy();
+    expect(screen.queryByText(/SPY 과거 수익률/)).toBeNull();
   });
 
   it('converts a saved USD projection into the current KRW comparison currency', () => {

@@ -44,11 +44,15 @@ const KPI_FIRST_DELAY_MS = 100;
  * Each card answers a hover or tap with its own small snow reaction:
  * deposits pile up and melt, earnings roll into a growing snowball, the yearly rate twinkles.
  */
-function playDecoration(card: HTMLElement, decoration: Decoration): JSAnimation[] {
+function playDecoration(card: HTMLElement, decoration: Decoration): { animations: JSAnimation[]; endsAt: number } {
   const pick = (selector: string) => Array.from(card.querySelectorAll<HTMLElement>(selector));
   if (decoration === 'pile') {
-    return [
-      ...pick('.kpi-flake').map((flake, index) => animate(flake, {
+    const flakes = pick('.kpi-flake');
+    const pileDelay = 350;
+    const pileDuration = 2000;
+    // anime.js reports duration without delay, so track when the last delayed piece finishes ourselves.
+    return { endsAt: Math.max((flakes.length - 1) * 90 + 1000, pileDelay + pileDuration), animations: [
+      ...flakes.map((flake, index) => animate(flake, {
         translateY: [-6, card.clientHeight * 0.8],
         translateX: [0, index % 2 ? 6 : -6],
         opacity: [0, 1, 0],
@@ -56,26 +60,26 @@ function playDecoration(card: HTMLElement, decoration: Decoration): JSAnimation[
         duration: 1000,
         ease: 'inQuad',
       })),
-      ...pick('.kpi-snow-pile').map((pile) => animate(pile, { scaleY: [0, 1, 1, 1], opacity: [0, 1, 1, 0], delay: 350, duration: 2000, ease: 'outCubic' })),
-    ];
+      ...pick('.kpi-snow-pile').map((pile) => animate(pile, { scaleY: [0, 1, 1, 1], opacity: [0, 1, 1, 0], delay: pileDelay, duration: pileDuration, ease: 'outCubic' })),
+    ] };
   }
   if (decoration === 'roll') {
-    return pick('.kpi-roll').map((ball) => animate(ball, {
+    return { endsAt: 1400, animations: pick('.kpi-roll').map((ball) => animate(ball, {
       translateX: [0, Math.max(card.clientWidth - 40, 40)],
       rotate: [0, 540],
       scale: [0.5, 1.6],
       opacity: [0, 1, 1, 0],
       duration: 1400,
       ease: 'inOutSine',
-    }));
+    })) };
   }
-  return pick('.kpi-twinkle').map((flake) => animate(flake, {
+  return { endsAt: 1300, animations: pick('.kpi-twinkle').map((flake) => animate(flake, {
     rotate: [0, 180],
     scale: [0.6, 1.25, 1],
     opacity: [0, 1, 0.8, 0],
     duration: 1300,
     ease: 'outQuad',
-  }));
+  })) };
 }
 
 const KPICard = ({ label, value, formatter, detail, subValue, subFormatter, index, decoration, className = '' }: KPICardProps) => {
@@ -92,9 +96,9 @@ const KPICard = ({ label, value, formatter, detail, subValue, subFormatter, inde
 
   const play = () => {
     if (prefersReducedMotion || !cardRef.current || running.current.length) return;
-    running.current = playDecoration(cardRef.current, decoration);
-    const longest = Math.max(...running.current.map((animation) => animation.duration), 0);
-    window.setTimeout(stop, longest + 50);
+    const { animations, endsAt } = playDecoration(cardRef.current, decoration);
+    running.current = animations;
+    window.setTimeout(stop, endsAt + 50);
   };
 
   return (

@@ -11,6 +11,8 @@ interface NumericInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
 }
 
 const groupDigits = (digits: string) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+/** The field holds whole numbers; a converted value like 7407.41 shows as 7407. */
+const toDigits = (value: number) => (Number.isFinite(value) ? Math.round(value) : 0).toString();
 
 /** Caret index in `formatted` that sits right after the `digitCount`-th digit. */
 const caretAfterDigits = (formatted: string, digitCount: number) => {
@@ -37,13 +39,13 @@ export const NumericInput: React.FC<NumericInputProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingCaret = useRef<number | null>(null);
-  const [digits, setDigits] = useState<string>(value.toString());
+  const [digits, setDigits] = useState<string>(toDigits(value));
   const [isFocused, setIsFocused] = useState(false);
 
   // Sync with external value changes (like currency conversion)
   useEffect(() => {
     if (!isFocused) {
-      setDigits(value.toString());
+      setDigits(toDigits(value));
     }
   }, [value, isFocused]);
 
@@ -59,9 +61,13 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     let digitsBeforeCaret = typed.slice(0, caret).replace(/[^0-9]/g, '').length;
     let rawValue = typed.replace(/[^0-9]/g, '');
 
-    // Backspace over a separator removes the digit in front of it.
+    // Deleting only a separator removes the digit beside it:
+    // Backspace takes the one before the comma, Delete the one after.
     const deletedOnlySeparator = rawValue === digits && typed.length < groupDigits(digits).length;
-    if (deletedOnlySeparator && digitsBeforeCaret > 0) {
+    const forward = (e.nativeEvent as InputEvent).inputType === 'deleteContentForward';
+    if (deletedOnlySeparator && forward) {
+      rawValue = rawValue.slice(0, digitsBeforeCaret) + rawValue.slice(digitsBeforeCaret + 1);
+    } else if (deletedOnlySeparator && digitsBeforeCaret > 0) {
       rawValue = rawValue.slice(0, digitsBeforeCaret - 1) + rawValue.slice(digitsBeforeCaret);
       digitsBeforeCaret -= 1;
     }

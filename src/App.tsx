@@ -49,11 +49,10 @@ import {
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
 import { usePrefersReducedMotion } from './lib/animation/usePrefersReducedMotion';
 import { SERIES_PALETTE } from './styles/chartPalette';
+import { CYCLE_LABEL } from './lib/format/cycleLabel';
 
 // The current scenario is Frost Blue; saved scenarios take the next hues, with red last so a saved plan does not read as a loss.
 const SCENARIO_COLORS = [SERIES_PALETTE[0], ...SERIES_PALETTE.slice(2), SERIES_PALETTE[1]];
-
-const CYCLE_LABEL = { DAILY: '매일', WEEKLY: '매주', MONTHLY: '매월' } as const;
 
 export const resetBacktestSelection = () => ({
   params: { ...DEFAULT_BACKTEST_PARAMS },
@@ -271,6 +270,7 @@ function App() {
 
   const handleCurrencyChange = (newCurrency: 'KRW' | 'USD') => {
     if (newCurrency === currency) return;
+    moveBaselineSilently();
 
     // Convert values for both modes
     const convert = (params: SimulationParams) => ({
@@ -466,12 +466,14 @@ function App() {
     : '연복리 수익률 (CAGR)';
   
   // Celebrate only milestones the user reaches by editing inputs (see useMilestoneCelebration).
-  const resultValueKrw = currency === 'KRW' ? activeResult.postTaxValue : activeResult.postTaxValue * exchangeRate;
+  // Judge the number the headline shows: with the real-value toggle on, that is the inflation-adjusted value.
+  const headlineValue = mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue;
+  const resultValueKrw = currency === 'KRW' ? headlineValue : headlineValue * exchangeRate;
   const [milestoneSticker, setMilestoneSticker] = useState<{ id: number; label: string } | null>(null);
   const showMilestoneSticker = useCallback((milestoneKrw: number) => {
     setMilestoneSticker({ id: Date.now(), label: `${SnowballEngine.formatBigNumber(milestoneKrw, 'KRW', true)} 돌파` });
   }, []);
-  const noteUserEdit = useMilestoneCelebration(resultValueKrw, resultNumberRef, showMilestoneSticker);
+  const { noteUserEdit, moveBaselineSilently } = useMilestoneCelebration(resultValueKrw, resultNumberRef, showMilestoneSticker);
   // The toy snowball grows a little with each milestone the current result has passed.
   const toyGrowth = (MILESTONES_KRW.indexOf(milestoneLevel(resultValueKrw)) + 1) / MILESTONES_KRW.length;
   const formatResultAmount = useCallback(
@@ -585,6 +587,8 @@ function App() {
           });
     return [main, ...comparing];
   }, [activeSimulation, activeDisplayHistory, scenarioName, selectedComparisonScenarios, mode, effectiveValueBasis, goldData, backtestRangeError, currency, exchangeRate]);
+  // The detail panel opens on click and would otherwise keep showing numbers from before the last edit.
+  useEffect(() => { setSelectedPoint(null); }, [chartScenarios]);
 
   const handleSaveScenario = async () => {
     if (!scenarioName.trim()) {
@@ -639,6 +643,7 @@ function App() {
   };
 
   const handleLoadScenario = (s: ScenarioDocument) => {
+    moveBaselineSilently();
     const scenarioMode = s.simulationMode || 'PROJECTION';
     setMode(scenarioMode);
     const newParams: SimulationParams = {
@@ -701,9 +706,8 @@ function App() {
 
   const { cardRef: shareCardRef, isExporting, error: shareError, exportImage: handleShare } = useImageExport(scenarioName);
 
-  const headlineValue = mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue;
   const projectionAssumptions = [
-    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.assetType === 'CUSTOM' ? '' : ` (${projectionParams.assetType} 과거 수익률)`}`,
+    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.annualRateOverride !== undefined ? ' (저장한 수익률)' : projectionParams.assetType === 'CUSTOM' ? '' : ` (${projectionParams.assetType} 과거 수익률)`}`,
     isValueAveragingProjection
       ? `매월 목표 +${SnowballEngine.formatBigNumber(projectionParams.strategyTargetGrowth ?? projectionParams.contribution, currency, true)}`
       : `${CYCLE_LABEL[projectionParams.cycle]} ${SnowballEngine.formatBigNumber(projectionParams.contribution, currency, true)}${projectionParams.strategyType === 'STEP_UP' ? ` (매년 +${(projectionParams.strategyIncreaseRate * 100).toFixed(0)}%)` : ''}`,
@@ -739,7 +743,7 @@ function App() {
   return (
     <div className="min-h-screen font-text">
       <GlobalNav
-        mode={mode} onModeChange={setMode}
+        mode={mode} onModeChange={(nextMode) => { moveBaselineSilently(); setMode(nextMode); }}
         currency={currency} onCurrencyChange={handleCurrencyChange}
         onOpenAdvanced={() => setIsAdvancedOpen(true)}
       />
@@ -807,7 +811,7 @@ function App() {
                     mode={mode}
                     comparisonMode={comparingScenarioIds.length > 0}
                     showRealValue={showRealValue}
-                    onShowRealValueChange={setShowRealValue}
+                    onShowRealValueChange={(next) => { moveBaselineSilently(); setShowRealValue(next); }}
                     onPointSelect={setSelectedPoint}
                   />
                 </Surface>

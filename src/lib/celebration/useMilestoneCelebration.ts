@@ -36,7 +36,9 @@ const markCelebrated = (milestone: number) => {
  *
  * Bigger milestones get bigger celebrations (see `celebrationTier`).
  *
- * Returns a function to call whenever the user edits a simulation input.
+ * Returns `noteUserEdit`, to call whenever the user edits a simulation input, and `moveBaselineSilently`,
+ * to call before a change the user did not make by editing (loading a scenario, switching mode or currency).
+ * The second one matters when such a change lands while an edit is still settling.
  */
 export function useMilestoneCelebration(
   valueKrw: number,
@@ -57,7 +59,13 @@ export function useMilestoneCelebration(
 
   useEffect(() => () => clearTimeout(settleTimer.current), []);
 
-  return useCallback(() => {
+  const moveBaselineSilently = useCallback(() => {
+    clearTimeout(settleTimer.current);
+    userChangePending.current = false;
+    baselineLevel.current = milestoneLevel(latestValue.current);
+  }, []);
+
+  const noteUserEdit = useCallback(() => {
     userChangePending.current = true;
     clearTimeout(settleTimer.current);
     settleTimer.current = setTimeout(() => {
@@ -72,4 +80,6 @@ export function useMilestoneCelebration(
       }
     }, SETTLE_MS);
   }, [resultRef]);
+
+  return { noteUserEdit, moveBaselineSilently };
 }

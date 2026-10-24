@@ -98,6 +98,24 @@ describe('KPIGrid', () => {
     expect(revert).toHaveBeenCalled();
   });
 
+  it('keeps the delayed snow pile until it has finished melting', () => {
+    vi.useFakeTimers();
+    try {
+      animate.mockReturnValue({ revert, pause: vi.fn(), duration: 2000 });
+      revert.mockClear();
+      stubMotionPreference(false);
+      render(<KPIGrid {...baseProps} />);
+      fireEvent.pointerEnter(screen.getByText('투자 원금').closest('.kpi-card') as HTMLElement);
+
+      vi.advanceTimersByTime(2200); // the pile starts 350ms late, so it is still fading here
+      expect(revert).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(300);
+      expect(revert).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders no decorations and never animates when reduced motion is requested', () => {
     stubMotionPreference(true);
     render(<KPIGrid {...baseProps} />);

@@ -3,6 +3,7 @@ import type { HistoricalAssetType, SimulationParams } from '../../types/finance'
 import { SnowballEngine } from '../../core/SnowballEngine';
 import Button from '../common/Button';
 import Surface from '../common/Surface';
+import { CYCLE_LABEL } from '../../lib/format/cycleLabel';
 
 interface BacktestConditionsSummaryProps {
   params: SimulationParams;
@@ -13,8 +14,6 @@ interface BacktestConditionsSummaryProps {
   onToggle: () => void;
   controlsId: string;
 }
-
-const CYCLE_LABEL = { DAILY: '매일', WEEKLY: '매주', MONTHLY: '매월' } as const;
 
 /** Compact view of the applied conditions; the full editor opens from here on small screens. */
 export default function BacktestConditionsSummary({ params, selectedAssets, currency, expanded, onToggle, controlsId }: BacktestConditionsSummaryProps) {

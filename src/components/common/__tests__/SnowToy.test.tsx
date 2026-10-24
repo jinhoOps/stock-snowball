@@ -11,9 +11,11 @@ vi.mock('../../../lib/celebration/effects', () => ({
   blizzard: () => blizzard(),
   splat: (...args: unknown[]) => splat(...args),
 }));
-// Finish every animation at once so flights land immediately.
+// Finish every animation at once so flights land immediately (unless a test holds them mid-air).
+let holdAnimations = false;
 vi.mock('animejs/animation', () => ({
   animate: vi.fn((target: Record<string, unknown>, params: Record<string, unknown>) => {
+    if (holdAnimations) return { pause: vi.fn(), revert: vi.fn() };
     if (!(target instanceof Element)) {
       for (const key of ['x', 'y']) if (typeof params[key] === 'number') target[key] = params[key];
     }
@@ -26,6 +28,7 @@ vi.mock('animejs/animation', () => ({
 let reducedMotion = false;
 beforeEach(() => {
   reducedMotion = false;
+  holdAnimations = false;
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query.includes('reduce') && reducedMotion,
     media: query,
@@ -88,6 +91,38 @@ describe('SnowToy', () => {
     fireEvent.click(button);
     expect(splat).toHaveBeenCalledTimes(1);
     expect(throwSnow).not.toHaveBeenCalled();
+  });
+
+  const drag = (button: HTMLElement) => {
+    fireEvent.pointerDown(button, { button: 0, clientX: 300, clientY: 300, pointerId: 1 });
+    vi.advanceTimersByTime(20);
+    fireEvent.pointerMove(button, { clientX: 250, clientY: 260, pointerId: 1 });
+    vi.advanceTimersByTime(20);
+    fireEvent.pointerMove(button, { clientX: 200, clientY: 220, pointerId: 1 });
+  };
+
+  it('still throws on the next tap after the system cancels a drag', () => {
+    render(<SnowToy />);
+    const button = screen.getByRole('button', { name: '눈 뭉치 던지기' });
+    drag(button);
+    fireEvent.pointerCancel(button, { pointerId: 1 });
+    tap();
+    expect(throwSnow).toHaveBeenCalledTimes(1);
+  });
+
+  it('flies home when tapped mid-flight instead of staying parked', () => {
+    const { container } = render(<SnowToy />);
+    const wrapper = container.firstElementChild as HTMLElement;
+    const button = screen.getByRole('button', { name: '눈 뭉치 던지기' });
+    drag(button);
+    holdAnimations = true;
+    fireEvent.pointerUp(button, { pointerId: 1 });
+    expect(wrapper.style.transform).not.toContain('(0px, 0px');
+
+    holdAnimations = false;
+    fireEvent.pointerDown(button, { button: 0, clientX: 200, clientY: 220, pointerId: 2 });
+    fireEvent.pointerUp(button, { pointerId: 2 });
+    expect(wrapper.style.transform).toBe('translate3d(0px, 0px, 0)');
   });
 
   it('shows a one-time hint on a first visit', () => {

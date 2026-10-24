@@ -174,10 +174,25 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
     });
   };
 
+  const isAway = () => offset.current.x !== 0 || offset.current.y !== 0;
+
+  const handlePointerCancel = () => {
+    const current = press.current;
+    press.current = null;
+    // No click follows a cancel, so leave suppressClick alone; just bring the ball back.
+    if (current && isAway()) flyHome();
+  };
+
   const handlePointerUp = () => {
     const current = press.current;
     press.current = null;
-    if (!current?.dragging || !wrapperRef.current || !buttonRef.current) return;
+    if (!current) return;
+    if (!current.dragging) {
+      // A tap mid-flight paused the flight on pointerdown; send the ball home instead of leaving it parked.
+      if (isAway()) flyHome();
+      return;
+    }
+    if (!wrapperRef.current || !buttonRef.current) return;
     suppressClick.current = true;
 
     // Fling with the speed of the last few moves, then splash where it lands.
@@ -236,7 +251,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         aria-label="눈 뭉치 던지기"
         title="눈 뭉치 던지기 · 끌어서 날리기"
         className="snow-toy flex h-14 w-14 touch-none select-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2"
