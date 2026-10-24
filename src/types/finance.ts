@@ -180,10 +180,10 @@ export interface ProductPerformanceResult {
 
 export type ValueBasis = 'NOMINAL' | 'REAL' | 'GOLD';
 
-// KRW per USD; Woori Bank transaction standard rate, effective 2026-09-28.
+// KRW per USD; Woori Bank transaction standard rate, last notice on 2026-10-23.
 // Source: https://sbiz.wooribank.com/biz/jcc?__ID=c009550&withyou=ENENG0190
-// Retrieved: 2026-09-28T13:23:50Z (UTC).
-export const DEFAULT_EXCHANGE_RATE = 1361.00;
+// Retrieved: 2026-10-24T06:37:35Z (UTC).
+export const DEFAULT_EXCHANGE_RATE = 1327.00;
 
 export const DEFAULT_PROJECTION_PARAMS: SimulationParams = {
   principal: 10000000,
@@ -193,7 +193,7 @@ export const DEFAULT_PROJECTION_PARAMS: SimulationParams = {
   years: 10,
   rate: 0.08,
   accountType: 'GENERAL',
-  inflationRate: 0.02,
+  inflationRate: 0.0325,
   strategyType: 'FIXED',
   strategyIncreaseRate: 0.05,
 };
@@ -206,7 +206,7 @@ export const DEFAULT_BACKTEST_PARAMS: SimulationParams = {
   years: 10,
   rate: 0.08,
   accountType: 'GENERAL',
-  inflationRate: 0.02,
+  inflationRate: 0.0325,
   strategyType: 'FIXED',
   strategyIncreaseRate: 0.05,
   startDate: '2010-01-01',
