@@ -83,6 +83,7 @@ const config: Config = {
         nav: '40',
         overlay: '60',
         dialog: '70',
+        'toy-stage': '110',
       },
       boxShadow: {
         card: '0 2px 8px rgb(var(--color-ink) / 0.04)',

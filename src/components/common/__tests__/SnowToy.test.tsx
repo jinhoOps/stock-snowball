@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import SnowToy, { AVALANCHE_COMBO, BLIZZARD_COMBO, COMBO_WINDOW_MS, MAX_COMBO, comboTier } from '../SnowToy';
+import SnowToy, { AVALANCHE_COMBO, BLIZZARD_COMBO, COMBO_WINDOW_MS, FINALE_LOCK_MS, MAX_COMBO, comboTier } from '../SnowToy';
 
 const throwSnow = vi.fn();
 const blizzard = vi.fn();
@@ -9,12 +9,17 @@ const splat = vi.fn();
 const flurry = vi.fn();
 const avalanche = vi.fn();
 const snowstorm = vi.fn();
+const shakeScreen = vi.fn();
 vi.mock('../../../lib/celebration/effects', () => ({
   throwSnow: (...args: unknown[]) => throwSnow(...args),
   blizzard: () => blizzard(),
   flurry: () => flurry(),
   avalanche: () => avalanche(),
   snowstorm: () => snowstorm(),
+  shakeScreen: (...args: unknown[]) => shakeScreen(...args),
+  snowBurst: vi.fn(),
+  snowfall: vi.fn(),
+  buzz: vi.fn(),
   splat: (...args: unknown[]) => splat(...args),
 }));
 // Finish every animation at once so flights land immediately (unless a test holds them mid-air).
@@ -48,6 +53,7 @@ beforeEach(() => {
   flurry.mockClear();
   avalanche.mockClear();
   snowstorm.mockClear();
+  shakeScreen.mockClear();
   localStorage.setItem('snow_toy_hint_seen', '1');
 });
 afterEach(() => {
@@ -84,12 +90,20 @@ describe('SnowToy', () => {
     for (let i = 0; i < AVALANCHE_COMBO; i++) tap();
     expect(avalanche).toHaveBeenCalledTimes(1);
     expect(flurry).toHaveBeenCalledTimes(3); // ×20, ×30, ×40
+    expect(shakeScreen).toHaveBeenCalledTimes(1);
     for (let i = AVALANCHE_COMBO; i < MAX_COMBO; i++) tap();
     expect(snowstorm).toHaveBeenCalledTimes(1);
     expect(flurry).toHaveBeenCalledTimes(7); // plus ×60 to ×90
     expect(blizzard).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain(`×${MAX_COMBO}`);
+    expect(shakeScreen).toHaveBeenCalledTimes(3); // ×50, the ball's flight, and its burst
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(container.querySelector('.snow-toy-root')?.getAttribute('style')).toContain('(0px, 0px');
+
+    // The ball is away bursting: taps wait until it is back, then a new combo starts.
+    const throws = throwSnow.mock.calls.length;
     tap();
+    expect(throwSnow).toHaveBeenCalledTimes(throws);
+    tap(FINALE_LOCK_MS);
     expect(throwSnow).toHaveBeenLastCalledWith(expect.anything(), 1);
   });
 

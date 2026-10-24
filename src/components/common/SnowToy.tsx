@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { animate } from 'animejs/animation';
 import { spring } from 'animejs/easings/spring';
 import type { JSAnimation } from 'animejs';
-import { avalanche, blizzard, flurry, snowstorm, splat, throwSnow } from '../../lib/celebration/effects';
+import { stagger } from 'animejs/utils';
+import { avalanche, blizzard, buzz, flurry, shakeScreen, snowBurst, snowfall, snowstorm, splat, throwSnow } from '../../lib/celebration/effects';
 import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
 
 /** Taps closer together than this keep the combo going. */
@@ -12,7 +13,13 @@ export const BLIZZARD_COMBO = 10;
 export const AVALANCHE_COMBO = 50;
 export const MAX_COMBO = 100;
 /** How long the ×100 badge stays up before the toy rests. */
-const FINALE_REST_MS = 2200;
+const FINALE_REST_MS = 2600;
+/** The ×100 ball flies to the middle of the screen and bursts; taps and drags wait until it is back. */
+export const FINALE_LOCK_MS = 1600;
+const FINALE_FLIGHT_MS = 600;
+/** The last few taps before ×50 and ×100 make the ball tremble, building up to the reward. */
+const CHARGE_TAPS = 5;
+const BANNER_LABELS: Record<number, string> = { [AVALANCHE_COMBO]: '눈사태!', [MAX_COMBO]: '눈폭풍!!' };
 /** Combos from this count show a "×N" badge. */
 export const COMBO_BADGE_FROM = 3;
 const MIN_TAP_GAP_MS = 80;
@@ -26,6 +33,9 @@ const EDGE_PX = 32;
 /** 0 below ×10, 1 after the blizzard, 2 after the avalanche, 3 at the finale. Drives the badge and ball glow. */
 export const comboTier = (combo: number) =>
   combo >= MAX_COMBO ? 3 : combo >= AVALANCHE_COMBO ? 2 : combo >= BLIZZARD_COMBO ? 1 : 0;
+
+const isCharging = (combo: number) =>
+  [AVALANCHE_COMBO, MAX_COMBO].some((goal) => combo >= goal - CHARGE_TAPS && combo < goal);
 
 interface SnowToyProps {
   /** 0–1. The ball grows as the simulated result grows — a snowball, after all. */
@@ -59,6 +69,14 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   const ballRef = useRef<HTMLSpanElement>(null);
   const faceRef = useRef<HTMLSpanElement>(null);
   const frostRef = useRef<HTMLSpanElement>(null);
+  const flashRef = useRef<HTMLSpanElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const ringRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const busyUntil = useRef(0);
+  const [banner, setBanner] = useState<{ level: number; id: number } | null>(null);
+  // While the ×100 ball flies over the page it sits above the snow canvas.
+  const [onStage, setOnStage] = useState(false);
   const badgeRef = useRef<HTMLSpanElement>(null);
   const combo = useRef(0);
   const lastTapAt = useRef(-Infinity);
@@ -73,7 +91,32 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   const suppressClick = useRef(false);
   const flight = useRef<JSAnimation | null>(null);
 
-  useEffect(() => () => clearTimeout(restTimer.current), []);
+  useEffect(() => () => {
+    clearTimeout(restTimer.current);
+    timers.current.forEach(clearTimeout);
+  }, []);
+
+  const later = (ms: number, run: () => void) => { timers.current.push(setTimeout(run, ms)); };
+
+  // The big "×50 눈사태!" title: slams in, holds, then blows up and fades. At ×100 each character drops in on its own.
+  useEffect(() => {
+    const element = bannerRef.current;
+    if (!banner || !element) return;
+    const finale = banner.level >= MAX_COMBO;
+    const duration = finale ? 2600 : 1800;
+    animate(element, {
+      opacity: [0, 1, 1, 1, 0],
+      scale: [0.2, 1.15, 1, 1, 1.5],
+      rotate: [finale ? 0 : -10, 0, 0, 0, 0],
+      duration,
+      ease: 'outQuad',
+      onComplete: () => setBanner(null),
+    });
+    const chars = element.querySelectorAll('.snow-toy-banner-char');
+    if (chars.length) {
+      animate(chars, { translateY: [-90, 0], rotate: [() => (Math.random() - 0.5) * 60, 0], scale: [2, 1], duration: 700, delay: stagger(70), ease: spring({ bounce: 0.55 }) });
+    }
+  }, [banner]);
 
   useEffect(() => {
     if (prefersReducedMotion || readHintSeen()) return undefined;
@@ -113,19 +156,81 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
     if (frostRef.current) animate(frostRef.current, { opacity: [0, strength, strength, 0], duration, ease: 'inOutSine' });
   };
 
+  const flash = (strength: number, duration = 450) => {
+    if (flashRef.current) animate(flashRef.current, { opacity: [0, strength, 0], duration, ease: 'outQuad' });
+  };
+
+  /** Shockwave rings spreading out from the ball. */
+  const rings = (count: number) => {
+    ringRefs.current.slice(0, count).forEach((ring, index) => {
+      if (ring) animate(ring, { scale: [0.6, 10 + index * 4], opacity: [0.95, 0], duration: 1000 + index * 250, delay: index * 140, ease: 'outExpo' });
+    });
+  };
+
+  const showBanner = (level: number) => setBanner({ level, id: performance.now() });
+
+  /** ×100: the ball flies to the middle of the screen, swells, and bursts into a storm before popping back home. */
+  const finale = (ball: HTMLElement | null) => {
+    busyUntil.current = performance.now() + FINALE_LOCK_MS;
+    buzz([100, 60, 100, 60, 320]);
+    frost(1, 4200);
+    showFace(3400);
+    const button = buttonRef.current;
+    const burst = (x: number, y: number) => {
+      flash(0.9, 600);
+      shakeScreen(18, 900);
+      snowBurst(x, y);
+      snowstorm();
+      snowfall(3600, 3);
+      rings(3);
+      showBanner(MAX_COMBO);
+    };
+    if (!button) {
+      burst(window.innerWidth / 2, window.innerHeight / 2);
+      return;
+    }
+    flight.current?.pause();
+    setOnStage(true);
+    shakeScreen(5, FINALE_FLIGHT_MS);
+    const rect = button.getBoundingClientRect();
+    const from = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    const to = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    if (ball) animate(ball, { scale: [1, 5], rotate: '+=900', duration: FINALE_FLIGHT_MS, ease: 'inQuad' });
+    flight.current = animate(offset.current, {
+      x: offset.current.x + to.x - from.x,
+      y: offset.current.y + to.y - from.y,
+      duration: FINALE_FLIGHT_MS,
+      ease: 'inOutQuad',
+      onUpdate: applyOffset,
+      onComplete: () => {
+        burst(to.x, to.y);
+        if (ball) animate(ball, { scale: 0, duration: 200, ease: 'outQuad' });
+        later(900, () => {
+          offset.current = { x: 0, y: 0 };
+          applyOffset();
+          setOnStage(false);
+          if (ball) animate(ball, { scale: [0, 1.4, 1], duration: 900, ease: spring({ bounce: 0.6 }) });
+        });
+      },
+    });
+  };
+
   const celebrate = (level: number, ball: HTMLElement | null) => {
     if (level === MAX_COMBO) {
-      snowstorm();
-      frost(1, 2800);
-      showFace(2600);
-      if (ball) animate(ball, { rotate: '+=1080', scale: [1, 1.8, 1], duration: 1600, ease: spring({ bounce: 0.45 }) });
+      finale(ball);
       return;
     }
     if (level === AVALANCHE_COMBO) {
+      buzz([70, 40, 160]);
+      flash(0.55);
+      shakeScreen(10, 700);
+      rings(2);
+      showBanner(AVALANCHE_COMBO);
       avalanche();
-      frost(0.6, 1800);
+      snowfall(2400, 2);
+      frost(0.75, 2600);
       showFace();
-      if (ball) animate(ball, { rotate: '+=720', scale: [1, 1.5, 1], duration: 1200, ease: spring({ bounce: 0.5 }) });
+      if (ball) animate(ball, { rotate: '+=720', scale: [1, 2, 1], duration: 1200, ease: spring({ bounce: 0.5 }) });
       return;
     }
     if (level === BLIZZARD_COMBO) {
@@ -149,6 +254,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
       return;
     }
     const now = performance.now();
+    if (now < busyUntil.current) return;
     if (now - lastTapAt.current < MIN_TAP_GAP_MS) return;
     combo.current = now - lastTapAt.current < COMBO_WINDOW_MS ? combo.current + 1 : 1;
     lastTapAt.current = now;
@@ -176,7 +282,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (prefersReducedMotion || event.button !== 0) return;
+    if (prefersReducedMotion || event.button !== 0 || performance.now() < busyUntil.current) return;
     flight.current?.pause();
     // Capture now: a fast flick leaves the 56px ball before the first move event arrives.
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -271,11 +377,16 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   const baseScale = 1 + Math.min(Math.max(growth, 0), 1) * 0.3;
 
   const tier = comboTier(badge);
+  const bannerText = banner ? `×${banner.level}` : '';
 
   return (<>
     {/* Outside the wrapper: the wrapper's transform would pin a fixed child to the ball instead of the screen. */}
     <span ref={frostRef} aria-hidden="true" className="snow-toy-frost pointer-events-none fixed inset-0 z-toy opacity-0" />
-    <div ref={wrapperRef} data-tier={tier} className="snow-toy-root fixed bottom-4 right-4 z-toy sm:bottom-6 sm:right-6">
+    <span ref={flashRef} aria-hidden="true" className="pointer-events-none fixed inset-0 z-toy-stage bg-apple-surface-white opacity-0" />
+    <div ref={wrapperRef} data-tier={tier} data-charging={isCharging(badge) || undefined} className={`snow-toy-root fixed bottom-4 right-4 sm:bottom-6 sm:right-6 ${onStage ? 'z-toy-stage' : 'z-toy'}`}>
+      {[0, 1, 2].map((index) => (
+        <span key={index} ref={(element) => { ringRefs.current[index] = element; }} aria-hidden="true" className="snow-toy-ring pointer-events-none absolute inset-0 rounded-full opacity-0" />
+      ))}
       {hintVisible && (
         <span aria-hidden="true" className="snow-toy-hint pointer-events-none absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-pill border border-apple-hairline bg-apple-surface-white px-3 py-2 text-caption text-apple-ink shadow-sm">
           눌러서 던지고, 끌어서 날려보세요
@@ -306,6 +417,17 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
           </span>
         </span>
       </button>
+    </div>
+    <div ref={bannerRef} aria-hidden="true" data-finale={banner && banner.level >= MAX_COMBO ? true : undefined}
+      className="snow-toy-banner pointer-events-none fixed inset-0 z-toy-stage flex flex-col items-center justify-center opacity-0">
+      {banner && <>
+        <span key={banner.id} className="snow-toy-banner-count">
+          {banner.level >= MAX_COMBO
+            ? [...bannerText].map((char, index) => <span key={index} className="snow-toy-banner-char inline-block">{char}</span>)
+            : bannerText}
+        </span>
+        <span className="snow-toy-banner-label">{BANNER_LABELS[banner.level]}</span>
+      </>}
     </div>
   </>);
 }

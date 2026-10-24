@@ -78,7 +78,7 @@ export function celebrateMilestone(resultElement: HTMLElement | null, milestoneK
 
 /** Snow thrown from the toy. Bigger combos throw more, wider and faster, up to a cap so long combos stay smooth. */
 export function throwSnow(fromElement: HTMLElement | null, combo: number) {
-  const power = Math.min(combo, 12);
+  const power = Math.min(combo, 10);
   const origin = originOf(fromElement, { x: 0.92, y: 0.92 });
   confetti(snow({
     particleCount: 12 + power * 8,
@@ -94,13 +94,13 @@ export function throwSnow(fromElement: HTMLElement | null, combo: number) {
   // Past the first blizzard each throw also tosses a high arc; past ×50 it reaches across the page.
   if (combo > 10) {
     confetti(snow({
-      particleCount: combo >= 50 ? 40 : 18,
+      particleCount: combo >= 50 ? 24 : 14,
       spread: 30,
       startVelocity: combo >= 50 ? 62 : 46,
       angle: 100 + Math.random() * 30,
       gravity: 0.7,
       scalar: combo >= 50 ? 1.4 : 1.1,
-      ticks: 300,
+      ticks: 220,
       origin,
     }));
   }
@@ -196,4 +196,54 @@ export function snowstorm() {
       }));
     }
   }));
+}
+
+/** A ball of snow bursting at a screen point: a fast inner ring, big slow flakes, then a second shockwave. */
+export function snowBurst(clientX: number, clientY: number) {
+  if (typeof window === 'undefined') return;
+  const origin = { x: clientX / window.innerWidth, y: clientY / window.innerHeight };
+  confetti(snow({ particleCount: 160, spread: 360, startVelocity: 48, gravity: 0.55, scalar: 1.5, ticks: 320, origin }));
+  confetti(snow({ particleCount: 80, spread: 360, startVelocity: 24, gravity: 0.35, scalar: 2.6, ticks: 420, origin }));
+  later(180, () => confetti(snow({ particleCount: 140, spread: 360, startVelocity: 66, gravity: 0.7, scalar: 1.1, ticks: 260, origin })));
+}
+
+/** Snow that keeps falling from the top edge for a while, with mixed flake sizes. */
+export function snowfall(durationMs: number, perFrame = 2) {
+  if (typeof window === 'undefined' || prefersReducedMotion()) return;
+  const end = performance.now() + durationMs;
+  const frame = () => {
+    confetti(snow({
+      particleCount: perFrame,
+      startVelocity: 0,
+      ticks: 380,
+      gravity: 0.35 + Math.random() * 0.45,
+      scalar: 0.8 + Math.random() * 1.8,
+      drift: Math.random() - 0.5,
+      origin: { x: Math.random(), y: -0.05 },
+    }));
+    if (performance.now() < end) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+/** Shakes the page content (not the fixed nav or toy), fading out. */
+export function shakeScreen(strength: number, durationMs: number) {
+  if (typeof document === 'undefined' || prefersReducedMotion()) return;
+  const target = document.querySelector('main');
+  if (!target) return;
+  const steps = 10;
+  const wobble = (scale: number) => [0, ...Array.from({ length: steps }, (_, i) => (i % 2 ? -1 : 1) * strength * scale * (1 - i / steps)), 0];
+  animate(target, {
+    translateX: wobble(1),
+    translateY: wobble(0.5).map((value, i) => (i % 3 ? value : -value)),
+    duration: durationMs,
+    ease: 'linear',
+    // Leave no transform behind: it would change how fixed children are placed.
+    onComplete: () => { target.style.transform = ''; },
+  });
+}
+
+/** A short vibration pattern on phones that support it. */
+export function buzz(pattern: number[]) {
+  try { navigator.vibrate?.(pattern); } catch { /* not supported */ }
 }
