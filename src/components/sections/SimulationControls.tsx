@@ -6,22 +6,24 @@ import HistoricalScenarioPicker from '../common/HistoricalScenarioPicker';
 import DateRangeControl from '../common/DateRangeControl';
 import SegmentedControl from '../common/SegmentedControl';
 import Surface from '../common/Surface';
+import Stepper from '../common/Stepper';
 import Notice from '../common/Notice';
 import { BigNumberHelper } from '../common/BigNumberHelper';
 import { NumericInput } from '../common/NumericInput';
 import ScenarioPresetPicker, { getPresetScenarios } from '../common/ScenarioPresetPicker';
 import { getHistoricalCoverage } from '../../data/historicalAssets';
+import { CONTRIBUTION_PRESETS, presetAmountLabel, stepAmount } from '../../lib/input/stepOnGrid';
 import { getCommonCoverage, getFamilyDurationPresets, LEVERAGE_FAMILIES } from '../../data/leverageFamilies';
+
+/** One tap to the horizons people pick most; the stepper covers the years between. */
+const PERIOD_PRESETS = [5, 10, 20, 30];
 
 interface SimulationControlsProps {
   mode: SimulationMode;
-  setMode: (m: SimulationMode) => void;
   params: SimulationParams;
   onUpdate: (p: Partial<SimulationParams>) => void;
   currency: 'KRW' | 'USD';
-  setCurrency: (c: 'KRW' | 'USD') => void;
   exchangeRate: number;
-  onOpenAdvanced: () => void;
   selectedAssets: HistoricalAssetType[];
   rangeNotice?: string | null;
   backtestAssetSelection?: React.ReactNode;
@@ -58,41 +60,66 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     props.onUpdate({ [key]: value });
   };
 
+  const contributionName = isValueAveraging ? '월간 목표 증가액' : '납입액';
+  const contributionLabel = `${contributionName} (${props.currency})`;
+  const contributionPresets = CONTRIBUTION_PRESETS[props.currency][isValueAveraging ? 'MONTHLY' : props.params.cycle];
+  const setContribution = (value: number) => props.onUpdate({ contribution: value,
+    ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
+  });
+
   const investmentFields = (<>
     <Field label={`초기 자산 (${props.currency})`} htmlFor="principal-input"
-      hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} />}>
+      hint={<BigNumberHelper value={props.params.principal} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} simplified={false} />}>
       <NumericInput value={props.params.principal} onChange={(value) => updateParam('principal', value)} />
     </Field>
 
-    <div className="flex min-w-0 flex-col gap-4">
-      <Field label={`${isValueAveraging ? '월간 목표 증가액' : '납입액'} (${props.currency})`} htmlFor="monthly-investment-input"
-        hint={<BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showExchangeRate />}>
-        <NumericInput value={contributionInput} onChange={(value) => props.onUpdate({ contribution: value,
-          ...(isValueAveraging ? { strategyTargetGrowth: value } : {}),
-        })} />
-      </Field>
-      {isValueAveraging ? <p className="ui-field-hint">매월 목표 자산에 부족한 금액만 매수합니다.</p> : <div className="ui-field">
-        <span className="ui-field-label">납입 주기</span>
-        <SegmentedControl label="납입 주기" value={props.params.cycle} fullWidth size="compact"
-          options={[{ value: 'DAILY', label: '일' }, { value: 'WEEKLY', label: '주' }, { value: 'MONTHLY', label: '월' }]}
-          onChange={(cycle) => updateParam('cycle', cycle)} />
-      </div>}
+    <div className="ui-field">
+      <label htmlFor="monthly-investment-input" className="ui-field-label">{contributionLabel}</label>
+      <Stepper id="monthly-investment-input" aria-describedby="monthly-investment-input-hint"
+        decreaseLabel={`${contributionName} 줄이기`} increaseLabel={`${contributionName} 늘리기`}
+        canDecrease={contributionInput > 0}
+        onDecrease={() => setContribution(stepAmount(contributionInput, -1, props.currency))}
+        onIncrease={() => setContribution(stepAmount(contributionInput, 1, props.currency))}>
+        <NumericInput value={contributionInput} onChange={setContribution} />
+      </Stepper>
+      <div id="monthly-investment-input-hint" className="ui-field-hint">
+        <BigNumberHelper value={contributionInput} currency={props.currency} exchangeRate={props.exchangeRate} showDual={false} showExchangeRate simplified={false} />
+      </div>
+      <div role="group" aria-label={`자주 쓰는 ${contributionName}`} className="flex flex-wrap gap-1">
+        {contributionPresets.map((preset) => (
+          <button key={preset} type="button" className="ui-quick-chip" aria-pressed={contributionInput === preset} onClick={() => setContribution(preset)}>
+            {presetAmountLabel(preset, props.currency)}
+          </button>
+        ))}
+      </div>
     </div>
 
+    {isValueAveraging ? <p className="ui-field-hint self-center">매월 목표 자산에 부족한 금액만 매수합니다.</p> : <div className="ui-field">
+      <span className="ui-field-label">납입 주기</span>
+      <SegmentedControl label="납입 주기" value={props.params.cycle} fullWidth size="compact"
+        options={[{ value: 'DAILY', label: '일' }, { value: 'WEEKLY', label: '주' }, { value: 'MONTHLY', label: '월' }]}
+        onChange={(cycle) => updateParam('cycle', cycle)} />
+    </div>}
   </>);
 
+  const maxYears = props.params.cycle === 'DAILY' ? 30 : 50;
+  const years = props.params.years;
+  const setYears = (next: number) => updateParam('years', Math.min(Math.max(next, 1), maxYears));
   const projectionPeriod = (
     <div className="ui-field">
-      <label htmlFor="years-range" className="ui-field-label">투자 기간 (년)</label>
-      <div className="flex h-field min-w-0 items-center gap-3">
-        <div className="flex h-field min-w-0 flex-1 items-center rounded-pill border border-apple-hairline bg-apple-canvas px-4">
-          <input id="years-range" type="range" min="1" max={props.params.cycle === 'DAILY' ? 30 : 50}
-            value={props.params.years} onChange={(event) => updateParam('years', Number(event.target.value))}
-            aria-label="투자 기간 조절" className="h-11 w-full cursor-pointer accent-apple-primary" />
-        </div>
-        <NumericInput id="years-number" aria-label="투자 기간 직접 입력" value={props.params.years}
-          onChange={(value) => updateParam('years', value)}
-          className="w-20 shrink-0 text-center" />
+      <label htmlFor="years-number" className="ui-field-label">투자 기간 (년)</label>
+      <Stepper decreaseLabel="투자 기간 1년 줄이기" increaseLabel="투자 기간 1년 늘리기"
+        canDecrease={years > 1} canIncrease={years < maxYears}
+        onDecrease={() => setYears(years - 1)} onIncrease={() => setYears(years + 1)}>
+        <NumericInput id="years-number" aria-label="투자 기간 직접 입력" value={years}
+          onChange={(value) => updateParam('years', value)} />
+      </Stepper>
+      <div role="group" aria-label="자주 쓰는 투자 기간" className="flex flex-wrap gap-1">
+        {PERIOD_PRESETS.filter((preset) => preset <= maxYears).map((preset) => (
+          <button key={preset} type="button" className="ui-quick-chip" aria-pressed={years === preset} onClick={() => setYears(preset)}>
+            {preset}년
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -122,39 +149,33 @@ const SimulationControls: React.FC<SimulationControlsProps> = (props) => {
     </fieldset>
   );
 
-  return (
-    <div className="mb-10 flex w-full max-w-content flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          label="계산 모드"
-          value={props.mode}
-          onChange={props.setMode}
-          options={[
-            { value: 'PROJECTION', label: '스노우볼', ariaLabel: '스노우볼 모드' },
-            { value: 'BACKTEST', label: '백테스트', ariaLabel: '과거 백테스트 모드' },
-          ]}
-        />
-        <SegmentedControl label="표시 통화" value={props.currency} onChange={props.setCurrency}
-          options={[{ value: 'KRW', label: 'KRW' }, { value: 'USD', label: 'USD' }]} size="compact" />
-      </div>
-
-      {props.mode === 'BACKTEST' && props.backtestAssetSelection}
-      <Surface className="w-full text-left">
-        {props.mode === 'BACKTEST' ? <div className="flex flex-col gap-6">
-          {backtestPeriod}
-          <HistoricalScenarioPicker coverage={historicalCoverage}
-            startDate={startDate} endDate={endDate}
-            onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })} />
-          <div className="border-t border-apple-hairline pt-6">
-            <h3 className="mb-4 text-body font-semibold text-apple-ink">투자 조건</h3>
-            <div className="grid items-start gap-6 md:grid-cols-2">{investmentFields}</div>
+  if (props.mode === 'BACKTEST') {
+    return (
+      <div className="flex w-full min-w-0 flex-col gap-4">
+        {props.backtestAssetSelection}
+        <Surface className="w-full text-left">
+          <div className="flex flex-col gap-6">
+            {backtestPeriod}
+            <HistoricalScenarioPicker coverage={historicalCoverage}
+              startDate={startDate} endDate={endDate}
+              onSelect={(preset) => props.onUpdate({ startDate: preset.startDate, endDate: preset.endDate })} />
+            <div className="border-t border-apple-hairline pt-6">
+              <h3 className="mb-4 text-body font-semibold text-apple-ink">투자 조건</h3>
+              <div className="grid items-start gap-6 md:grid-cols-2 lg:grid-cols-1">{investmentFields}</div>
+            </div>
           </div>
-        </div> : <div className="grid items-start gap-6 md:grid-cols-3">
-          {investmentFields}
-          {projectionPeriod}
-        </div>}
-      </Surface>
-    </div>
+        </Surface>
+      </div>
+    );
+  }
+
+  return (
+    <Surface className="w-full text-left">
+      <div className="grid items-start gap-x-6 gap-y-5 md:grid-cols-2 lg:grid-cols-4">
+        {investmentFields}
+        {projectionPeriod}
+      </div>
+    </Surface>
   );
 };
 

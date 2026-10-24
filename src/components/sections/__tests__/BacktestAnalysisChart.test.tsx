@@ -15,17 +15,17 @@ vi.mock('../../charts/BacktestChart', () => ({
 }));
 
 vi.mock('../../charts/SnowballChart', () => ({
-  default: ({ scenarios, onPointHover }: {
+  default: ({ scenarios, onPointSelect }: {
     scenarios: SnowballScenarioData[];
-    onPointHover?: (selection: {
+    onPointSelect?: (selection: {
     date: Date;
     points: Array<{ id: string; name: string; value: number; color: string; pessimistic?: number; optimistic?: number }>;
-  } | null) => void;
+  }) => void;
   }) => (
     <div data-testid="scenario-chart">
       <button
         type="button"
-        onMouseEnter={() => onPointHover?.({
+        onClick={() => onPointSelect?.({
           date: new Date('2024-01-01T00:00:00Z'),
           points: scenarios.map((scenario) => ({
             id: scenario.id,
@@ -37,7 +37,7 @@ vi.mock('../../charts/SnowballChart', () => ({
           })),
         })}
       >
-        시나리오 포인트 호버
+        시나리오 포인트 선택
       </button>
     </div>
   ),
@@ -116,7 +116,7 @@ describe('BacktestAnalysisChart', () => {
     expect(screen.getByTestId('scenario-chart')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '시장 추세' })).toBeNull();
 
-    await user.hover(screen.getByRole('button', { name: '시나리오 포인트 호버' }));
+    await user.click(screen.getByRole('button', { name: '시나리오 포인트 선택' }));
     expect(screen.getByRole('heading', { name: '경과 개월수 기준 상세' })).toBeTruthy();
     expect(screen.getByText('저장 백테스트').parentElement?.parentElement?.textContent).toContain('$120');
     expect(screen.getByText('$0 ~ $140')).toBeTruthy();
@@ -131,13 +131,13 @@ describe('BacktestAnalysisChart', () => {
         points: scenario.points.map((point) => ({ ...point, value: point.value + 1 })),
       })),
     }],
-  ])('clears hovered scenario details when the %s changes', async (_dependency, changedProps) => {
-    // Catches the production break where a formatted hover snapshot survives changed display/source inputs.
+  ])('clears selected scenario details when the %s changes', async (_dependency, changedProps) => {
+    // Catches the production break where a formatted selection snapshot survives changed display/source inputs.
     const user = userEvent.setup();
     const view = renderChart();
 
     await user.click(screen.getByRole('button', { name: '저장 시나리오 비교' }));
-    await user.hover(screen.getByRole('button', { name: '시나리오 포인트 호버' }));
+    await user.click(screen.getByRole('button', { name: '시나리오 포인트 선택' }));
     expect(screen.getByRole('heading', { name: '경과 개월수 기준 상세' })).toBeTruthy();
 
     view.rerender(<BacktestAnalysisChart {...defaultProps} {...changedProps} />);
@@ -156,7 +156,7 @@ describe('BacktestAnalysisChart', () => {
     });
 
     await user.click(screen.getByRole('button', { name: '저장 시나리오 비교' }));
-    await user.hover(screen.getByRole('button', { name: '시나리오 포인트 호버' }));
+    await user.click(screen.getByRole('button', { name: '시나리오 포인트 선택' }));
     expect(screen.getAllByText('동일 이름')).toHaveLength(2);
 
     await waitFor(() => {

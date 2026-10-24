@@ -288,6 +288,95 @@
         "reason": "Yahoo Finance ^KS200 omitted sessions; previously stored 2026-09-04 and 2026-09-08 closes differed from reviewed values"
       },
       {
+        "assetId": "KOSPI",
+        "ticker": "^KS200",
+        "records": [
+          {
+            "date": "2026-09-29",
+            "close": 1088.15,
+            "dividend": 0
+          },
+          {
+            "date": "2026-09-30",
+            "close": 1081.82,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-01",
+            "close": 1104.48,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-02",
+            "close": 1109.05,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-06",
+            "close": 1095.83,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-07",
+            "close": 1073.63,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-08",
+            "close": 1044.52,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-12",
+            "close": 1004.92,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-13",
+            "close": 942.07,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-14",
+            "close": 936.82,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-15",
+            "close": 860.7,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-16",
+            "close": 878.16,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-19",
+            "close": 891.3,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-20",
+            "close": 858.78,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-21",
+            "close": 891.04,
+            "dividend": 0
+          },
+          {
+            "date": "2026-10-22",
+            "close": 858.02,
+            "dividend": 0
+          }
+        ],
+        "sourceUrl": "https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day&count=100&requestType=0",
+        "retrievedAt": "2026-10-24T06:35:05Z",
+        "reason": "Yahoo Finance ^KS200 returned only 2026-10-23 after 2026-09-28; Naver KOSPI matched Yahoo ^KS11 on all 21 sessions"
+      },
+      {
         "assetId": "KOSDAQ",
         "ticker": "^KQ11",
         "records": [
@@ -318,7 +407,7 @@
       }
     ]
   },
-  "generatedAt": "2026-09-28T13:22:01Z",
+  "generatedAt": "2026-10-24T06:35:32Z",
   "assets": {
     "QQQ": {
       "assetId": "QQQ",
@@ -328,8 +417,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "1999-03-10",
-      "endDate": "2026-09-25",
-      "rowCount": 6930
+      "endDate": "2026-10-23",
+      "rowCount": 6950
     },
     "QLD": {
       "assetId": "QLD",
@@ -339,8 +428,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2006-06-21",
-      "endDate": "2026-09-25",
-      "rowCount": 5098
+      "endDate": "2026-10-23",
+      "rowCount": 5118
     },
     "TQQQ": {
       "assetId": "TQQQ",
@@ -350,8 +439,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2010-02-11",
-      "endDate": "2026-09-25",
-      "rowCount": 4181
+      "endDate": "2026-10-23",
+      "rowCount": 4201
     },
     "AMD": {
       "assetId": "AMD",
@@ -361,8 +450,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "1980-03-17",
-      "endDate": "2026-09-25",
-      "rowCount": 11727
+      "endDate": "2026-10-23",
+      "rowCount": 11747
     },
     "AMDL": {
       "assetId": "AMDL",
@@ -372,8 +461,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2024-03-18",
-      "endDate": "2026-09-25",
-      "rowCount": 634
+      "endDate": "2026-10-23",
+      "rowCount": 654
     },
     "TSLA": {
       "assetId": "TSLA",
@@ -383,8 +472,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2010-06-29",
-      "endDate": "2026-09-25",
-      "rowCount": 4086
+      "endDate": "2026-10-23",
+      "rowCount": 4106
     },
     "TSLL": {
       "assetId": "TSLL",
@@ -394,8 +483,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2022-08-09",
-      "endDate": "2026-09-25",
-      "rowCount": 1037
+      "endDate": "2026-10-23",
+      "rowCount": 1057
     },
     "SOXX": {
       "assetId": "SOXX",
@@ -405,8 +494,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2001-07-13",
-      "endDate": "2026-09-25",
-      "rowCount": 6338
+      "endDate": "2026-10-23",
+      "rowCount": 6358
     },
     "SOXL": {
       "assetId": "SOXL",
@@ -416,8 +505,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2010-03-11",
-      "endDate": "2026-09-25",
-      "rowCount": 4162
+      "endDate": "2026-10-23",
+      "rowCount": 4182
     },
     "SPY": {
       "assetId": "SPY",
@@ -427,8 +516,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "1993-01-29",
-      "endDate": "2026-09-25",
-      "rowCount": 8472
+      "endDate": "2026-10-23",
+      "rowCount": 8492
     },
     "SCHD": {
       "assetId": "SCHD",
@@ -438,8 +527,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2011-10-20",
-      "endDate": "2026-09-25",
-      "rowCount": 3754
+      "endDate": "2026-10-23",
+      "rowCount": 3774
     },
     "KOSPI": {
       "assetId": "KOSPI",
@@ -449,8 +538,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "1996-03-20",
-      "endDate": "2026-09-28",
-      "rowCount": 7468
+      "endDate": "2026-10-23",
+      "rowCount": 7485
     },
     "KOSDAQ": {
       "assetId": "KOSDAQ",
@@ -460,8 +549,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2000-10-16",
-      "endDate": "2026-09-28",
-      "rowCount": 6394
+      "endDate": "2026-10-23",
+      "rowCount": 6411
     },
     "GOLD": {
       "assetId": "GOLD",
@@ -471,8 +560,8 @@
       "kind": "asset",
       "frequency": "daily",
       "startDate": "2000-08-30",
-      "endDate": "2026-09-28",
-      "rowCount": 6544
+      "endDate": "2026-10-23",
+      "rowCount": 6563
     },
     "NASDAQ100": {
       "assetId": "NASDAQ100",
@@ -482,10 +571,10 @@
       "kind": "benchmark",
       "frequency": "weekly",
       "startDate": "1985-10-04",
-      "endDate": "2026-09-25",
-      "rowCount": 2139,
+      "endDate": "2026-10-16",
+      "rowCount": 2142,
       "calendar": "XNYS",
-      "expectedEndDate": "2026-09-25"
+      "expectedEndDate": "2026-10-16"
     },
     "SP500": {
       "assetId": "SP500",
@@ -495,10 +584,10 @@
       "kind": "benchmark",
       "frequency": "weekly",
       "startDate": "1927-12-30",
-      "endDate": "2026-09-25",
-      "rowCount": 5152,
+      "endDate": "2026-10-16",
+      "rowCount": 5155,
       "calendar": "XNYS",
-      "expectedEndDate": "2026-09-25"
+      "expectedEndDate": "2026-10-16"
     },
     "KOSPI_INDEX": {
       "assetId": "KOSPI_INDEX",
@@ -508,10 +597,10 @@
       "kind": "benchmark",
       "frequency": "weekly",
       "startDate": "1996-12-13",
-      "endDate": "2026-09-23",
-      "rowCount": 1553,
+      "endDate": "2026-10-16",
+      "rowCount": 1556,
       "calendar": "XKRX",
-      "expectedEndDate": "2026-09-23"
+      "expectedEndDate": "2026-10-16"
     }
   }
 }

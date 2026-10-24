@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { MarketTrendOverlay } from '../../core/MarketTrend';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import type { HistoricalAssetType, ValueBasis } from '../../types/finance';
@@ -21,6 +21,8 @@ export interface BacktestAnalysisChartProps {
   resultView: 'PORTFOLIO' | 'NORMALIZED';
   valueBasis: ValueBasis;
   marketTrend?: MarketTrendOverlay | null;
+  /** View switches (result view, value basis) shown in the chart header. */
+  controls?: ReactNode;
 }
 
 const BASIS_LABEL: Record<ValueBasis, string> = {
@@ -37,6 +39,7 @@ const BacktestAnalysisChart = ({
   resultView,
   valueBasis,
   marketTrend,
+  controls,
 }: BacktestAnalysisChartProps) => {
   const [mode, setMode] = useState<BacktestAnalysisMode>('ASSET');
   const [showMarketTrend, setShowMarketTrend] = useState(false);
@@ -52,9 +55,10 @@ const BacktestAnalysisChart = ({
   }, [mode, valueBasis, currency, scenarioSeries]);
 
   return (
-    <section className="ui-surface ui-surface-compact w-full max-w-analysis text-left" aria-labelledby="backtest-chart-heading">
-      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
+    <section className="ui-surface ui-surface-compact ui-surface-raised w-full max-w-analysis text-left" aria-labelledby="backtest-chart-heading">
+      <div className="mb-4 flex flex-col gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h3 id="backtest-chart-heading" className="text-title-sm text-apple-ink font-display">
             {mode === 'ASSET' ? '자산별 과거 성과 비교' : '저장 시나리오 비교'}
           </h3>
@@ -69,7 +73,7 @@ const BacktestAnalysisChart = ({
             </p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {hasScenarioComparison ? (
             <SegmentedControl
               label="백테스트 차트 종류"
@@ -93,6 +97,8 @@ const BacktestAnalysisChart = ({
           ) : null}
         </div>
       </div>
+      {controls ? <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">{controls}</div> : null}
+      </div>
       <div className="h-[360px] sm:h-[480px]">
         {mode === 'ASSET' ? (
           <BacktestChart
@@ -106,15 +112,12 @@ const BacktestAnalysisChart = ({
             scenarios={scenarioSeries}
             mode="BACKTEST"
             comparisonMode
-            onPointHover={(selection) => {
-              if (selection) setScenarioPoint(selection);
-            }}
             onPointSelect={setScenarioPoint}
           />
         )}
       </div>
       {mode === 'SCENARIO' && scenarioPoint ? (
-        <Surface padding="compact" className="mt-4">
+        <Surface padding="compact" tone="quiet" className="mt-4">
           <div className="mb-4 flex items-center justify-between border-b border-apple-hairline pb-2">
             <h4 className="text-body-strong text-apple-ink font-display">경과 개월수 기준 상세</h4>
             <Button

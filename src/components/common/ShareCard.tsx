@@ -2,6 +2,7 @@ import React from 'react';
 import { Snowflake, ArrowRight } from 'lucide-react';
 import { SnowballEngine } from '../../core/SnowballEngine';
 import { ContributionCycle } from '../../types/finance';
+import { CYCLE_LABEL } from '../../lib/format/cycleLabel';
 
 interface ShareCardProps {
   scenarioName: string;
@@ -21,12 +22,6 @@ interface ShareCardProps {
   currency: 'KRW' | 'USD';
   cardRef: React.RefObject<HTMLDivElement | null>;
 }
-
-const CYCLE_LABEL: Record<ContributionCycle, string> = {
-  DAILY: '매일',
-  WEEKLY: '매주',
-  MONTHLY: '매월',
-};
 
 const ShareCard: React.FC<ShareCardProps> = ({
   scenarioName,
@@ -100,12 +95,12 @@ const ShareCard: React.FC<ShareCardProps> = ({
           </div>
         </div>
 
-        {/* Best / Worst Scenario Band */}
+        {/* 10th–90th percentile range */}
         {!backtestPeriod && <div className="w-full z-10 bg-white/40 rounded-3xl border border-white/50 p-4">
           <div className="flex justify-between items-center">
             {/* Pessimistic */}
             <div className="flex flex-col items-center text-center flex-1">
-              <span className="w-full text-[9px] leading-relaxed font-bold text-apple-error uppercase tracking-wider mb-1">Worst</span>
+              <span className="w-full text-[9px] leading-relaxed font-bold text-apple-error uppercase tracking-wider mb-1">하위 10%</span>
               <span className="w-full text-[11px] leading-relaxed font-bold text-apple-ink [overflow-wrap:anywhere]">{SnowballEngine.formatBigNumber(pessimisticAsset, currency, true)}</span>
             </div>
             {/* Divider & Arrow */}
@@ -114,7 +109,7 @@ const ShareCard: React.FC<ShareCardProps> = ({
             </div>
             {/* Optimistic */}
             <div className="flex flex-col items-center text-center flex-1">
-              <span className="w-full text-[9px] leading-relaxed font-bold text-apple-success uppercase tracking-wider mb-1">Best</span>
+              <span className="w-full text-[9px] leading-relaxed font-bold text-apple-success uppercase tracking-wider mb-1">상위 10%</span>
               <span className="w-full text-[11px] leading-relaxed font-bold text-apple-ink [overflow-wrap:anywhere]">{SnowballEngine.formatBigNumber(optimisticAsset, currency, true)}</span>
             </div>
           </div>

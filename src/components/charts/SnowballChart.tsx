@@ -1,4 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef, useId } from 'react';
+import { DRAW_CLASS, useLineDraw } from '../../lib/animation/useLineDraw';
 import { Group } from '@visx/group';
 import { LinePath, Bar, Area } from '@visx/shape';
 import { curveMonotoneX } from '@visx/curve';
@@ -53,6 +54,8 @@ export interface SnowballChartProps {
 }
 
 const MS_PER_MONTH = 365 * 86_400_000 / 12;
+/** The value axis reaches at most this multiple of the median path, so a wide upper range cannot flatten the line. */
+const BAND_HEADROOM = 1.8;
 
 // Resolve each scenario by its own dates; values do not extend beyond its coverage.
 const findPointOnOrBefore = (points: readonly SnowballScenarioPoint[], targetTime: number): SnowballScenarioPoint | null => {
@@ -93,7 +96,8 @@ const SnowballChartInner: React.FC<{
   showRealValue?: boolean;
   onPointSelect?: SnowballChartProps['onPointSelect'];
   onPointHover?: SnowballChartProps['onPointHover'];
-}> = React.memo(({ scenarios, width, height, comparisonMode, showRealValue, onPointHover }) => {
+}> = React.memo(({ scenarios, width, height, comparisonMode, showRealValue, onPointSelect, onPointHover }) => {
+  const plotClipId = `chart-plot-${useId().replace(/:/g, '')}`;
   const margin = useMemo(() => ({
     top: 24, 
     right: width > 520 ? 32 : 16, 
@@ -148,7 +152,12 @@ const SnowballChartInner: React.FC<{
 
   const valueScale = useMemo(() => {
     if (allProcessedPoints.length === 0) return scaleLinear({ range: [innerHeight, 0], domain: [0, 1000000] });
-    const maxValue = Math.max(...allProcessedPoints.map(d => Math.max(d.value, d.optimistic || 0, d.contribution || 0))) * 1.1;
+    // Scale to the median path, not the range's long upper tail; the band is clipped where it runs past the top.
+    const maxValue = Math.max(...allProcessedPoints.map(d => Math.max(
+      d.value,
+      Math.min(d.optimistic || 0, d.value * BAND_HEADROOM),
+      d.contribution || 0,
+    ))) * 1.1;
     return scaleLinear({
       range: [innerHeight, 0],
       domain: [0, maxValue],
@@ -164,7 +173,7 @@ const SnowballChartInner: React.FC<{
       if (xLeft < 0 || xLeft > innerWidth) {
         hideTooltip();
         if (onPointHover) onPointHover(null);
-        return;
+        return null;
       }
       
       const x0 = xScale.invert(xLeft);
@@ -185,7 +194,7 @@ const SnowballChartInner: React.FC<{
       if (tooltipPoints.length === 0) {
         hideTooltip();
         onPointHover?.(null);
-        return;
+        return null;
       }
 
       const tooltipPayload = {
@@ -201,6 +210,7 @@ const SnowballChartInner: React.FC<{
       });
 
       if (onPointHover) onPointHover(tooltipPayload);
+      return tooltipPayload;
     },
     [showTooltip, hideTooltip, xScale, valueScale, processedScenarios, margin.left, innerWidth, onPointHover, comparisonMode]
   );
@@ -210,6 +220,10 @@ const SnowballChartInner: React.FC<{
     if (val >= 10000) return `${(val / 10000).toFixed(0)}만`;
     return val.toLocaleString();
   };
+
+  const linesRef = useRef<SVGGElement>(null);
+  const shape = `${comparisonMode}|${processedScenarios.map((s) => `${s.id}:${s.points.length}`).join(',')}`;
+  useLineDraw(linesRef, shape, width >= 10);
 
   if (width < 10) return null;
 
@@ -233,6 +247,8 @@ const SnowballChartInner: React.FC<{
           <GridColumns scale={xScale} height={innerHeight} stroke="var(--apple-divider-soft)" strokeDasharray="4,4" />
 
           {/* 1. Range Areas (Cone of Uncertainty) */}
+          <clipPath id={plotClipId}><rect width={innerWidth} height={innerHeight} /></clipPath>
+          <g clipPath={`url(#${plotClipId})`}>
           {processedScenarios.map(s => (
             s.transformedPoints.some(p => p.pessimistic !== undefined) && (
               <Area<any>
@@ -244,11 +260,14 @@ const SnowballChartInner: React.FC<{
                 fill={s.color}
                 fillOpacity={0.12}
                 curve={curveMonotoneX}
+                className="chart-morph"
               />
             )
           ))}
+          </g>
 
           {/* 2. Main Lines */}
+          <g ref={linesRef}>
           {processedScenarios.map(s => (
             <React.Fragment key={`lines-${s.id}`}>
               {/* Cumulative Contribution Line (Dashed) */}
@@ -261,6 +280,7 @@ const SnowballChartInner: React.FC<{
                   strokeWidth={2}
                   strokeDasharray="4,4"
                   curve={curveMonotoneX}
+                  className="chart-morph"
                 />
               )}
               {/* Asset Growth Line (Nominal) */}
@@ -271,6 +291,7 @@ const SnowballChartInner: React.FC<{
                 stroke={s.color}
                 strokeWidth={3}
                 curve={curveMonotoneX}
+                className={`chart-morph ${DRAW_CLASS}`}
                 style={{ filter: `drop-shadow(0 0 6px ${s.color}33)`, opacity: showRealValue ? 0.3 : 1 }}
               />
               {/* Real Value Line (Inflation Adjusted) */}
@@ -283,15 +304,22 @@ const SnowballChartInner: React.FC<{
                   strokeWidth={3}
                   strokeDasharray="2,2"
                   curve={curveMonotoneX}
+                  className="chart-morph"
                 />
               )}
             </React.Fragment>
           ))}
+          </g>
 
           {/* 3. Interaction */}
           <Bar
             x={0} y={0} width={innerWidth} height={innerHeight} fill="transparent"
             onTouchStart={handleTooltip} onTouchMove={handleTooltip} onMouseMove={handleTooltip}
+            onClick={onPointSelect ? (event) => {
+              const selection = handleTooltip(event);
+              if (selection) onPointSelect(selection);
+            } : undefined}
+            style={onPointSelect ? { cursor: 'pointer' } : undefined}
             onMouseLeave={() => { hideTooltip(); if (onPointHover) onPointHover(null); }}
           />
 
@@ -303,7 +331,7 @@ const SnowballChartInner: React.FC<{
                 <g key={`marker-${i}`}>
                   <circle cx={tooltipLeft} cy={valueScale(p.value)} r={5} fill="white" stroke={p.color} strokeWidth={2} fillOpacity={showRealValue ? 0.3 : 1} strokeOpacity={showRealValue ? 0.3 : 1} pointerEvents="none" />
                   {showRealValue && p.realValue && <circle cx={tooltipLeft} cy={valueScale(p.realValue)} r={5} fill="white" stroke={p.color} strokeWidth={2} pointerEvents="none" />}
-                  {p.optimistic && <circle cx={tooltipLeft} cy={valueScale(p.optimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
+                  {p.optimistic && valueScale(p.optimistic) >= 0 && <circle cx={tooltipLeft} cy={valueScale(p.optimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
                   {p.pessimistic && <circle cx={tooltipLeft} cy={valueScale(p.pessimistic)} r={3} fill={p.color} fillOpacity={0.4} pointerEvents="none" />}
                   {p.contribution && <circle cx={tooltipLeft} cy={valueScale(p.contribution)} r={3} fill="var(--apple-gray-400)" pointerEvents="none" />}
                 </g>
@@ -363,9 +391,9 @@ const SnowballChartInner: React.FC<{
                   )}
                   {p.optimistic && p.pessimistic && (
                     <div className="flex justify-between pl-3 text-fine-print leading-relaxed text-apple-ink-muted-48">
-                      <span>최저 {formatCurrency(p.pessimistic)}</span>
+                      <span>하위 10% {formatCurrency(p.pessimistic)}</span>
                       <span className="mx-1">~</span>
-                      <span>최고 {formatCurrency(p.optimistic)}</span>
+                      <span>상위 10% {formatCurrency(p.optimistic)}</span>
                     </div>
                   )}
                 </div>
@@ -381,7 +409,7 @@ const SnowballChartInner: React.FC<{
 const SnowballChart: React.FC<SnowballChartProps> = ({ scenarios, mode, comparisonMode, showRealValue, onShowRealValueChange, onPointSelect, onPointHover }) => {
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex-1 min-h-[300px] relative">
+      <div className="relative h-[300px] sm:h-auto sm:min-h-[300px] sm:flex-1">
         <ParentSize>
           {({ width, height }) => (
             <SnowballChartInner 

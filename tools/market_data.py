@@ -313,6 +313,34 @@ REVIEWED_DAILY_BACKFILLS = (
         reason="Yahoo Finance ^KS200 omitted sessions; previously stored 2026-09-04 and 2026-09-08 closes differed from reviewed values",
     ),
     ReviewedDailyBackfill(
+        asset_id="KOSPI",
+        ticker="^KS200",
+        records=(
+            MarketRecord("2026-09-29", 1088.15, 0),
+            MarketRecord("2026-09-30", 1081.82, 0),
+            MarketRecord("2026-10-01", 1104.48, 0),
+            MarketRecord("2026-10-02", 1109.05, 0),
+            MarketRecord("2026-10-06", 1095.83, 0),
+            MarketRecord("2026-10-07", 1073.63, 0),
+            MarketRecord("2026-10-08", 1044.52, 0),
+            MarketRecord("2026-10-12", 1004.92, 0),
+            MarketRecord("2026-10-13", 942.07, 0),
+            MarketRecord("2026-10-14", 936.82, 0),
+            MarketRecord("2026-10-15", 860.7, 0),
+            MarketRecord("2026-10-16", 878.16, 0),
+            MarketRecord("2026-10-19", 891.3, 0),
+            MarketRecord("2026-10-20", 858.78, 0),
+            MarketRecord("2026-10-21", 891.04, 0),
+            MarketRecord("2026-10-22", 858.02, 0),
+        ),
+        source_url=(
+            "https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day"
+            "&count=100&requestType=0"
+        ),
+        retrieved_at="2026-10-24T06:35:05Z",
+        reason="Yahoo Finance ^KS200 returned only 2026-10-23 after 2026-09-28; Naver KOSPI matched Yahoo ^KS11 on all 21 sessions",
+    ),
+    ReviewedDailyBackfill(
         asset_id="KOSDAQ",
         ticker="^KQ11",
         records=(

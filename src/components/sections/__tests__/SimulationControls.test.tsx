@@ -13,7 +13,6 @@ afterEach(cleanup);
 describe('SimulationControls', () => {
   const baseProjectionProps = {
     mode: 'PROJECTION' as const,
-    setMode: () => undefined,
     params: {
       principal: 10_000_000,
       contribution: 30_000,
@@ -30,27 +29,19 @@ describe('SimulationControls', () => {
     },
     onUpdate: () => undefined,
     currency: 'KRW' as const,
-    setCurrency: () => undefined,
     exchangeRate: 1450,
-    onOpenAdvanced: () => undefined,
     selectedAssets: ['QQQ' as const],
   };
 
   it('exposes named single-choice controls and sends the selected values', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn();
-    const setMode = vi.fn();
-    const setCurrency = vi.fn();
-    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} setMode={setMode} setCurrency={setCurrency} />);
+    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} />);
 
-    await user.click(within(screen.getByRole('group', { name: '계산 모드' })).getByRole('button', { name: '과거 백테스트 모드' }));
-    await user.click(within(screen.getByRole('group', { name: '표시 통화' })).getByRole('button', { name: 'USD' }));
     const cycle = within(screen.getByRole('group', { name: '납입 주기' }));
     expect(cycle.getByRole('button', { name: '일' }).getAttribute('aria-pressed')).toBe('true');
     await user.click(cycle.getByRole('button', { name: '월' }));
 
-    expect(setMode).toHaveBeenCalledWith('BACKTEST');
-    expect(setCurrency).toHaveBeenCalledWith('USD');
     expect(onUpdate).toHaveBeenCalledWith({ cycle: 'MONTHLY' });
     expect(screen.getByLabelText('초기 자산 (KRW)').getAttribute('aria-describedby')).toBeTruthy();
   });
@@ -58,8 +49,7 @@ describe('SimulationControls', () => {
   it('renders family duration presets for an exact selected leverage family', () => {
     const markup = renderToStaticMarkup(React.createElement(SimulationControls, {
       mode: 'BACKTEST',
-      setMode: () => undefined,
-      params: {
+        params: {
         principal: 10_000_000,
         contribution: 30_000,
         cycle: 'DAILY',
@@ -75,10 +65,8 @@ describe('SimulationControls', () => {
       },
       onUpdate: () => undefined,
       currency: 'KRW',
-      setCurrency: () => undefined,
-      exchangeRate: 1450,
-      onOpenAdvanced: () => undefined,
-      selectedAssets: ['QQQ', 'QLD', 'TQQQ'],
+        exchangeRate: 1450,
+        selectedAssets: ['QQQ', 'QLD', 'TQQQ'],
     }));
 
     expect(markup).toContain('1년');
@@ -103,8 +91,66 @@ describe('SimulationControls', () => {
     render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params,
       strategyType: 'VALUE_AVERAGING', strategyTargetGrowth: 50_000,
     }} />);
-    expect((screen.getByLabelText('월간 목표 증가액 (KRW)') as HTMLInputElement).value).toBe('50000');
+    expect((screen.getByLabelText('월간 목표 증가액 (KRW)') as HTMLInputElement).value).toBe('50,000');
     expect(screen.queryByRole('group', { name: '납입 주기' })).toBeNull();
+  });
+
+  it('steps the investment period by a year and jumps to common horizons', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} />);
+    await user.click(screen.getByRole('button', { name: '투자 기간 1년 늘리기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ years: 11 });
+    await user.click(screen.getByRole('button', { name: '투자 기간 1년 줄이기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ years: 9 });
+
+    const presets = within(screen.getByRole('group', { name: '자주 쓰는 투자 기간' }));
+    expect(presets.getByRole('button', { name: '10년' }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(presets.getByRole('button', { name: '20년' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ years: 20 });
+  });
+
+  it('stops the period stepper at the cycle limit', () => {
+    render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, years: 30 }} />);
+    expect((screen.getByRole('button', { name: '투자 기간 1년 늘리기' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('steps the contribution by about a tenth and offers amounts that fit the cycle', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    const { rerender } = render(<SimulationControls {...baseProjectionProps} onUpdate={onUpdate} />);
+    expect(screen.getByLabelText('납입액 (KRW)').getAttribute('aria-describedby')).toBe('monthly-investment-input-hint');
+
+    await user.click(screen.getByRole('button', { name: '납입액 늘리기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 32_000 });
+    await user.click(screen.getByRole('button', { name: '납입액 줄이기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 28_000 });
+
+    const daily = within(screen.getByRole('group', { name: '자주 쓰는 납입액' }));
+    expect(daily.getByRole('button', { name: '3만' }).getAttribute('aria-pressed')).toBe('true');
+    await user.click(daily.getByRole('button', { name: '10만' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 100_000 });
+
+    rerender(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, cycle: 'MONTHLY', contribution: 500_000 }}
+      currency="USD" onUpdate={onUpdate} />);
+    const monthly = within(screen.getByRole('group', { name: '자주 쓰는 납입액' }));
+    expect(monthly.getAllByRole('button').map((button) => button.textContent)).toEqual(['$200', '$500', '$1,000', '$2,000']);
+  });
+
+  it('keeps value-averaging targets in sync when stepped', async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn();
+    render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, strategyType: 'VALUE_AVERAGING', cycle: 'MONTHLY', strategyTargetGrowth: 500_000 }}
+      onUpdate={onUpdate} />);
+    await user.click(screen.getByRole('button', { name: '월간 목표 증가액 늘리기' }));
+    expect(onUpdate).toHaveBeenLastCalledWith({ contribution: 550_000, strategyTargetGrowth: 550_000 });
+    expect(within(screen.getByRole('group', { name: '자주 쓰는 월간 목표 증가액' })).getByRole('button', { name: '50만' })
+      .getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('disables the contribution minus button at zero', () => {
+    render(<SimulationControls {...baseProjectionProps} params={{ ...baseProjectionProps.params, contribution: 0 }} />);
+    expect((screen.getByRole('button', { name: '납입액 줄이기' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('lets the existing parent normalization handle a cleared duration', async () => {

@@ -1,14 +1,18 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
-import { Github, Trash2, ArrowUpRight } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Github, Trash2, ArrowUpRight, SlidersHorizontal, Snowflake } from 'lucide-react';
 import Button from './components/common/Button';
 import { Input } from './components/common/Field';
 import Surface from './components/common/Surface';
 import Notice from './components/common/Notice';
 import type { ScenarioDocument } from './db/schema';
 import confetti from 'canvas-confetti';
+import SnowToy from './components/common/SnowToy';
+import { MILESTONES_KRW, milestoneLevel, useMilestoneCelebration } from './lib/celebration/useMilestoneCelebration';
+import { keepUnitTogether } from './lib/format/keepUnitTogether';
 import GlobalNav from './components/layout/GlobalNav';
-import ProductHero from './components/sections/ProductHero';
+import ResultHeadline from './components/sections/ResultHeadline';
+import MobileResultBar from './components/sections/MobileResultBar';
 import SnowballChart, { type SnowballChartSelection } from './components/charts/SnowballChart';
 import KPIGrid from './components/sections/KPIGrid';
 import BacktestView from './components/sections/BacktestView';
@@ -44,19 +48,12 @@ import {
 } from './data/leverageFamilies';
 import type { ComparisonAssetResult } from './components/sections/BacktestView';
 import { usePrefersReducedMotion } from './lib/animation/usePrefersReducedMotion';
+import { SERIES_PALETTE } from './styles/chartPalette';
+import { Tooltip } from './components/common/Tooltip';
+import { CYCLE_LABEL } from './lib/format/cycleLabel';
 
-const MILESTONES = [100_000_000, 500_000_000, 1_000_000_000, 5_000_000_000, 10_000_000_000];
-
-// Fixed colors for scenarios to avoid re-renders
-const SCENARIO_COLORS = [
-  '#0066cc', // Frost Blue
-  '#1d1d1f', // Near black
-  '#5ac8fa', // Sky Frost
-  '#424245', // Graphite
-  '#0a84ff', // Bright Frost
-  '#6e6e73', // Slate
-  '#64d2ff', // Light Sky
-];
+// The current scenario is Frost Blue; saved scenarios take the next hues, with red last so a saved plan does not read as a loss.
+const SCENARIO_COLORS = [SERIES_PALETTE[0], ...SERIES_PALETTE.slice(2), SERIES_PALETTE[1]];
 
 export const resetBacktestSelection = () => ({
   params: { ...DEFAULT_BACKTEST_PARAMS },
@@ -94,7 +91,13 @@ const describeBacktestRangeAdjustment = (
 function App() {
   const prefersReducedMotion = usePrefersReducedMotion();
   const { scenarios, addScenario, removeScenario, loading } = useScenarios();
-  const lastCelebratedMilestone = useRef<number>(0);
+  const resultNumberRef = useRef<HTMLElement | null>(null);
+  const [resultHeadlineElement, setResultHeadlineElementState] = useState<HTMLElement | null>(null);
+  const setResultHeadlineElement = useCallback((element: HTMLElement | null) => {
+    resultNumberRef.current = element;
+    setResultHeadlineElementState(element);
+  }, []);
+  const [backtestConditionsOpen, setBacktestConditionsOpen] = useState(false);
 
   // Basic State
   const [mode, setMode] = useState<SimulationMode>('PROJECTION');
@@ -168,6 +171,7 @@ function App() {
   );
 
   const handleFamilySelect = (familyId: LeverageFamilyId) => {
+    noteUserEdit();
     const selection = applyFamilySelection(backtestParams, familyId, getHistoricalCoverage);
     setBacktestRangeNotice(describeBacktestRangeAdjustment(backtestParams, selection));
     setBacktestParams((previous) => ({
@@ -180,6 +184,7 @@ function App() {
   };
 
   const handleComparisonAssetsChange = (assets: HistoricalAssetType[], primaryAsset?: HistoricalAssetType) => {
+    noteUserEdit();
     const selection = normalizeBacktestSelection({
       primaryAsset: primaryAsset ?? backtestParams.assetType,
       comparisonAssets: assets,
@@ -197,6 +202,7 @@ function App() {
   };
   
   const handleUpdateParams = (newParams: Partial<SimulationParams>) => {
+    noteUserEdit();
     const applyLimits = (params: SimulationParams, changes: Partial<SimulationParams>): SimulationParams => {
       const merged = { ...params, ...changes };
       if ((changes.assetType !== undefined && changes.assetType !== params.assetType)
@@ -265,6 +271,7 @@ function App() {
 
   const handleCurrencyChange = (newCurrency: 'KRW' | 'USD') => {
     if (newCurrency === currency) return;
+    moveBaselineSilently();
 
     // Convert values for both modes
     const convert = (params: SimulationParams) => ({
@@ -459,24 +466,25 @@ function App() {
     ? '내부수익률 (IRR)'
     : '연복리 수익률 (CAGR)';
   
-  // Milestone Celebration Effect
-  useEffect(() => {
-    const currentAsset = activeResult.postTaxValue;
-    const milestoneReached = MILESTONES.findLast((m: number) => currentAsset >= m);
-    
-    if (milestoneReached && milestoneReached > lastCelebratedMilestone.current) {
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#0066cc', '#5AC8FA', '#FFFFFF'],
-        disableForReducedMotion: true
-      });
-      lastCelebratedMilestone.current = milestoneReached;
-    } else if (!milestoneReached) {
-      lastCelebratedMilestone.current = 0;
-    }
-  }, [activeResult.postTaxValue, mode]);
+  // Celebrate only milestones the user reaches by editing inputs (see useMilestoneCelebration).
+  // Judge the number the headline shows: with the real-value toggle on, that is the inflation-adjusted value.
+  const headlineValue = mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue;
+  const resultValueKrw = currency === 'KRW' ? headlineValue : headlineValue * exchangeRate;
+  const [milestoneSticker, setMilestoneSticker] = useState<{ id: number; label: string } | null>(null);
+  const showMilestoneSticker = useCallback((milestoneKrw: number) => {
+    setMilestoneSticker({ id: Date.now(), label: `${SnowballEngine.formatBigNumber(milestoneKrw, 'KRW', true)} 돌파` });
+  }, []);
+  const { noteUserEdit, moveBaselineSilently } = useMilestoneCelebration(resultValueKrw, resultNumberRef, showMilestoneSticker);
+  // The toy snowball grows a little with each milestone the current result has passed.
+  const toyGrowth = (MILESTONES_KRW.indexOf(milestoneLevel(resultValueKrw)) + 1) / MILESTONES_KRW.length;
+  const formatResultAmount = useCallback(
+    (value: number) => keepUnitTogether(SnowballEngine.formatBigNumber(value, currency, true)),
+    [currency],
+  );
+  const formatResultDualAmount = useCallback(
+    (value: number) => SnowballEngine.formatDualCurrency(value, currency, exchangeRate, true, true),
+    [currency, exchangeRate],
+  );
 
   const chartScenarios = useMemo(() => {
     if (mode === 'BACKTEST' && backtestRangeError) return [];
@@ -580,6 +588,8 @@ function App() {
           });
     return [main, ...comparing];
   }, [activeSimulation, activeDisplayHistory, scenarioName, selectedComparisonScenarios, mode, effectiveValueBasis, goldData, backtestRangeError, currency, exchangeRate]);
+  // The detail panel opens on click and would otherwise keep showing numbers from before the last edit.
+  useEffect(() => { setSelectedPoint(null); }, [chartScenarios]);
 
   const handleSaveScenario = async () => {
     if (!scenarioName.trim()) {
@@ -634,6 +644,7 @@ function App() {
   };
 
   const handleLoadScenario = (s: ScenarioDocument) => {
+    moveBaselineSilently();
     const scenarioMode = s.simulationMode || 'PROJECTION';
     setMode(scenarioMode);
     const newParams: SimulationParams = {
@@ -696,9 +707,66 @@ function App() {
 
   const { cardRef: shareCardRef, isExporting, error: shareError, exportImage: handleShare } = useImageExport(scenarioName);
 
+  const projectionAssumptions = [
+    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.annualRateOverride !== undefined ? ' (저장한 수익률)' : projectionParams.assetType === 'CUSTOM' ? '' : ` (${projectionParams.assetType} 과거 수익률)`}`,
+    isValueAveragingProjection
+      ? `매월 목표 +${SnowballEngine.formatBigNumber(projectionParams.strategyTargetGrowth ?? projectionParams.contribution, currency, true)}`
+      : `${CYCLE_LABEL[projectionParams.cycle]} ${SnowballEngine.formatBigNumber(projectionParams.contribution, currency, true)}${projectionParams.strategyType === 'STEP_UP' ? ` (매년 +${(projectionParams.strategyIncreaseRate * 100).toFixed(0)}%)` : ''}`,
+    `${projectionParams.years}년`,
+    projectionParams.accountType === 'ISA' ? 'ISA' : '일반 계좌',
+  ].join(' · ');
+  // The 10th–90th percentile range and the chance of ending below the money put in, on the headline's basis.
+  const projectionRange = mode === 'PROJECTION' ? (() => {
+    const pick = (result: SimulationResult) => (showRealValue ? result.realValue : result.postTaxValue);
+    const loss = activeSimulation.lossProbability;
+    return {
+      low: formatResultAmount(pick(activeSimulation.pessimistic.at(-1)!)),
+      high: formatResultAmount(pick(activeSimulation.optimistic.at(-1)!)),
+      loss: loss > 0 && loss < 0.01 ? '1% 미만' : `${Math.round(loss * 100)}%`,
+    };
+  })() : null;
+  const resultHeadline = backtestRangeError ? null : (
+    <ResultHeadline
+      ref={setResultHeadlineElement}
+      label={mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후)` : '백테스트 최종 자산'}
+      value={headlineValue}
+      formatAmount={formatResultAmount}
+      formatSecondary={formatResultDualAmount}
+      resetKey={`${currency}-${showRealValue}`}
+      milestone={milestoneSticker}
+      onMilestoneDone={() => setMilestoneSticker(null)}
+      align={mode === 'BACKTEST' ? 'start' : 'center'}
+    >
+      {projectionRange && (
+        <div data-testid="projection-range" className="mt-2 flex flex-col items-center gap-x-1 break-keep text-caption text-apple-ink-muted-64 sm:flex-row sm:flex-wrap sm:justify-center">
+          <span>시장에 따라 {projectionRange.low} ~ {projectionRange.high}</span>
+          <span aria-hidden="true" className="hidden sm:inline">·</span>
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">원금 손실 가능성 {projectionRange.loss}
+          <Tooltip content="같은 수익률과 변동성으로 시장 흐름 4,000가지를 시뮬레이션해, 10번 중 8번이 들어오는 범위(하위 10%~상위 10%)를 보여줍니다. 원금 손실 가능성은 끝났을 때 누적 원금보다 적은 경우의 비율입니다. 과거 수익률이 미래를 보장하지 않습니다." />
+          </span>
+        </div>
+      )}
+      {mode === 'PROJECTION' && (
+        <button
+          type="button"
+          onClick={() => setIsAdvancedOpen(true)}
+          aria-label={`계산 가정 ${projectionAssumptions}. 고급 설정에서 바꾸기`}
+          className="mt-2 inline-flex min-h-control max-w-full items-center gap-2 rounded-pill px-3 text-caption text-apple-ink-muted-48 transition-colors hover:bg-apple-surface-pearl hover:text-apple-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary motion-reduce:transition-none"
+        >
+          <span className="break-keep">{projectionAssumptions}</span>
+          <SlidersHorizontal size={14} aria-hidden="true" className="shrink-0" />
+        </button>
+      )}
+    </ResultHeadline>
+  );
+
   return (
     <div className="min-h-screen font-text">
-      <GlobalNav onOpenAdvanced={() => setIsAdvancedOpen(true)} />
+      <GlobalNav
+        mode={mode} onModeChange={(nextMode) => { moveBaselineSilently(); setMode(nextMode); }}
+        currency={currency} onCurrencyChange={handleCurrencyChange}
+        onOpenAdvanced={() => setIsAdvancedOpen(true)}
+      />
       
       {/* Hidden ShareCard for Capture */}
       <ShareCard 
@@ -723,174 +791,172 @@ function App() {
         currency={currency}
       />
 
-      <main>
-        <LayoutGroup>
-          <ProductHero 
-            title={mode === 'BACKTEST' ? "과거가 보여주는 부의 지도." : "부의 눈덩이를 설계하세요."}
-            subtitle={mode === 'BACKTEST' ? "실제 역사적 데이터를 통한 투자 전략 검증" : "세금, 수수료, 과거 데이터까지 반영한 정교한 시뮬레이션"}
+      <main className="pt-nav">
+        <h1 className="sr-only">Stock Snowball 적립식 투자 시뮬레이터</h1>
+        <AdvancedSettingsSheet
+          mode={mode}
+          isOpen={isAdvancedOpen}
+          onClose={() => setIsAdvancedOpen(false)}
+          params={activeParams}
+          onUpdate={handleUpdateParams}
+          exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
+          onReset={handleResetAll}
+        />
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={mode}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -4, transition: { duration: prefersReducedMotion ? 0 : 0.12 } }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className="px-4 pb-16 pt-6 sm:px-6 sm:pt-8"
           >
-            <div className="w-full flex flex-col items-center">
-              
-              <SimulationControls 
-                mode={mode} setMode={setMode}
-                params={activeParams}
-                onUpdate={handleUpdateParams}
-                currency={currency} setCurrency={handleCurrencyChange}
-                exchangeRate={exchangeRate}
-                onOpenAdvanced={() => setIsAdvancedOpen(true)}
-                selectedAssets={selectedBacktestAssets}
-                rangeNotice={mode === 'BACKTEST' ? backtestRangeNotice : null}
-                backtestAssetSelection={mode === 'BACKTEST' ? <BacktestAssetSelector
-                  primaryAsset={backtestParams.assetType as HistoricalAssetType}
-                  comparisonAssets={comparisonAssets}
-                  onFamilySelect={handleFamilySelect}
-                  onComparisonAssetsChange={handleComparisonAssetsChange}
-                /> : undefined}
-              />
+            {mode === 'PROJECTION' ? (
+              <div className="mx-auto flex w-full max-w-content flex-col gap-8">
+                <SimulationControls
+                  mode={mode}
+                  params={activeParams}
+                  onUpdate={handleUpdateParams}
+                  currency={currency}
+                  exchangeRate={exchangeRate}
+                  selectedAssets={selectedBacktestAssets}
+                />
 
-              <AdvancedSettingsSheet 
-                mode={mode}
-                isOpen={isAdvancedOpen}
-                onClose={() => setIsAdvancedOpen(false)}
-                params={activeParams}
-                onUpdate={handleUpdateParams}
-                exchangeRate={exchangeRate} setExchangeRate={setExchangeRate}
-                onReset={handleResetAll}
-              />
+                {resultHeadline}
 
-              <AnimatePresence mode="wait">
-                <motion.div 
-                  key={mode}
-                  initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -4, transition: { duration: prefersReducedMotion ? 0 : 0.12 } }}
-                  transition={{ duration: prefersReducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
-                  className="w-full flex flex-col items-center"
+                <Surface tone="raised" className="min-h-[360px] w-full sm:h-[480px]">
+                  <SnowballChart
+                    scenarios={chartScenarios}
+                    mode={mode}
+                    comparisonMode={comparingScenarioIds.length > 0}
+                    showRealValue={showRealValue}
+                    onShowRealValueChange={(next) => { moveBaselineSilently(); setShowRealValue(next); }}
+                    onPointSelect={setSelectedPoint}
+                  />
+                </Surface>
+
+                <AnimatePresence>
+                  {selectedPoint && (
+                    <motion.div
+                      initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                      transition={prefersReducedMotion ? { duration: 0 } : undefined}
+                      className="w-full overflow-hidden"
+                    >
+                      <div className="ui-surface ui-surface-default">
+                        <div className="flex items-center justify-between mb-4 border-b border-apple-hairline pb-2">
+                          <span className="text-body-strong text-apple-ink font-display">
+                            {comparingScenarioIds.length > 0 ? '경과 개월수 기준 상세' : selectedPoint.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) + ' 기준 상세'}
+                          </span>
+                          <Button variant="ghost" size="compact" onClick={() => setSelectedPoint(null)}>닫기</Button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {selectedPoint.points.map((p, i) => (
+                            <div key={i} className="ui-surface ui-surface-compact ui-surface-quiet flex flex-col">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                                <span className="text-caption text-apple-ink-muted-48 truncate">{p.name}</span>
+                              </div>
+                              <span className="font-bold text-apple-ink text-body-strong mb-1">{SnowballEngine.formatBigNumber(p.value, currency)}</span>
+                              {p.optimistic && p.pessimistic && (
+                                <span className="text-fine-print leading-relaxed text-apple-ink-muted-48">10~90% 범위: {SnowballEngine.formatBigNumber(p.pessimistic, currency)} ~ {SnowballEngine.formatBigNumber(p.optimistic, currency)}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <KPIGrid
+                  initialPrincipal={activeParams.principal}
+                  totalContribution={activeResult.totalContribution}
+                  totalReturn={totalReturn}
+                  returnPercentage={returnPercentage}
+                  cagr={cagr}
+                  cagrLabel={cagrLabel}
+                  currency={currency}
+                  onShare={handleShare}
+                  isExporting={isExporting}
+                  shareError={shareError}
+                />
+              </div>
+            ) : (
+              <div className="mx-auto grid w-full max-w-analysis gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start lg:gap-8">
+                <aside
+                  aria-label="백테스트 조건"
+                  className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-[calc(theme(spacing.nav)+16px)] lg:max-h-[calc(100vh-theme(spacing.nav)-32px)] lg:overflow-y-auto lg:overscroll-contain lg:pb-2"
                 >
-                  {mode === 'BACKTEST' && !backtestRangeError && activeBacktest && <BacktestConditionsSummary
-                    params={backtestParams} selectedAssets={selectedBacktestAssets} currency={currency} />}
-                  {!backtestRangeError && <div className="mb-10 text-center flex flex-col items-center">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="text-caption-strong text-apple-ink-muted-48 tracking-tight uppercase font-display">
-                        {mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산 (세후)` : '백테스트 최종 자산'}
-                      </span>
+                  {activeBacktest && (
+                    <div className="lg:hidden">
+                      <BacktestConditionsSummary
+                        params={backtestParams} selectedAssets={selectedBacktestAssets} currency={currency}
+                        expanded={backtestConditionsOpen}
+                        onToggle={() => setBacktestConditionsOpen((open) => !open)}
+                        controlsId="backtest-conditions"
+                      />
                     </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-3xl sm:text-display-lg text-apple-primary font-display tracking-tight">
-                        {SnowballEngine.formatBigNumber(mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, true)}
-                      </span>
-                      <span className="text-body-strong text-apple-ink-muted-48 mt-1 font-display tracking-tight">
-                        {SnowballEngine.formatDualCurrency(mode === 'PROJECTION' && showRealValue ? activeResult.realValue : activeResult.postTaxValue, currency, exchangeRate, true, true)}
-                      </span>
-                    </div>
-                  </div>}
+                  )}
+                  <div id="backtest-conditions" className={backtestConditionsOpen || !activeBacktest ? 'min-w-0' : 'hidden min-w-0 lg:block'}>
+                    <SimulationControls
+                      mode={mode}
+                      params={activeParams}
+                      onUpdate={handleUpdateParams}
+                      currency={currency}
+                      exchangeRate={exchangeRate}
+                      selectedAssets={selectedBacktestAssets}
+                      rangeNotice={backtestRangeNotice}
+                      backtestAssetSelection={<BacktestAssetSelector
+                        primaryAsset={backtestParams.assetType as HistoricalAssetType}
+                        comparisonAssets={comparisonAssets}
+                        onFamilySelect={handleFamilySelect}
+                        onComparisonAssetsChange={handleComparisonAssetsChange}
+                      />}
+                    />
+                  </div>
+                </aside>
 
+                <div className="flex min-w-0 flex-col gap-6">
+                  {resultHeadline}
                   {backtestRangeError && (
-                    <Notice tone="error" role="status" className="mb-8 w-full max-w-content">
+                    <Notice tone="error" role="status" className="w-full">
                       <p className="text-body-strong text-apple-ink">선택 기간에는 공통 백테스트 결과를 표시할 수 없습니다.</p>
                       <p className="mt-1 text-caption text-apple-ink-muted-64">기간 입력에서 사용 가능한 전체 기간을 적용하거나 날짜를 직접 조정해주세요.</p>
                     </Notice>
                   )}
-
-                  {mode === 'PROJECTION' && !backtestRangeError && <Surface className="w-full max-w-content mb-8 h-[360px] sm:h-[480px]">
-                    <SnowballChart 
-                      scenarios={chartScenarios} 
-                      mode={mode}
-                      comparisonMode={comparingScenarioIds.length > 0}
-                      showRealValue={mode === 'PROJECTION' && showRealValue}
-                      onShowRealValueChange={mode === 'PROJECTION' ? setShowRealValue : undefined}
-                      onPointHover={(d) => d && setSelectedPoint(d)}
-                      onPointSelect={setSelectedPoint}
-                    />
-                  </Surface>}
-
-                  {mode === 'PROJECTION' && !backtestRangeError && <AnimatePresence>
-                    {selectedPoint && (
-                      <motion.div 
-                        initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                        transition={prefersReducedMotion ? { duration: 0 } : undefined}
-                        className="w-full max-w-content mb-12 overflow-hidden"
-                      >
-                        <div className="ui-surface ui-surface-default">
-                          <div className="flex items-center justify-between mb-4 border-b border-apple-hairline pb-2">
-                            <span className="text-body-strong text-apple-ink font-display">
-                              {comparingScenarioIds.length > 0 ? '경과 개월수 기준 상세' : selectedPoint.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) + ' 기준 상세'}
-                            </span>
-                            <Button variant="ghost" size="compact" onClick={() => setSelectedPoint(null)}>닫기</Button>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            {selectedPoint.points.map((p, i) => (
-                              <div key={i} className="ui-surface ui-surface-compact flex flex-col">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                                  <span className="text-caption text-apple-ink-muted-48 truncate">{p.name}</span>
-                                </div>
-                                <span className="font-bold text-apple-ink text-body-strong mb-1">{SnowballEngine.formatBigNumber(p.value, currency)}</span>
-                                {p.optimistic && p.pessimistic && (
-                                  <span className="text-fine-print leading-relaxed text-apple-ink-muted-48">범위: {SnowballEngine.formatBigNumber(p.pessimistic, currency)} ~ {SnowballEngine.formatBigNumber(p.optimistic, currency)}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>}
-
-                  {mode === 'PROJECTION' && !backtestRangeError && <div className="w-full max-w-content">
-                    <KPIGrid 
-                      totalAsset={activeResult.postTaxValue}
-                      initialPrincipal={activeParams.principal}
-                      totalContribution={activeResult.totalContribution}
-                      totalReturn={totalReturn}
-                      returnPercentage={returnPercentage}
-                      cagr={cagr}
-                      cagrLabel={cagrLabel}
-                      currency={currency}
-                      exchangeRate={exchangeRate}
-                      isMilestoneReached={currency === 'KRW' && MILESTONES.some(m => activeResult.postTaxValue >= m)}
-                      onShare={handleShare}
-                      isExporting={isExporting}
-                      shareError={shareError}
-                    />
-                  </div>}
-
-                  {mode === 'BACKTEST' && (
-                    <div className="w-full max-w-analysis">
-                      <BacktestView
-                        primaryAsset={backtestParams.assetType as HistoricalAssetType}
-                        startDate={backtestParams.startDate!}
-                        endDate={backtestParams.endDate!}
-                        comparisonAssets={comparisonAssets}
-                        results={preparedComparisonResults}
-                        leverageInsights={leverageInsights}
-                        scenarioSeries={chartScenarios}
-                        onShare={handleShare}
-                        isExporting={isExporting}
-                        shareError={shareError}
-                        currency={currency}
-                        valueBasis={valueBasis}
-                        resultView={backtestResultView}
-                        goldBasisError={goldBasisError}
-                        goldData={goldData}
-                        inflationRate={backtestParams.inflationRate}
-                        onValueBasisChange={setValueBasis}
-                        onResultViewChange={setBacktestResultView}
-                      />
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </ProductHero>
-        </LayoutGroup>
+                  <BacktestView
+                    primaryAsset={backtestParams.assetType as HistoricalAssetType}
+                    startDate={backtestParams.startDate!}
+                    endDate={backtestParams.endDate!}
+                    comparisonAssets={comparisonAssets}
+                    results={preparedComparisonResults}
+                    leverageInsights={leverageInsights}
+                    scenarioSeries={chartScenarios}
+                    onShare={handleShare}
+                    isExporting={isExporting}
+                    shareError={shareError}
+                    currency={currency}
+                    valueBasis={valueBasis}
+                    resultView={backtestResultView}
+                    goldBasisError={goldBasisError}
+                    goldData={goldData}
+                    inflationRate={backtestParams.inflationRate}
+                    onValueBasisChange={setValueBasis}
+                    onResultViewChange={setBacktestResultView}
+                  />
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
 
         <section className="bg-apple-canvas-parchment py-12 sm:py-16 px-4 sm:px-6 flex flex-col items-center border-t border-apple-hairline">
           <div className="w-full max-w-content">
             <div className="ui-surface ui-surface-default mb-10 flex flex-col items-start justify-between gap-6 xl:flex-row xl:items-center">
               <div className="flex-1 w-full">
-                <h2 className="text-title-sm text-apple-ink mb-2 font-display">시나리오 저장 및 비교군 추가</h2>
-                <p className="break-keep text-caption text-apple-ink-muted-48 font-text">현재 설정을 저장하고 비교 차트에 즉시 추가하여 분석하세요.</p>
+                <h2 className="text-title-sm text-apple-ink mb-2 font-display">시나리오 저장</h2>
+                <p className="break-keep text-caption text-apple-ink-muted-48 font-text">지금 조건을 저장하면 차트에서 바로 비교할 수 있어요.</p>
               </div>
               <form className="flex w-full items-end gap-3 xl:w-auto" onSubmit={(event) => { event.preventDefault(); void handleSaveScenario(); }}>
                 <div className="ui-field min-w-0 flex-1">
@@ -906,7 +972,13 @@ function App() {
             {loading ? (
               <p className="font-text text-apple-ink-muted-48">불러오는 중...</p>
             ) : scenarios.length === 0 ? (
-              <p className="text-apple-ink-muted-48 font-text">저장된 시나리오가 없습니다.</p>
+              <div className="ui-surface ui-surface-default ui-surface-quiet flex flex-col items-center gap-3 py-10 text-center">
+                <span aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-full bg-apple-surface-white text-apple-primary shadow-card">
+                  <Snowflake size={22} />
+                </span>
+                <p className="text-body-strong text-apple-ink">아직 저장한 시나리오가 없어요</p>
+                <p className="max-w-sm break-keep text-caption text-apple-secondary">위에서 이름을 붙여 저장하면 여기에 쌓이고, 차트에 겹쳐서 비교할 수 있어요.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <AnimatePresence>
@@ -952,7 +1024,18 @@ function App() {
         </section>
       </main>
 
-      <footer className="bg-apple-canvas-parchment border-t border-apple-hairline py-12 px-4 sm:px-6 text-center">
+      {!backtestRangeError && (
+        <MobileResultBar
+          target={resultHeadlineElement}
+          label={mode === 'PROJECTION' ? `${projectionParams.years}년 후 예상 자산` : '최종 자산'}
+          value={headlineValue}
+          formatAmount={formatResultAmount}
+          returnPercentage={returnPercentage}
+        />
+      )}
+      <SnowToy growth={toyGrowth} />
+
+      <footer className="bg-apple-canvas-parchment border-t border-apple-hairline px-4 pb-28 pt-12 text-center sm:px-6 lg:pb-12">
         <div className="max-w-content mx-auto">
           <p className="break-keep text-fine-print leading-relaxed text-apple-ink-muted-48 tracking-tight font-text mb-2">본 시뮬레이션은 과거 데이터를 기반으로 하며, 미래의 수익을 보장하지 않습니다.</p>
           <p className="text-fine-print text-apple-ink-muted-48 tracking-tight font-text mb-6">&copy; 2026 Stock Snowball. All rights reserved.</p>

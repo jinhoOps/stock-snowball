@@ -140,7 +140,7 @@ const ScenarioPresetPicker: React.FC<ScenarioPresetPickerProps> = ({
             className="ui-surface ui-surface-compact flex flex-col gap-4 overflow-hidden"
           >
             <div className="flex flex-col gap-2">
-              <span className="text-micro-legal font-bold text-apple-ink-muted-48 ml-1 tracking-widest uppercase">간편 기간 설정</span>
+              <span className="ml-1 text-caption-strong text-apple-ink-muted-48">간편 기간 설정</span>
               <div className="flex flex-wrap gap-2">
                 {durationPresets.filter(p => quickPresets ? ["YTD", "1M", "6M"].includes(p.name) : !["YTD", "1Y", "5Y"].includes(p.name)).map((preset) => (
                   <ScenarioButton 

@@ -23,7 +23,7 @@ describe('BacktestPrimaryMetrics', () => {
     expect(screen.getByText('누적수익률').parentElement?.textContent).toContain('123.45%');
     expect(screen.getByText('연평균수익률 (CAGR)').parentElement?.textContent).toContain('12.34%');
     expect(screen.getByText('최대낙폭 (MDD)').parentElement?.textContent).toContain('-33.70%');
-    expect(screen.getByText('투자원금').parentElement?.textContent).toContain('1억 1,566만 원');
+    expect(screen.getByText('투자원금').parentElement?.textContent?.replace(/\u00a0/g, ' ')).toContain('1억 1,566만 원');
     expect(screen.queryByText(/최종.*자산/)).toBeNull();
     expect(screen.queryByText(/IRR/)).toBeNull();
   });

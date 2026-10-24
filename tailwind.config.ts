@@ -78,6 +78,8 @@ const config: Config = {
         field: '48px',
       },
       zIndex: {
+        dock: '20',
+        toy: '30',
         nav: '40',
         overlay: '60',
         dialog: '70',
@@ -94,6 +96,8 @@ const config: Config = {
         'xl': '32px',
         'xxl': '48px',
         'section': '80px',
+        // Fixed header height; also used for page top padding and sticky offsets.
+        'nav': '60px',
       }
     },
   },

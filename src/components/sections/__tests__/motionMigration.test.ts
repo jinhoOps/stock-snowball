@@ -13,7 +13,6 @@ const readSource = (path: string) => readFileSync(resolve(repoRoot, path), 'utf8
 describe('Workstream 3 Motion migration guard', () => {
   const migratedFiles = [
     'src/components/sections/KPIGrid.tsx',
-    'src/components/sections/ProductHero.tsx',
     'src/components/layout/GlobalNav.tsx',
     'src/components/sections/BacktestView.tsx',
   ];

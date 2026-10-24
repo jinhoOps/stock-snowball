@@ -8,6 +8,8 @@ interface BigNumberHelperProps {
   showDual?: boolean;
   onlyEstimate?: boolean;
   showExchangeRate?: boolean;
+  /** false keeps amounts under 1억 exact (3만 4,000원), for echoing what was typed. */
+  simplified?: boolean;
   className?: string;
 }
 
@@ -21,11 +23,12 @@ export const BigNumberHelper: React.FC<BigNumberHelperProps> = ({
   showDual = true,
   onlyEstimate = false,
   showExchangeRate = false,
+  simplified = true,
   className = ''
 }) => {
   const formatted = showDual 
-    ? SnowballEngine.formatDualCurrency(value, currency, exchangeRate, true, onlyEstimate)
-    : SnowballEngine.formatBigNumber(value, currency, true);
+    ? SnowballEngine.formatDualCurrency(value, currency, exchangeRate, simplified, onlyEstimate)
+    : SnowballEngine.formatBigNumber(value, currency, simplified);
 
   return (
     <div className={`text-fine-print leading-relaxed text-apple-ink-muted-48 mt-1 ${className}`}>

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openBacktest, openAssetPicker } from './helpers';
 
 async function expectNoOverflow(page: Page) {
   await expect.poll(() => page.evaluate(
@@ -9,8 +10,9 @@ async function expectNoOverflow(page: Page) {
 test('recovery periods follow the selected crisis window and survive the mobile comparison flow', async ({ page }, info) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/stock-snowball/');
-  await page.getByRole('button', { name: '과거 백테스트 모드' }).click();
-  await page.getByRole('button', { name: '나스닥 레버리지 가족 선택' }).click();
+  await openBacktest(page);
+  await openAssetPicker(page);
+  await page.getByRole('button', { name: '나스닥 레버리지 묶음 선택' }).click();
   const assets = page.getByRole('region', { name: '백테스트 종목 선택' });
   await assets.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `test-results/visual-review/qa-01-assets-${info.project.name}.png` });

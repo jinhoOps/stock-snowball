@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { DRAW_CLASS, useLineDraw } from '../../lib/animation/useLineDraw';
 import { AxisBottom, AxisLeft, AxisRight } from '@visx/axis';
 import { curveMonotoneX, curveStepAfter } from '@visx/curve';
 import { localPoint } from '@visx/event';
@@ -225,6 +226,10 @@ export const BacktestChartInner: React.FC<BacktestChartProps & { width: number; 
     showKeyboardTooltip(nextIndex);
   }, [currentKeyboardIndex, keyboardDates.length, showKeyboardTooltip]);
 
+  const linesRef = useRef<SVGGElement>(null);
+  const drawShape = `${resultView}|${series.map((item) => `${item.assetId}:${item.points[0]?.date}:${item.points.at(-1)?.date}`).join(',')}`;
+  useLineDraw(linesRef, drawShape, width >= 10 && height >= 10 && allPoints.length > 0);
+
   if (width < 10 || height < 10 || allPoints.length === 0) return null;
   const principalPoints = datedSeries[0]?.points.filter((point) => point.principal !== undefined) ?? [];
   const svgLabel = marketTrend
@@ -248,9 +253,11 @@ export const BacktestChartInner: React.FC<BacktestChartProps & { width: number; 
               curve={curveMonotoneX}
             />
           )}
+          <g ref={linesRef}>
           {datedSeries.map((item) => (
             <LinePath<DatedPoint>
               key={item.assetId}
+              className={item.strokeDasharray ? undefined : DRAW_CLASS}
               data={item.points}
               x={(point) => dateScale(point.dateValue) ?? 0}
               y={(point) => valueScale(point.value) ?? 0}
@@ -260,6 +267,7 @@ export const BacktestChartInner: React.FC<BacktestChartProps & { width: number; 
               curve={curveMonotoneX}
             />
           ))}
+          </g>
           {marketTrend && (
             <>
               <LinePath

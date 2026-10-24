@@ -89,11 +89,30 @@ describe('Projection independent financial audit', () => {
     expect(monthly.irr).toBeCloseTo(daily.irr!, 10);
   });
 
-  it('matches the illustrative square-root-of-time envelope from the first day', () => {
-    const result = SnowballEngine.simulateRange(1000000, 0, 1 / 365, noContribution, 0, 'GENERAL', noTax, noFees, undefined, 1, 'CUSTOM');
-    const offset = 0.2 * 1.645 * Math.sqrt(1 / 365);
-    expect(result.optimistic.at(-1)!.nominalValue).toBeCloseTo(1000000 * Math.exp(offset), 6);
-    expect(result.pessimistic.at(-1)!.nominalValue).toBeCloseTo(1000000 * Math.exp(-offset), 6);
+  it('puts a lump sum range near the lognormal 10th and 90th percentiles', () => {
+    const result = SnowballEngine.simulateRange(1000000, 0.08, 10, noContribution, 0, 'GENERAL', noTax, noFees, undefined, 30, 'CUSTOM');
+    const median = 1000000 * 1.08 ** 10;
+    const spread = 1.2816 * 0.2 * Math.sqrt(10);
+    expect(result.pessimistic.at(-1)!.nominalValue / (median * Math.exp(-spread))).toBeCloseTo(1, 1);
+    expect(result.optimistic.at(-1)!.nominalValue / (median * Math.exp(spread))).toBeCloseTo(1, 1);
+  });
+
+  it('lets regular contributions end below the money put in', () => {
+    const result = SnowballEngine.simulateRange(0, 0.08, 3, { type: 'FIXED', baseAmount: 1000, cycle: 'MONTHLY' }, 0, 'GENERAL', noTax, noFees);
+    const last = result.pessimistic.at(-1)!;
+    expect(last.postTaxValue).toBeLessThan(last.totalContribution * 0.95);
+    expect(result.lossProbability).toBeGreaterThan(0.15);
+    expect(result.lossProbability).toBeLessThan(0.4);
+  });
+
+  it('gives the same range for the same inputs, and keeps earlier years when the horizon grows', () => {
+    const run = (years: number) => SnowballEngine.simulateRange(1000000, 0.08, years, { type: 'FIXED', baseAmount: 1000, cycle: 'MONTHLY' }, 0, 'GENERAL', noTax, noFees);
+    expect(run(5).pessimistic).toEqual(run(5).pessimistic);
+    expect(run(10).pessimistic[12].nominalValue).toBe(run(5).pessimistic[12].nominalValue);
+  });
+
+  it('reports no loss chance when nothing is invested', () => {
+    expect(SnowballEngine.simulateRange(0, 0.08, 3, noContribution, 0, 'GENERAL', noTax, noFees).lossProbability).toBe(0);
   });
 
   it('applies the default ISA 9.9% rate above the 2 million allowance', () => {

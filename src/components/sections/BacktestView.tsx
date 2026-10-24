@@ -17,6 +17,7 @@ import BacktestPrimaryMetrics from './BacktestPrimaryMetrics';
 import BacktestAnalysisChart from './BacktestAnalysisChart';
 import BacktestDrawdownRecovery from './BacktestDrawdownRecovery';
 import ShareImageButton from '../common/ShareImageButton';
+import { Tooltip } from '../common/Tooltip';
 
 interface ComparisonAssetBase {
   assetId: HistoricalAssetType;
@@ -121,6 +122,8 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       recovery: getMaxDrawdownRecovery(display.productPoints),
     };
   }), [successfulResults, inflationRate, goldData, displayBasis]);
+  // With one asset the comparison table would only repeat the headline metrics.
+  const isSingleAsset = preparedResults.length === 1;
   const allRecovery = preparedResults.length > 0 && preparedResults.every((result) => result.periodMetric.kind === 'RECOVERY');
   const mixedPeriodMetrics = !allRecovery && preparedResults.some((result) => result.periodMetric.kind === 'RECOVERY');
   const periodHeading = allRecovery ? '최저점 대비 회복률' : mixedPeriodMetrics ? '기간 성과 (종목별)' : '연평균수익률 (CAGR)';
@@ -159,29 +162,6 @@ const BacktestView: React.FC<BacktestViewProps> = ({
       ) : null}
 
 
-      {successfulResults.length > 0 && <div className="flex w-full max-w-analysis flex-col justify-between gap-3 sm:flex-row sm:items-start">
-        <SegmentedControl
-          label="결과 보기"
-          value={resultView}
-          options={[{ value: 'PORTFOLIO', label: '투자 결과' }, { value: 'NORMALIZED', label: '시작값 100' }]}
-          onChange={onResultViewChange}
-        />
-        <SegmentedControl
-          label="가치 기준"
-          value={displayBasis}
-          options={[
-            { value: 'NOMINAL', label: '명목' },
-            { value: 'REAL', label: '실질' },
-            { value: 'GOLD', label: '금 기준', disabled: Boolean(goldBasisError), disabledReason: goldBasisError ?? undefined },
-          ]}
-          onChange={onValueBasisChange}
-        />
-      </div>}
-
-      {successfulResults.length > 0 && displayBasis === 'GOLD' && !goldBasisError && (
-        <p className="-mt-5 w-full max-w-analysis text-right text-fine-print text-apple-ink-muted-48">시작일 금 가치 기준</p>
-      )}
-
       {preparedResults.length > 0 ? (
         <BacktestAnalysisChart
           primaryAsset={primaryAsset}
@@ -191,27 +171,60 @@ const BacktestView: React.FC<BacktestViewProps> = ({
           resultView={resultView}
           valueBasis={displayBasis}
           marketTrend={marketTrend}
+          controls={<>
+            <SegmentedControl
+              label="결과 보기"
+              size="compact"
+              value={resultView}
+              options={[{ value: 'PORTFOLIO', label: '투자 결과' }, { value: 'NORMALIZED', label: '시작값 100' }]}
+              onChange={onResultViewChange}
+            />
+            <div className="flex flex-col items-end gap-1">
+              <SegmentedControl
+                label="가치 기준"
+                size="compact"
+                value={displayBasis}
+                options={[
+                  { value: 'NOMINAL', label: '명목' },
+                  { value: 'REAL', label: '실질' },
+                  { value: 'GOLD', label: '금 기준', disabled: Boolean(goldBasisError), disabledReason: goldBasisError ?? undefined },
+                ]}
+                onChange={onValueBasisChange}
+              />
+              {displayBasis === 'GOLD' && !goldBasisError && (
+                <p className="text-fine-print text-apple-ink-muted-48">시작일 금 가치 기준</p>
+              )}
+            </div>
+          </>}
         />
       ) : null}
 
       {preparedResults.length > 0 && <div
         data-testid="product-performance-summary"
-        className="w-full max-w-analysis text-center sm:text-left"
+        className="w-full max-w-analysis text-left"
       >
-        <h3 className="font-display text-body-strong text-apple-ink">선택 기간 성과 비교</h3>
-        <p className="mt-1 text-fine-print text-apple-ink-muted-48">
-          {startDate} ~ {endDate} · 수익률·CAGR·MDD: 배당 재투자 포함 · 납입액 영향 제외
-          {preparedResults.some((result) => result.productMetrics.cagr === null) && <span className="mt-2 block">1년 미만은 CAGR 대신 최저점 대비 회복률(상품의 최저점 → 종료일)을 표시합니다. 원금 회복률과 다릅니다. 단기 또는 산출 불가 IRR은 —로 표시합니다.</span>}
-        </p>
-        <p className="mt-1 text-fine-print text-apple-ink-muted-48">최종 자산: 납입 포함</p>
+        {isSingleAsset ? (
+          <dl aria-label="추가 지표" className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-caption">
+            <div className="flex gap-2"><dt className="text-apple-ink-muted-48">포트폴리오 IRR (납입 포함)</dt><dd className="font-semibold tabular-nums text-apple-ink">{percentage(preparedResults[0].productMetrics.cagr === null ? null : preparedResults[0].portfolioIrr)}</dd></div>
+            <div className="flex gap-2"><dt className="text-apple-ink-muted-48">변동성</dt><dd className="font-semibold tabular-nums text-apple-ink">{percentage(preparedResults[0].productMetrics.volatility)}</dd></div>
+          </dl>
+        ) : (
+          <h3 className="flex items-center gap-1 font-display text-body-strong text-apple-ink">
+            선택 기간 성과 비교
+            <Tooltip content={`${startDate} ~ ${endDate} · 수익률·CAGR·MDD는 배당 재투자를 포함하고 납입액 영향을 제외합니다. 최종 자산은 납입을 포함합니다.`} />
+          </h3>
+        )}
+        {preparedResults.some((result) => result.productMetrics.cagr === null) && (
+          <p className="mt-2 text-fine-print leading-relaxed text-apple-ink-muted-48">1년 미만은 CAGR 대신 최저점 대비 회복률(상품의 최저점 → 종료일)을 표시합니다. 원금 회복률과 다릅니다. 단기 또는 산출 불가 IRR은 —로 표시합니다.</p>
+        )}
       </div>}
 
-      {preparedResults.length > 0 && <div className="hidden w-full max-w-analysis md:block">
+      {preparedResults.length > 0 && !isSingleAsset && <div className="hidden w-full max-w-analysis md:block">
         <Surface padding="none" className="overflow-hidden">
           <table className="w-full border-collapse text-left">
             <thead><tr className="border-b border-apple-hairline bg-apple-canvas-parchment/50">
               {['자산', '누적수익률', periodHeading, '최대낙폭 (MDD)', '포트폴리오 최종 자산 (납입 포함)', '변동성'].map((heading, index) => (
-                <th key={heading} className={`p-4 text-micro-legal font-bold uppercase tracking-widest text-apple-ink-muted-48 ${index > 0 ? 'text-center' : ''}`}>{heading}</th>
+                <th key={heading} className={`p-4 text-caption-strong text-apple-ink-muted-48 ${index > 0 ? 'text-center' : ''}`}>{heading}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -244,7 +257,7 @@ const BacktestView: React.FC<BacktestViewProps> = ({
         </Surface>
       </div>}
 
-      {preparedResults.length > 0 && <div className="grid w-full max-w-analysis grid-cols-1 gap-3 md:hidden">
+      {preparedResults.length > 0 && !isSingleAsset && <div className="grid w-full max-w-analysis grid-cols-1 gap-3 md:hidden">
         {preparedResults.map((result) => (
           <article
             key={result.assetId}
@@ -289,11 +302,11 @@ const BacktestView: React.FC<BacktestViewProps> = ({
 
       {successfulResults.length > 0 && completeFamily && leverageInsights.length > 0 && (
         <aside data-testid="leverage-insight" className="ui-surface ui-surface-default w-full max-w-analysis">
-          <h3 className="text-body-strong text-apple-ink">명목 상품 성과</h3>
+          <h3 className="text-body-strong text-apple-ink">레버리지 상품의 실제 성과 · 명목 기준</h3>
           <p className="mt-2 text-caption text-apple-ink-muted-80">2배·3배는 하루의 목표이며, 전체 기간 수익률의 약속이 아닙니다.</p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-x-8 sm:grid-cols-2">
             {leverageInsights.map((insight) => (
-              <Surface key={insight.assetId} padding="compact" className="bg-apple-canvas-parchment">
+              <div key={insight.assetId} className="border-t border-apple-hairline py-4">
                 <div className="mb-3 flex items-center gap-2 font-display text-body-strong text-apple-ink">{insight.assetId}<MetricBadge multiple={insight.targetMultiple} /></div>
                 <dl className="grid grid-cols-2 gap-3 text-caption">
                   <div><dt className="text-apple-ink-muted-48">기초자산</dt><dd className="font-semibold">{percentage(insight.underlyingReturn)}</dd></div>
@@ -301,14 +314,14 @@ const BacktestView: React.FC<BacktestViewProps> = ({
                   <div><dt className="text-apple-ink-muted-48">단순 {insight.targetMultiple}× 참고값</dt><dd className="font-semibold">{percentage(insight.simpleReference)}</dd></div>
                   <div><dt className="text-apple-ink-muted-48">차이</dt><dd className="font-semibold">{(insight.difference * 100).toFixed(2)}%p</dd></div>
                 </dl>
-              </Surface>
+              </div>
             ))}
           </div>
         </aside>
       )}
 
       {onShare ? (
-        <ShareImageButton variant="primary" onClick={onShare} isExporting={isExporting} error={shareError} />
+        <ShareImageButton onClick={onShare} isExporting={isExporting} error={shareError} />
       ) : null}
     </section>
   );

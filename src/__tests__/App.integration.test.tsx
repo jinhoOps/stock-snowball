@@ -43,9 +43,17 @@ vi.mock('../hooks/useScenarios', () => ({
 }));
 
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
-vi.mock('../components/layout/GlobalNav', () => ({ default: () => null }));
-vi.mock('../components/sections/ProductHero', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+vi.mock('../components/layout/GlobalNav', () => ({
+  default: ({ onModeChange, onCurrencyChange }: {
+    onModeChange: (mode: 'BACKTEST' | 'PROJECTION') => void;
+    onCurrencyChange: (currency: 'KRW' | 'USD') => void;
+  }) => (
+    <>
+      <button onClick={() => onModeChange('BACKTEST')}>open backtest</button>
+      <button onClick={() => onModeChange('PROJECTION')}>open projection</button>
+      <button onClick={() => onCurrencyChange('USD')}>display USD</button>
+    </>
+  ),
 }));
 vi.mock('../components/charts/SnowballChart', () => ({
   default: ({
@@ -72,16 +80,19 @@ vi.mock('../components/charts/SnowballChart', () => ({
 }));
 vi.mock('../components/sections/KPIGrid', () => ({
   default: ({
-    totalAsset,
+    totalContribution,
+    totalReturn,
     cagr,
     cagrLabel,
   }: {
-    totalAsset: number;
+    totalContribution: number;
+    totalReturn: number;
     cagr: number | null;
     cagrLabel?: string;
   }) => (
     <div data-testid="projection-kpis">
-      <output data-testid="kpi-values">{totalAsset.toFixed(6)}|{cagr?.toFixed(6) ?? '-'}</output>
+      {/* Principal plus return is the final asset the grid describes. */}
+      <output data-testid="kpi-values">{(totalContribution + totalReturn).toFixed(6)}|{cagr?.toFixed(6) ?? '-'}</output>
       <output data-testid="kpi-rate-label">{cagrLabel}</output>
     </div>
   ),
@@ -91,26 +102,20 @@ vi.mock('../components/common/ShareCard', () => ({ default: ({ contribution, con
 }));
 vi.mock('../components/sections/SimulationControls', () => ({
   default: ({
-    setMode,
     backtestAssetSelection,
     params,
     rangeNotice,
     selectedAssets,
     onUpdate,
-    setCurrency,
   }: {
-    setMode: (mode: 'BACKTEST' | 'PROJECTION') => void;
     backtestAssetSelection?: React.ReactNode;
     params: { startDate?: string; endDate?: string };
     rangeNotice?: string | null;
     selectedAssets: HistoricalAssetType[];
-    onUpdate: (params: { startDate: string; endDate: string }) => void;
-    setCurrency: (currency: 'KRW' | 'USD') => void;
+    onUpdate: (params: { startDate?: string; endDate?: string; contribution?: number }) => void;
   }) => (
     <>
-      <button onClick={() => setMode('BACKTEST')}>open backtest</button>
-      <button onClick={() => setMode('PROJECTION')}>open projection</button>
-      <button onClick={() => setCurrency('USD')}>display USD</button>
+      <button onClick={() => onUpdate({ contribution: 1_234_567 })}>raise contribution</button>
       <button onClick={() => {
         const coverage = getCommonCoverage(selectedAssets, getHistoricalCoverage);
         onUpdate({ startDate: coverage.startDate, endDate: coverage.endDate });
@@ -356,6 +361,28 @@ describe('App backtest selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'display USD' }));
     const usd = Number(screen.getByTestId('kpi-values').textContent?.split('|')[0]);
     expect(usd * 1000).toBeCloseTo(krw, 2);
+  });
+
+  it('shows the likely range and the chance of ending below the money put in', () => {
+    render(<App />);
+    expect(screen.getByTestId('projection-range').textContent).toMatch(/시장에 따라 .+ ~ .+원금 손실 가능성 (\d+%|1% 미만)/);
+  });
+
+  it('closes the selected projection detail once an edit changes the chart', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'select projection point' }));
+    expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'raise contribution' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: '닫기' })).toBeNull());
+  });
+
+  it('credits a loaded scenario rate to the saved scenario, not to past returns', () => {
+    scenarioState.scenarios = [savedScenario({ name: 'saved rate', simulationMode: 'PROJECTION', assetType: 'SPY', annualRate: 0.12 })];
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'saved rate 불러오기' }));
+    expect(screen.getByText(/연 12\.0% \(저장한 수익률\)/)).toBeTruthy();
+    expect(screen.queryByText(/SPY 과거 수익률/)).toBeNull();
   });
 
   it('converts a saved USD projection into the current KRW comparison currency', () => {
@@ -665,7 +692,7 @@ describe('App backtest selection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'open backtest' }));
     await waitFor(() => expect(screen.getByTestId('prepared-final-value').textContent).toBe('110'));
-    expect(screen.getByText('110원')).toBeTruthy();
+    expect(screen.getByText('110원', { ignore: 'script, style, [aria-hidden="true"]' })).toBeTruthy();
     expect(screen.getByTestId('backtest-metric-values').textContent).toContain('110.000000|0.209527');
     expect(screen.getByTestId('backtest-scenario-series').textContent).toContain('기본 시나리오:110.000000:100.000000');
     expect(screen.queryByRole('button', { name: 'legacy real toggle' })).toBeNull();
@@ -785,7 +812,7 @@ describe('App backtest selection', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'saved comparison 비교하기' }));
 
     await waitFor(() => {
-      expect(screen.getByTestId('backtest-scenario-colors').textContent).toBe('#0066cc|#1d1d1f');
+      expect(screen.getByTestId('backtest-scenario-colors').textContent).toBe('#0066cc|#007a6e');
     });
     expect(screen.getByTestId('backtest-scenario-colors').textContent).not.toMatch(/#FF9500|#34C759/i);
   });
