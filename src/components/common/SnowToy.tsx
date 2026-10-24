@@ -2,13 +2,17 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { animate } from 'animejs/animation';
 import { spring } from 'animejs/easings/spring';
 import type { JSAnimation } from 'animejs';
-import { blizzard, splat, throwSnow } from '../../lib/celebration/effects';
+import { avalanche, blizzard, flurry, snowstorm, splat, throwSnow } from '../../lib/celebration/effects';
 import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
 
 /** Taps closer together than this keep the combo going. */
 export const COMBO_WINDOW_MS = 1200;
-/** The combo that triggers a blizzard and starts over. */
-export const MAX_COMBO = 10;
+/** Combo rewards: a blizzard at ×10, an avalanche at ×50, and a finale at ×100 that starts the combo over. */
+export const BLIZZARD_COMBO = 10;
+export const AVALANCHE_COMBO = 50;
+export const MAX_COMBO = 100;
+/** How long the ×100 badge stays up before the toy rests. */
+const FINALE_REST_MS = 2200;
 /** Combos from this count show a "×N" badge. */
 export const COMBO_BADGE_FROM = 3;
 const MIN_TAP_GAP_MS = 80;
@@ -18,6 +22,10 @@ const HINT_KEY = 'snow_toy_hint_seen';
 const HINT_DELAY_MS = 5000;
 const HINT_VISIBLE_MS = 6000;
 const EDGE_PX = 32;
+
+/** 0 below ×10, 1 after the blizzard, 2 after the avalanche, 3 at the finale. Drives the badge and ball glow. */
+export const comboTier = (combo: number) =>
+  combo >= MAX_COMBO ? 3 : combo >= AVALANCHE_COMBO ? 2 : combo >= BLIZZARD_COMBO ? 1 : 0;
 
 interface SnowToyProps {
   /** 0–1. The ball grows as the simulated result grows — a snowball, after all. */
@@ -50,6 +58,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const ballRef = useRef<HTMLSpanElement>(null);
   const faceRef = useRef<HTMLSpanElement>(null);
+  const frostRef = useRef<HTMLSpanElement>(null);
   const badgeRef = useRef<HTMLSpanElement>(null);
   const combo = useRef(0);
   const lastTapAt = useRef(-Infinity);
@@ -80,7 +89,9 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
 
   useEffect(() => {
     if (!badge || prefersReducedMotion || !badgeRef.current) return;
-    animate(badgeRef.current, { scale: [0.6, 1], opacity: [0, 1], duration: 500, ease: spring({ bounce: 0.6 }) });
+    const milestone = badge === BLIZZARD_COMBO || badge === AVALANCHE_COMBO || badge === MAX_COMBO;
+    const pop = milestone ? 1 + comboTier(badge) * 0.35 : 1;
+    animate(badgeRef.current, { scale: [0.6, pop, 1], opacity: [0, 1], rotate: milestone ? [-12, 0] : 0, duration: milestone ? 900 : 500, ease: spring({ bounce: 0.6 }) });
   }, [badge, prefersReducedMotion]);
 
   const applyOffset = () => {
@@ -93,8 +104,36 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
     if (ballRef.current) animate(ballRef.current, { scale: 1, scaleX: 1, scaleY: 1, translateY: 0, duration: 900, ease: spring({ bounce: 0.4 }) });
   };
 
-  const showFace = () => {
-    if (faceRef.current) animate(faceRef.current, { opacity: [0, 1, 1, 0], duration: 1800, ease: 'linear' });
+  const showFace = (duration = 1800) => {
+    if (faceRef.current) animate(faceRef.current, { opacity: [0, 1, 1, 0], duration, ease: 'linear' });
+  };
+
+  /** A frosty glow around the screen edges that fades in and out. */
+  const frost = (strength: number, duration: number) => {
+    if (frostRef.current) animate(frostRef.current, { opacity: [0, strength, strength, 0], duration, ease: 'inOutSine' });
+  };
+
+  const celebrate = (level: number, ball: HTMLElement | null) => {
+    if (level === MAX_COMBO) {
+      snowstorm();
+      frost(1, 2800);
+      showFace(2600);
+      if (ball) animate(ball, { rotate: '+=1080', scale: [1, 1.8, 1], duration: 1600, ease: spring({ bounce: 0.45 }) });
+      return;
+    }
+    if (level === AVALANCHE_COMBO) {
+      avalanche();
+      frost(0.6, 1800);
+      showFace();
+      if (ball) animate(ball, { rotate: '+=720', scale: [1, 1.5, 1], duration: 1200, ease: spring({ bounce: 0.5 }) });
+      return;
+    }
+    if (level === BLIZZARD_COMBO) {
+      blizzard();
+      showFace();
+      return;
+    }
+    if (level % 10 === 0) flurry();
   };
 
   const notePlayed = () => {
@@ -125,11 +164,12 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
     }
     throwSnow(buttonRef.current, level);
     setBadge(level >= COMBO_BADGE_FROM ? level : 0);
+    celebrate(level, ball);
 
     if (level >= MAX_COMBO) {
-      blizzard();
-      showFace();
-      settle();
+      // Start over right away, but keep the ×100 badge up for a moment.
+      combo.current = 0;
+      restTimer.current = setTimeout(settle, FINALE_REST_MS);
       return;
     }
     restTimer.current = setTimeout(settle, COMBO_WINDOW_MS);
@@ -230,8 +270,12 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
 
   const baseScale = 1 + Math.min(Math.max(growth, 0), 1) * 0.3;
 
-  return (
-    <div ref={wrapperRef} className="fixed bottom-4 right-4 z-toy sm:bottom-6 sm:right-6">
+  const tier = comboTier(badge);
+
+  return (<>
+    {/* Outside the wrapper: the wrapper's transform would pin a fixed child to the ball instead of the screen. */}
+    <span ref={frostRef} aria-hidden="true" className="snow-toy-frost pointer-events-none fixed inset-0 z-toy opacity-0" />
+    <div ref={wrapperRef} data-tier={tier} className="snow-toy-root fixed bottom-4 right-4 z-toy sm:bottom-6 sm:right-6">
       {hintVisible && (
         <span aria-hidden="true" className="snow-toy-hint pointer-events-none absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-pill border border-apple-hairline bg-apple-surface-white px-3 py-2 text-caption text-apple-ink shadow-sm">
           눌러서 던지고, 끌어서 날려보세요
@@ -240,7 +284,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
       <span
         ref={badgeRef}
         aria-hidden="true"
-        className={`pointer-events-none absolute -left-3 -top-2 z-10 rounded-pill bg-apple-primary px-2 py-0.5 text-fine-print font-semibold tabular-nums text-apple-on-primary ${badge ? '' : 'invisible'}`}
+        className={`snow-toy-badge pointer-events-none absolute -left-3 -top-2 z-10 rounded-pill bg-apple-primary px-2 py-0.5 text-fine-print font-semibold tabular-nums text-apple-on-primary ${badge ? '' : 'invisible'}`}
       >
         ×{badge}
       </span>
@@ -263,5 +307,5 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
         </span>
       </button>
     </div>
-  );
+  </>);
 }

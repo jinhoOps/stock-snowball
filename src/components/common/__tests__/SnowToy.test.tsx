@@ -1,14 +1,20 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import SnowToy, { COMBO_WINDOW_MS, MAX_COMBO } from '../SnowToy';
+import SnowToy, { AVALANCHE_COMBO, BLIZZARD_COMBO, COMBO_WINDOW_MS, MAX_COMBO, comboTier } from '../SnowToy';
 
 const throwSnow = vi.fn();
 const blizzard = vi.fn();
 const splat = vi.fn();
+const flurry = vi.fn();
+const avalanche = vi.fn();
+const snowstorm = vi.fn();
 vi.mock('../../../lib/celebration/effects', () => ({
   throwSnow: (...args: unknown[]) => throwSnow(...args),
   blizzard: () => blizzard(),
+  flurry: () => flurry(),
+  avalanche: () => avalanche(),
+  snowstorm: () => snowstorm(),
   splat: (...args: unknown[]) => splat(...args),
 }));
 // Finish every animation at once so flights land immediately (unless a test holds them mid-air).
@@ -39,6 +45,9 @@ beforeEach(() => {
   throwSnow.mockClear();
   blizzard.mockClear();
   splat.mockClear();
+  flurry.mockClear();
+  avalanche.mockClear();
+  snowstorm.mockClear();
   localStorage.setItem('snow_toy_hint_seen', '1');
 });
 afterEach(() => {
@@ -62,12 +71,30 @@ describe('SnowToy', () => {
     expect(throwSnow).toHaveBeenLastCalledWith(expect.anything(), 1);
   });
 
-  it('turns a full combo into a blizzard and starts over', () => {
+  it('keeps the combo going past the ×10 blizzard', () => {
     render(<SnowToy />);
-    for (let i = 0; i < MAX_COMBO; i++) tap();
+    for (let i = 0; i < BLIZZARD_COMBO; i++) tap();
     expect(blizzard).toHaveBeenCalledTimes(1);
     tap();
+    expect(throwSnow).toHaveBeenLastCalledWith(expect.anything(), BLIZZARD_COMBO + 1);
+  });
+
+  it('adds a flurry every tenth tap, an avalanche at ×50 and a finale at ×100, then starts over', () => {
+    const { container } = render(<SnowToy />);
+    for (let i = 0; i < AVALANCHE_COMBO; i++) tap();
+    expect(avalanche).toHaveBeenCalledTimes(1);
+    expect(flurry).toHaveBeenCalledTimes(3); // ×20, ×30, ×40
+    for (let i = AVALANCHE_COMBO; i < MAX_COMBO; i++) tap();
+    expect(snowstorm).toHaveBeenCalledTimes(1);
+    expect(flurry).toHaveBeenCalledTimes(7); // plus ×60 to ×90
+    expect(blizzard).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain(`×${MAX_COMBO}`);
+    tap();
     expect(throwSnow).toHaveBeenLastCalledWith(expect.anything(), 1);
+  });
+
+  it('steps the combo tier up at ×10, ×50 and ×100', () => {
+    expect([9, 10, 49, 50, 99, 100].map(comboTier)).toEqual([0, 1, 1, 2, 2, 3]);
   });
 
   it('shows a combo badge from the third quick tap', () => {
@@ -112,7 +139,7 @@ describe('SnowToy', () => {
 
   it('flies home when tapped mid-flight instead of staying parked', () => {
     const { container } = render(<SnowToy />);
-    const wrapper = container.firstElementChild as HTMLElement;
+    const wrapper = container.querySelector('.snow-toy-root') as HTMLElement;
     const button = screen.getByRole('button', { name: '눈 뭉치 던지기' });
     drag(button);
     holdAnimations = true;
