@@ -1,7 +1,7 @@
 import confetti from 'canvas-confetti';
 import { animate } from 'animejs/animation';
 import { spring } from 'animejs/easings/spring';
-import { iceShards, money, moneyDrop, snowmen, sparkles, streamers } from './particles';
+import { goldBurst, goldfall, iceShards, money, moneyDrop, snowmen, sparkles, streamers } from './particles';
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -241,6 +241,46 @@ export function snowBurst(clientX: number, clientY: number) {
   sparkles(origin, 50, 42);
   later(120, () => streamers(origin, 120, 90, 360, 46));
   later(240, () => money(origin, 22, 90, 360, 38));
+}
+
+/** The fifth ×100 lets the air out on purpose: a feeble puff, then one lonely flake drifting down. */
+export function pfft(clientX: number, clientY: number) {
+  if (typeof window === 'undefined') return;
+  const origin = { x: clientX / window.innerWidth, y: clientY / window.innerHeight };
+  confetti(snow({ particleCount: 5, spread: 40, startVelocity: 5, angle: 90, gravity: 0.25, scalar: 0.6, ticks: 110, origin }));
+  later(900, () => confetti(snow({ particleCount: 1, spread: 0, startVelocity: 0, gravity: 0.12, drift: 0.15, scalar: 2.6, ticks: 520, origin: { x: origin.x, y: origin.y - 0.12 } })));
+}
+
+/**
+ * The tenth ×100: the swollen ball shatters the whole screen. Ice breaks out everywhere, then a fireworks show of gold,
+ * streamers, snow and money runs for about six seconds over a fountain of coins, golden rain and a thick snowfall.
+ */
+export function legend(clientX: number, clientY: number) {
+  if (typeof window === 'undefined') return;
+  snowBurst(clientX, clientY);
+  for (let i = 0; i < 12; i++) {
+    later(i * 45, () => iceShards({ x: ((i % 4) + 0.5) / 4, y: (Math.floor(i / 4) + 0.5) / 3 }, 26, 38));
+  }
+  const shows = [
+    (origin: { x: number; y: number }) => goldBurst(origin, 90, 38),
+    (origin: { x: number; y: number }) => { streamers(origin, 80, 90, 360, 32); sparkles(origin, 20, 24); },
+    (origin: { x: number; y: number }) => confetti(snow({ particleCount: 70, spread: 360, startVelocity: 30, gravity: 0.5, scalar: 1.4, ticks: 260, origin })),
+    (origin: { x: number; y: number }) => { goldBurst(origin, 50, 28); money(origin, 10, 90, 360, 30); },
+  ];
+  for (let i = 0; i < 18; i++) {
+    later(500 + i * 320, () => shows[i % shows.length]({ x: 0.1 + Math.random() * 0.8, y: 0.12 + Math.random() * 0.4 }));
+  }
+  for (let i = 0; i < 18; i++) later(300 + i * 260, () => money({ x: 0.5, y: 1 }, 4, 90, 40, 72));
+  for (const delay of [700, 2600, 4400]) {
+    later(delay, () => {
+      cannons(80, 1.5);
+      streamers({ x: 0, y: 1 }, 90, 60, 55, 68);
+      streamers({ x: 1, y: 1 }, 90, 120, 55, 68);
+      snowmen({ x: 0.5, y: 1 }, 6, 90, 80, 62);
+    });
+  }
+  goldfall(6000);
+  snowfall(6000, 2, true);
 }
 
 /** Snow that keeps falling from the top edge for a while, with mixed flake sizes. With `withMoney`, coins and bills fall too. */

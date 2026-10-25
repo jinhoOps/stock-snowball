@@ -129,3 +129,32 @@ export function moneyDrop(count = 1) {
     disableForReducedMotion: true,
   });
 }
+
+const GOLD_COLORS = ['#ffd60a', '#ffc300', '#ffe9a8', '#ffffff'];
+
+/** A golden firework: stars and glitter in a full circle. */
+export function goldBurst(origin: Origin, count = 80, velocity = 36) {
+  confetti({ shapes: ['star', 'circle'], colors: GOLD_COLORS, particleCount: count, spread: 360, startVelocity: velocity, gravity: 0.45, decay: 0.92, scalar: 1.2, ticks: 260, origin, disableForReducedMotion: true });
+}
+
+/** Gold stars falling from the top edge for a while. */
+export function goldfall(durationMs: number) {
+  if (typeof window === 'undefined') return;
+  const end = performance.now() + durationMs;
+  const frame = () => {
+    confetti({
+      shapes: ['star'],
+      colors: GOLD_COLORS,
+      particleCount: 2,
+      startVelocity: 0,
+      gravity: 0.3 + Math.random() * 0.3,
+      drift: Math.random() - 0.5,
+      scalar: 0.8 + Math.random() * 1.2,
+      ticks: 420,
+      origin: { x: Math.random(), y: -0.05 },
+      disableForReducedMotion: true,
+    });
+    if (performance.now() < end) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}

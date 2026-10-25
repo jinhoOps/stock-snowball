@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import SnowToy, { AVALANCHE_COMBO, BLIZZARD_COMBO, COMBO_WINDOW_MS, FINALE_LOCK_MS, MAX_COMBO, comboTier } from '../SnowToy';
+import SnowToy, { AVALANCHE_COMBO, BLIZZARD_COMBO, COMBO_WINDOW_MS, FINALE_LOCK_MS, LEGEND_LOCK_MS, MAX_COMBO, comboTier, finaleKind } from '../SnowToy';
 
 const throwSnow = vi.fn();
 const blizzard = vi.fn();
@@ -10,6 +10,8 @@ const flurry = vi.fn();
 const avalanche = vi.fn();
 const snowstorm = vi.fn();
 const shakeScreen = vi.fn();
+const pfft = vi.fn();
+const legend = vi.fn();
 vi.mock('../../../lib/celebration/effects', () => ({
   throwSnow: (...args: unknown[]) => throwSnow(...args),
   blizzard: () => blizzard(),
@@ -20,6 +22,8 @@ vi.mock('../../../lib/celebration/effects', () => ({
   snowBurst: vi.fn(),
   snowfall: vi.fn(),
   buzz: vi.fn(),
+  pfft: (...args: unknown[]) => pfft(...args),
+  legend: (...args: unknown[]) => legend(...args),
   splat: (...args: unknown[]) => splat(...args),
 }));
 // Finish every animation at once so flights land immediately (unless a test holds them mid-air).
@@ -54,6 +58,9 @@ beforeEach(() => {
   avalanche.mockClear();
   snowstorm.mockClear();
   shakeScreen.mockClear();
+  pfft.mockClear();
+  legend.mockClear();
+  localStorage.removeItem('snow_toy_finales');
   localStorage.setItem('snow_toy_hint_seen', '1');
 });
 afterEach(() => {
@@ -105,6 +112,33 @@ describe('SnowToy', () => {
     expect(throwSnow).toHaveBeenCalledTimes(throws);
     tap(FINALE_LOCK_MS);
     expect(throwSnow).toHaveBeenLastCalledWith(expect.anything(), 1);
+  });
+
+  it('counts every ×100 and lets the air out on the fifth', () => {
+    localStorage.setItem('snow_toy_finales', '4');
+    render(<SnowToy />);
+    for (let i = 0; i < MAX_COMBO; i++) tap();
+    expect(pfft).toHaveBeenCalledTimes(1);
+    expect(snowstorm).not.toHaveBeenCalled();
+    expect(localStorage.getItem('snow_toy_finales')).toBe('5');
+  });
+
+  it('puts on the grand show at the tenth ×100 and crowns the ball for good', () => {
+    localStorage.setItem('snow_toy_finales', '9');
+    const { container } = render(<SnowToy />);
+    expect(container.textContent).not.toContain('👑');
+    for (let i = 0; i < MAX_COMBO; i++) tap();
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(legend).toHaveBeenCalledTimes(1);
+    expect(snowstorm).not.toHaveBeenCalled();
+    act(() => { vi.advanceTimersByTime(LEGEND_LOCK_MS); });
+    expect(container.textContent).toContain('👑');
+    tap();
+    expect(throwSnow).toHaveBeenLastCalledWith(expect.anything(), 1);
+  });
+
+  it('picks the finale by round: letdown on 5s, show on 10s, storm otherwise', () => {
+    expect([1, 4, 5, 9, 10, 15, 20].map(finaleKind)).toEqual(['storm', 'storm', 'fizzle', 'storm', 'legend', 'fizzle', 'legend']);
   });
 
   it('steps the combo tier up at ×10, ×50 and ×100', () => {

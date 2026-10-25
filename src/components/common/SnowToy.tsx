@@ -3,7 +3,7 @@ import { animate } from 'animejs/animation';
 import { spring } from 'animejs/easings/spring';
 import type { JSAnimation } from 'animejs';
 import { stagger } from 'animejs/utils';
-import { avalanche, blizzard, buzz, flurry, shakeScreen, snowBurst, snowfall, snowstorm, splat, throwSnow } from '../../lib/celebration/effects';
+import { avalanche, blizzard, buzz, flurry, legend, pfft, shakeScreen, snowBurst, snowfall, snowstorm, splat, throwSnow } from '../../lib/celebration/effects';
 import { usePrefersReducedMotion } from '../../lib/animation/usePrefersReducedMotion';
 
 /** Taps closer together than this keep the combo going. */
@@ -12,14 +12,46 @@ export const COMBO_WINDOW_MS = 1200;
 export const BLIZZARD_COMBO = 10;
 export const AVALANCHE_COMBO = 50;
 export const MAX_COMBO = 100;
-/** How long the ×100 badge stays up before the toy rests. */
-const FINALE_REST_MS = 2600;
 /** The ×100 ball flies to the middle of the screen and bursts; taps and drags wait until it is back. */
 export const FINALE_LOCK_MS = 1600;
+/** The tenth ×100 runs a much longer show. */
+export const LEGEND_LOCK_MS = 3400;
+/** The badge stays up this long after the lock before the toy rests. */
+const FINALE_REST_AFTER_LOCK_MS = 1000;
 const FINALE_FLIGHT_MS = 600;
 /** The last few taps before ×50 and ×100 make the ball tremble, building up to the reward. */
 const CHARGE_TAPS = 5;
-const BANNER_LABELS: Record<number, string> = { [AVALANCHE_COMBO]: '눈사태!', [MAX_COMBO]: '눈폭풍!!' };
+
+/**
+ * Every ×100 is counted, and the count survives reloads. The fifth one is a deliberate letdown and
+ * the tenth is the grand show; after that the cycle repeats (15th letdown, 20th show…).
+ */
+const FINALES_KEY = 'snow_toy_finales';
+export const FIZZLE_ROUND = 5;
+export const LEGEND_ROUND = 10;
+type FinaleKind = 'storm' | 'fizzle' | 'legend';
+export const finaleKind = (round: number): FinaleKind =>
+  round % LEGEND_ROUND === 0 ? 'legend' : round % LEGEND_ROUND === FIZZLE_ROUND ? 'fizzle' : 'storm';
+const readFinales = () => {
+  try { return Number(localStorage.getItem(FINALES_KEY)) || 0; } catch { return 0; }
+};
+const saveFinales = (count: number) => {
+  try { localStorage.setItem(FINALES_KEY, String(count)); } catch { /* storage blocked: the count starts over next visit */ }
+};
+
+type BannerKind = 'avalanche' | FinaleKind;
+const BANNER_TEXT: Record<BannerKind, { count: string; label: string }> = {
+  avalanche: { count: '×50', label: '눈사태!' },
+  storm: { count: '×100', label: '눈폭풍!!' },
+  fizzle: { count: '×100', label: '…피식' },
+  legend: { count: '×1000', label: '전설의 눈덩이' },
+};
+const finaleNote = (kind: FinaleKind, round: number) => {
+  if (kind === 'legend') return '×100을 열 번 해냈어요';
+  if (kind === 'fizzle') return '바람이 빠졌어요';
+  if (round % LEGEND_ROUND === LEGEND_ROUND - 1) return `${round}번째 · 다음 번엔…?`;
+  return round > 1 ? `${round}번째` : undefined;
+};
 /** Where the twinkles around the big title sit, as % of the screen. */
 const TWINKLE_SPOTS = [[18, 34], [82, 30], [28, 62], [74, 66], [50, 24], [10, 52], [90, 54], [40, 72], [62, 20], [56, 76], [22, 46], [80, 44]];
 /** Combos from this count show a "×N" badge. */
@@ -76,7 +108,10 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   const ringRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const busyUntil = useRef(0);
-  const [banner, setBanner] = useState<{ level: number; id: number } | null>(null);
+  const auroraRef = useRef<HTMLSpanElement>(null);
+  const [banner, setBanner] = useState<{ kind: BannerKind; note?: string; id: number } | null>(null);
+  // A crown sits on the ball for good once someone reaches the tenth ×100.
+  const [crowned, setCrowned] = useState(() => readFinales() >= LEGEND_ROUND);
   // While the ×100 ball flies over the page it sits above the snow canvas.
   const [onStage, setOnStage] = useState(false);
   const badgeRef = useRef<HTMLSpanElement>(null);
@@ -104,8 +139,13 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   useEffect(() => {
     const element = bannerRef.current;
     if (!banner || !element) return;
-    const finale = banner.level >= MAX_COMBO;
-    const duration = finale ? 2600 : 1800;
+    if (banner.kind === 'fizzle') {
+      // No slam: the title just sags into view and droops away.
+      animate(element, { opacity: [0, 1, 1, 0], scale: [0.9, 1, 1, 0.92], translateY: [-10, 0, 6, 30], rotate: [0, 0, -3, -6], duration: 2600, ease: 'inOutSine', onComplete: () => setBanner(null) });
+      return;
+    }
+    const finale = banner.kind !== 'avalanche';
+    const duration = banner.kind === 'legend' ? 5200 : finale ? 2600 : 1800;
     animate(element, {
       opacity: [0, 1, 1, 1, 0],
       scale: [0.2, 1.15, 1, 1, 1.5],
@@ -122,7 +162,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
         opacity: [0, 1, 0],
         duration: 700,
         delay: stagger(finale ? 90 : 120, { from: 'random' }),
-        loop: finale ? 2 : 1,
+        loop: banner.kind === 'legend' ? 6 : finale ? 2 : 1,
         ease: 'outQuad',
       });
     }
@@ -181,78 +221,134 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
     });
   };
 
-  const showBanner = (level: number) => setBanner({ level, id: performance.now() });
+  const showBanner = (kind: BannerKind, note?: string) => setBanner({ kind, note, id: performance.now() });
 
-  /** ×100: the ball flies to the middle of the screen, swells, and bursts into a storm before popping back home. */
-  const finale = (ball: HTMLElement | null) => {
-    busyUntil.current = performance.now() + FINALE_LOCK_MS;
-    buzz([100, 60, 100, 60, 320]);
-    frost(1, 4200);
-    showFace(3400);
-    const button = buttonRef.current;
-    const burst = (x: number, y: number) => {
-      flash(0.9, 600);
-      shakeScreen(18, 900);
-      snowBurst(x, y);
-      snowstorm();
-      snowfall(3600, 3, true);
-      rings(3);
-      showBanner(MAX_COMBO);
-    };
-    if (!button) {
-      burst(window.innerWidth / 2, window.innerHeight / 2);
+  const comeHome = (ball: HTMLElement | null, pop = 1.4) => {
+    offset.current = { x: 0, y: 0 };
+    applyOffset();
+    setOnStage(false);
+    if (ball) animate(ball, { scale: [0, pop, 1], duration: 900, ease: spring({ bounce: 0.6 }) });
+  };
+
+  const aurora = (duration: number) => {
+    if (auroraRef.current) animate(auroraRef.current, { opacity: [0, 1, 1, 0], duration, ease: 'inOutSine' });
+  };
+
+  /** What happens once the ×100 ball reaches the middle of the screen. */
+  const arrive = (kind: FinaleKind, round: number, ball: HTMLElement | null, at: { x: number; y: number }) => {
+    const note = finaleNote(kind, round);
+    if (kind === 'fizzle') {
+      // All the build-up of a finale, then the air goes out: the ball wobbles, deflates and zips around like a balloon.
+      shakeScreen(2, 300);
+      pfft(at.x, at.y);
+      showBanner('fizzle', note);
+      if (ball) animate(ball, { scale: [5, 5.4, 4.2, 4.6, 1], rotate: '+=200', duration: 1300, ease: 'outQuad' });
+      const { x, y } = offset.current;
+      flight.current = animate(offset.current, {
+        x: [x, x - 90, x + 70, x - 40, 0],
+        y: [y, y - 60, y + 30, y - 20, 0],
+        duration: 1300,
+        ease: 'inOutSine',
+        onUpdate: applyOffset,
+        onComplete: () => {
+          setOnStage(false);
+          if (ball) animate(ball, { scaleX: [1.3, 1], scaleY: [0.7, 1], duration: 600, ease: spring({ bounce: 0.3 }) });
+        },
+      });
       return;
+    }
+    if (kind === 'legend') {
+      // The ball keeps swelling until it fills the screen and whites it out, then shatters.
+      shakeScreen(9, 800);
+      if (ball) animate(ball, { scale: [5, 36], rotate: '+=540', duration: 800, ease: 'inQuad' });
+      if (flashRef.current) animate(flashRef.current, { opacity: [0, 1], duration: 800, ease: 'inQuad' });
+      later(800, () => {
+        if (ball) animate(ball, { scale: 0, duration: 120 });
+        if (flashRef.current) animate(flashRef.current, { opacity: [1, 0], duration: 900, ease: 'outQuad' });
+        shakeScreen(26, 1400);
+        buzz([300, 80, 200, 80, 500]);
+        legend(at.x, at.y);
+        rings(3);
+        later(900, () => rings(3));
+        aurora(6800);
+        frost(1, 6800);
+        showBanner('legend', note);
+        setCrowned(true);
+        later(LEGEND_LOCK_MS - 900, () => comeHome(ball, 1.8));
+      });
+      return;
+    }
+    flash(0.9, 600);
+    shakeScreen(18, 900);
+    snowBurst(at.x, at.y);
+    snowstorm();
+    snowfall(3600, 3, true);
+    rings(3);
+    showBanner('storm', note);
+    if (ball) animate(ball, { scale: 0, duration: 200, ease: 'outQuad' });
+    later(900, () => comeHome(ball));
+  };
+
+  /**
+   * ×100: the ball flies to the middle of the screen and swells, then (by how many ×100s came before) bursts into a storm,
+   * fizzles out, or on every tenth puts on the grand show. Returns how long taps stay locked.
+   */
+  const finale = (ball: HTMLElement | null) => {
+    const round = readFinales() + 1;
+    saveFinales(round);
+    const kind = finaleKind(round);
+    const lock = kind === 'legend' ? LEGEND_LOCK_MS : FINALE_LOCK_MS;
+    busyUntil.current = performance.now() + lock;
+    buzz(kind === 'fizzle' ? [40, 400, 20] : [100, 60, 100, 60, 320]);
+    if (kind !== 'fizzle') frost(1, 4200);
+    // The legend ball swells to fill the screen; giant eyes would just look like grey blobs.
+    if (kind !== 'legend') showFace(3400);
+    const button = buttonRef.current;
+    const center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    if (!button) {
+      arrive(kind, round, ball, center);
+      return lock;
     }
     flight.current?.pause();
     setOnStage(true);
     shakeScreen(5, FINALE_FLIGHT_MS);
     const rect = button.getBoundingClientRect();
     const from = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    const to = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     if (ball) animate(ball, { scale: [1, 5], rotate: '+=900', duration: FINALE_FLIGHT_MS, ease: 'inQuad' });
     flight.current = animate(offset.current, {
-      x: offset.current.x + to.x - from.x,
-      y: offset.current.y + to.y - from.y,
+      x: offset.current.x + center.x - from.x,
+      y: offset.current.y + center.y - from.y,
       duration: FINALE_FLIGHT_MS,
       ease: 'inOutQuad',
       onUpdate: applyOffset,
-      onComplete: () => {
-        burst(to.x, to.y);
-        if (ball) animate(ball, { scale: 0, duration: 200, ease: 'outQuad' });
-        later(900, () => {
-          offset.current = { x: 0, y: 0 };
-          applyOffset();
-          setOnStage(false);
-          if (ball) animate(ball, { scale: [0, 1.4, 1], duration: 900, ease: spring({ bounce: 0.6 }) });
-        });
-      },
+      onComplete: () => arrive(kind, round, ball, center),
     });
+    return lock;
   };
 
-  const celebrate = (level: number, ball: HTMLElement | null) => {
-    if (level === MAX_COMBO) {
-      finale(ball);
-      return;
-    }
+  /** Runs the reward for this combo count; returns how long taps stay locked (0 when they do not). */
+  const celebrate = (level: number, ball: HTMLElement | null): number => {
+    if (level === MAX_COMBO) return finale(ball);
     if (level === AVALANCHE_COMBO) {
       buzz([70, 40, 160]);
       flash(0.55);
       shakeScreen(10, 700);
       rings(2);
-      showBanner(AVALANCHE_COMBO);
+      showBanner('avalanche');
       avalanche(buttonRef.current);
       snowfall(2400, 2);
       frost(0.75, 2600);
       showFace();
       if (ball) animate(ball, { rotate: '+=720', scale: [1, 2, 1], duration: 1200, ease: spring({ bounce: 0.5 }) });
-      return;
+      return 0;
     }
     if (level === BLIZZARD_COMBO) {
       blizzard();
       showFace();
-      return;
+      return 0;
     }
     if (level % 10 === 0) flurry();
+    return 0;
   };
 
   const notePlayed = () => {
@@ -284,12 +380,12 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
     }
     throwSnow(buttonRef.current, level);
     setBadge(level >= COMBO_BADGE_FROM ? level : 0);
-    celebrate(level, ball);
+    const lock = celebrate(level, ball);
 
     if (level >= MAX_COMBO) {
       // Start over right away, but keep the ×100 badge up for a moment.
       combo.current = 0;
-      restTimer.current = setTimeout(settle, FINALE_REST_MS);
+      restTimer.current = setTimeout(settle, lock + FINALE_REST_AFTER_LOCK_MS);
       return;
     }
     restTimer.current = setTimeout(settle, COMBO_WINDOW_MS);
@@ -391,10 +487,12 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
   const baseScale = 1 + Math.min(Math.max(growth, 0), 1) * 0.3;
 
   const tier = comboTier(badge);
-  const bannerText = banner ? `×${banner.level}` : '';
+  const bannerText = banner ? BANNER_TEXT[banner.kind] : null;
+  const bannerCharsDrop = banner?.kind === 'storm' || banner?.kind === 'legend';
 
   return (<>
     {/* Outside the wrapper: the wrapper's transform would pin a fixed child to the ball instead of the screen. */}
+    <span ref={auroraRef} aria-hidden="true" className="snow-toy-aurora pointer-events-none fixed inset-0 z-toy opacity-0" />
     <span ref={frostRef} aria-hidden="true" className="snow-toy-frost pointer-events-none fixed inset-0 z-toy opacity-0" />
     <span ref={flashRef} aria-hidden="true" className="pointer-events-none fixed inset-0 z-toy-stage bg-apple-surface-white opacity-0" />
     <div ref={wrapperRef} data-tier={tier} data-charging={isCharging(badge) || undefined} className={`snow-toy-root fixed bottom-4 right-4 sm:bottom-6 sm:right-6 ${onStage ? 'z-toy-stage' : 'z-toy'}`}>
@@ -423,25 +521,27 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
         onPointerCancel={handlePointerCancel}
         aria-label="눈 뭉치 던지기"
         title="눈 뭉치 던지기 · 끌어서 날리기"
-        className="snow-toy flex h-14 w-14 touch-none select-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2"
+        className="snow-toy relative flex h-14 w-14 touch-none select-none items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2"
       >
         <span className="snow-toy-size block" style={{ transform: `scale(${baseScale})` }}>
           <span ref={ballRef} aria-hidden="true" className="snow-toy-ball relative block h-11 w-11 rounded-full">
             <span ref={faceRef} className="snow-toy-face absolute inset-0 opacity-0"><i /><i /></span>
           </span>
         </span>
+        {crowned && !onStage && <span aria-hidden="true" className="snow-toy-crown pointer-events-none absolute">👑</span>}
       </button>
     </div>
-    <div ref={bannerRef} aria-hidden="true" data-finale={banner && banner.level >= MAX_COMBO ? true : undefined}
+    <div ref={bannerRef} aria-hidden="true" data-kind={banner?.kind}
       className="snow-toy-banner pointer-events-none fixed inset-0 z-toy-stage flex flex-col items-center justify-center opacity-0">
-      {banner && <>
+      {banner && bannerText && <>
         <span key={banner.id} className="snow-toy-banner-count">
-          {banner.level >= MAX_COMBO
-            ? [...bannerText].map((char, index) => <span key={index} className="snow-toy-banner-char inline-block">{char}</span>)
-            : bannerText}
+          {bannerCharsDrop
+            ? [...bannerText.count].map((char, index) => <span key={index} className="snow-toy-banner-char inline-block">{char}</span>)
+            : bannerText.count}
         </span>
-        <span className="snow-toy-banner-label">{BANNER_LABELS[banner.level]}</span>
-        {TWINKLE_SPOTS.slice(0, banner.level >= MAX_COMBO ? TWINKLE_SPOTS.length : 8).map(([left, top], index) => (
+        <span className="snow-toy-banner-label">{bannerText.label}</span>
+        {banner.note && <span className="snow-toy-banner-note">{banner.note}</span>}
+        {banner.kind !== 'fizzle' && TWINKLE_SPOTS.slice(0, banner.kind === 'avalanche' ? 8 : TWINKLE_SPOTS.length).map(([left, top], index) => (
           <span key={index} className="snow-toy-twinkle absolute" style={{ left: `${left}%`, top: `${top}%` }}>✦</span>
         ))}
       </>}
