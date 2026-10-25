@@ -1,6 +1,7 @@
 import confetti from 'canvas-confetti';
 import { animate } from 'animejs/animation';
 import { spring } from 'animejs/easings/spring';
+import { iceShards, money, moneyDrop, snowmen, sparkles, streamers } from './particles';
 
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -103,6 +104,9 @@ export function throwSnow(fromElement: HTMLElement | null, combo: number) {
       ticks: 220,
       origin,
     }));
+    // A pinch of stars past ×10, and ice chips past ×50, so long combos glitter.
+    sparkles(origin, combo >= 50 ? 6 : 3, 18);
+    if (combo >= 50) iceShards(origin, 5, 26);
   }
 }
 
@@ -135,6 +139,7 @@ export function blizzard() {
       origin: { x, y: -0.05 },
     }));
   }
+  for (const x of [0.25, 0.75]) sparkles({ x, y: 0.3 }, 24, 22);
 }
 
 const later = (ms: number, run: () => void) => { setTimeout(run, ms); };
@@ -144,6 +149,7 @@ export function flurry() {
   for (const x of [0.2, 0.5, 0.8]) {
     confetti(snow({ particleCount: 16, spread: 100, startVelocity: 6, angle: 270, gravity: 0.4, drift: -0.3, ticks: 320, origin: { x, y: -0.05 } }));
   }
+  sparkles({ x: 0.2 + Math.random() * 0.6, y: 0.25 }, 14, 20);
 }
 
 /** Snow cannons from both bottom corners, aimed up and in. */
@@ -153,9 +159,17 @@ const cannons = (particleCount: number, scalar = 1.2) => {
   }
 };
 
-/** ×50: an avalanche. Corner cannons, then three waves of heavier, bigger snow. */
-export function avalanche() {
+/** ×50: an avalanche. The ball cracks into ice and stars, star fountains join the corner cannons, then three waves of heavier snow. */
+export function avalanche(fromElement?: HTMLElement | null) {
+  const ball = originOf(fromElement, { x: 0.92, y: 0.92 });
+  iceShards(ball, 60, 50);
+  sparkles(ball, 40, 38);
   cannons(70);
+  for (const [x, angle] of [[0, 60], [1, 120]] as const) {
+    confetti({ shapes: ['star'], colors: ['#ffd60a', '#ffffff', '#9fcfff'], particleCount: 40, angle, spread: 40, startVelocity: 62, gravity: 0.6, scalar: 1.2, ticks: 300, origin: { x, y: 1 }, disableForReducedMotion: true });
+  }
+  [[0.25, 0.3], [0.75, 0.35], [0.5, 0.2]].forEach(([x, y], index) => later(250 + index * 200, () => sparkles({ x, y }, 36, 30)));
+  later(400, () => snowmen({ x: 0.5, y: 1 }, 5, 90, 60, 55));
   [0, 350, 700].forEach((delay, wave) => later(delay, () => {
     for (const x of [0.05, 0.25, 0.45, 0.65, 0.85]) {
       confetti(snow({
@@ -173,14 +187,31 @@ export function avalanche() {
   }));
 }
 
-/** ×100: the finale. Snow bursts pop around the screen like fireworks, then cannons and a long, thick storm. */
+/**
+ * ×100: the finale. Fireworks of snow, stars and streamers pop around the screen, money and snowmen fly from the corners,
+ * then a long, thick storm.
+ */
 export function snowstorm() {
-  const bursts = [[0.2, 0.3], [0.8, 0.25], [0.5, 0.18], [0.3, 0.55], [0.7, 0.5], [0.5, 0.4]];
+  const bursts = [[0.2, 0.3], [0.8, 0.25], [0.5, 0.18], [0.3, 0.55], [0.7, 0.5], [0.5, 0.4], [0.15, 0.45], [0.85, 0.45]];
   bursts.forEach(([x, y], index) => later(index * 220, () => {
-    confetti(snow({ particleCount: 60, spread: 360, startVelocity: 26, gravity: 0.5, scalar: 1.3, ticks: 260, origin: { x, y } }));
+    const origin = { x, y };
+    if (index % 3 === 0) confetti(snow({ particleCount: 60, spread: 360, startVelocity: 26, gravity: 0.5, scalar: 1.3, ticks: 260, origin }));
+    if (index % 3 === 1) { streamers(origin, 70, 90, 360, 28); sparkles(origin, 16, 20); }
+    if (index % 3 === 2) { sparkles(origin, 40, 30); iceShards(origin, 20, 30); }
   }));
-  later(500, () => cannons(90, 1.5));
-  later(1100, () => cannons(70, 1.3));
+  later(500, () => {
+    cannons(90, 1.5);
+    money({ x: 0, y: 1 }, 14, 60, 45, 60);
+    money({ x: 1, y: 1 }, 14, 120, 45, 60);
+  });
+  later(900, () => {
+    streamers({ x: 0, y: 1 }, 90, 60, 55, 65);
+    streamers({ x: 1, y: 1 }, 90, 120, 55, 65);
+  });
+  later(1100, () => {
+    cannons(70, 1.3);
+    snowmen({ x: 0.5, y: 1 }, 8, 90, 70, 60);
+  });
   [300, 800, 1300, 1800].forEach((delay, wave) => later(delay, () => {
     for (const x of [0, 0.2, 0.4, 0.6, 0.8, 1]) {
       confetti(snow({
@@ -205,13 +236,21 @@ export function snowBurst(clientX: number, clientY: number) {
   confetti(snow({ particleCount: 160, spread: 360, startVelocity: 48, gravity: 0.55, scalar: 1.5, ticks: 320, origin }));
   confetti(snow({ particleCount: 80, spread: 360, startVelocity: 24, gravity: 0.35, scalar: 2.6, ticks: 420, origin }));
   later(180, () => confetti(snow({ particleCount: 140, spread: 360, startVelocity: 66, gravity: 0.7, scalar: 1.1, ticks: 260, origin })));
+  // The ball cracks open: ice shards, a ring of stars, party streamers and the money it was made of.
+  iceShards(origin, 70, 56);
+  sparkles(origin, 50, 42);
+  later(120, () => streamers(origin, 120, 90, 360, 46));
+  later(240, () => money(origin, 22, 90, 360, 38));
 }
 
-/** Snow that keeps falling from the top edge for a while, with mixed flake sizes. */
-export function snowfall(durationMs: number, perFrame = 2) {
+/** Snow that keeps falling from the top edge for a while, with mixed flake sizes. With `withMoney`, coins and bills fall too. */
+export function snowfall(durationMs: number, perFrame = 2, withMoney = false) {
   if (typeof window === 'undefined' || prefersReducedMotion()) return;
   const end = performance.now() + durationMs;
+  let frames = 0;
   const frame = () => {
+    frames += 1;
+    if (withMoney && frames % 5 === 0) moneyDrop();
     confetti(snow({
       particleCount: perFrame,
       startVelocity: 0,

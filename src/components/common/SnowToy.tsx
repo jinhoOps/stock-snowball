@@ -20,6 +20,8 @@ const FINALE_FLIGHT_MS = 600;
 /** The last few taps before ×50 and ×100 make the ball tremble, building up to the reward. */
 const CHARGE_TAPS = 5;
 const BANNER_LABELS: Record<number, string> = { [AVALANCHE_COMBO]: '눈사태!', [MAX_COMBO]: '눈폭풍!!' };
+/** Where the twinkles around the big title sit, as % of the screen. */
+const TWINKLE_SPOTS = [[18, 34], [82, 30], [28, 62], [74, 66], [50, 24], [10, 52], [90, 54], [40, 72], [62, 20], [56, 76], [22, 46], [80, 44]];
 /** Combos from this count show a "×N" badge. */
 export const COMBO_BADGE_FROM = 3;
 const MIN_TAP_GAP_MS = 80;
@@ -112,6 +114,18 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
       ease: 'outQuad',
       onComplete: () => setBanner(null),
     });
+    const twinkles = element.querySelectorAll('.snow-toy-twinkle');
+    if (twinkles.length) {
+      animate(twinkles, {
+        scale: [0, finale ? 1.8 : 1.3, 0],
+        rotate: [0, 180],
+        opacity: [0, 1, 0],
+        duration: 700,
+        delay: stagger(finale ? 90 : 120, { from: 'random' }),
+        loop: finale ? 2 : 1,
+        ease: 'outQuad',
+      });
+    }
     const chars = element.querySelectorAll('.snow-toy-banner-char');
     if (chars.length) {
       animate(chars, { translateY: [-90, 0], rotate: [() => (Math.random() - 0.5) * 60, 0], scale: [2, 1], duration: 700, delay: stagger(70), ease: spring({ bounce: 0.55 }) });
@@ -181,7 +195,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
       shakeScreen(18, 900);
       snowBurst(x, y);
       snowstorm();
-      snowfall(3600, 3);
+      snowfall(3600, 3, true);
       rings(3);
       showBanner(MAX_COMBO);
     };
@@ -226,7 +240,7 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
       shakeScreen(10, 700);
       rings(2);
       showBanner(AVALANCHE_COMBO);
-      avalanche();
+      avalanche(buttonRef.current);
       snowfall(2400, 2);
       frost(0.75, 2600);
       showFace();
@@ -427,6 +441,9 @@ export default function SnowToy({ growth = 0 }: SnowToyProps) {
             : bannerText}
         </span>
         <span className="snow-toy-banner-label">{BANNER_LABELS[banner.level]}</span>
+        {TWINKLE_SPOTS.slice(0, banner.level >= MAX_COMBO ? TWINKLE_SPOTS.length : 8).map(([left, top], index) => (
+          <span key={index} className="snow-toy-twinkle absolute" style={{ left: `${left}%`, top: `${top}%` }}>✦</span>
+        ))}
       </>}
     </div>
   </>);
