@@ -1,169 +1,19 @@
-import { AssetType, HistoricalAssetType } from '../types/finance';
+import type { AssetType, HistoricalAssetType } from '../types/finance';
+import type { IndexPoint, HistoricalCoverage } from './marketDataContract';
+import { getPreparedMarketData } from './marketDataRuntime';
 export { HISTORICAL_ASSET_IDS } from '../types/finance';
-import amdCsv from './indices/amd.csv?raw';
-import amdlCsv from './indices/amdl.csv?raw';
-import goldCsv from './indices/gold.csv?raw';
-import kosdaqCsv from './indices/kosdaq.csv?raw';
-import kospiCsv from './indices/kospi.csv?raw';
-import manifest from './indices/manifest.json';
-import qldCsv from './indices/qld.csv?raw';
-import qqqCsv from './indices/qqq.csv?raw';
-import schdCsv from './indices/schd.csv?raw';
-import soxxCsv from './indices/soxx.csv?raw';
-import soxlCsv from './indices/soxl.csv?raw';
-import spyCsv from './indices/spy.csv?raw';
-import tslaCsv from './indices/tsla.csv?raw';
-import tsllCsv from './indices/tsll.csv?raw';
-import tqqqCsv from './indices/tqqq.csv?raw';
-
-export interface IndexPoint {
-  date: string;
-  price: number;
-  dividendYield: number;
-}
-
-interface IndexDataset {
-  id: HistoricalAssetType;
-  data: IndexPoint[];
-}
-
-interface ManifestAsset {
-  assetId: HistoricalAssetType;
-  ticker: string;
-  displayName: string;
-  currency: string;
-  kind: 'asset';
-  frequency: 'daily';
-  startDate: string;
-  endDate: string;
-  rowCount: number;
-}
-
-export interface HistoricalCoverage extends ManifestAsset {}
-
-const manifestAssets = manifest.assets as Record<HistoricalAssetType, ManifestAsset>;
-
-if (manifest.schemaVersion !== 4) {
-  throw new Error('manifest.json must use market-data schema version 4');
-}
-
-export const parseHistoricalCsv = (csv: string, filename: string): IndexPoint[] => {
-  const lines = csv.trim().split(/\r?\n/);
-  if (lines[0] !== 'date,close,dividend') {
-    throw new Error(`${filename} must use the date,close,dividend header`);
-  }
-
-  const data: IndexPoint[] = [];
-  let previousDate = '';
-  for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    const [date, closeText, dividendText, ...extra] = line.split(',');
-    const close = Number(closeText);
-    const dividend = Number(dividendText);
-
-    if (
-      extra.length > 0 ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-      !Number.isFinite(close) ||
-      close <= 0 ||
-      !Number.isFinite(dividend) ||
-      dividend < 0 ||
-      date <= previousDate
-    ) {
-      throw new Error(`${filename}:${index + 1} is not a valid historical market-data row`);
-    }
-
-    data.push({
-      date,
-      price: close,
-      dividendYield: dividend / close,
-    });
-    previousDate = date;
-  }
-
-  if (data.length === 0) {
-    throw new Error(`${filename} contains no historical market-data rows`);
-  }
-  return data;
-};
-
-const createDataset = (
-  asset: HistoricalAssetType,
-  csv: string,
-  filename: string,
-): IndexDataset => {
-  const data = parseHistoricalCsv(csv, filename);
-  const coverage = manifestAssets[asset];
-  if (!coverage) {
-    throw new Error(`manifest.json has no coverage for ${asset}`);
-  }
-  if (
-    coverage.assetId !== asset ||
-    coverage.kind !== 'asset' ||
-    coverage.frequency !== 'daily' ||
-    coverage.startDate !== data[0].date ||
-    coverage.endDate !== data.at(-1)?.date ||
-    coverage.rowCount !== data.length
-  ) {
-    throw new Error(`manifest.json coverage does not match ${filename}`);
-  }
-  return { id: asset, data };
-};
-
-const datasets: Record<HistoricalAssetType, IndexDataset> = {
-  QQQ: createDataset('QQQ', qqqCsv, 'qqq.csv'),
-  QLD: createDataset('QLD', qldCsv, 'qld.csv'),
-  TQQQ: createDataset('TQQQ', tqqqCsv, 'tqqq.csv'),
-  AMD: createDataset('AMD', amdCsv, 'amd.csv'),
-  AMDL: createDataset('AMDL', amdlCsv, 'amdl.csv'),
-  TSLA: createDataset('TSLA', tslaCsv, 'tsla.csv'),
-  TSLL: createDataset('TSLL', tsllCsv, 'tsll.csv'),
-  SOXX: createDataset('SOXX', soxxCsv, 'soxx.csv'),
-  SOXL: createDataset('SOXL', soxlCsv, 'soxl.csv'),
-  KOSPI: createDataset('KOSPI', kospiCsv, 'kospi.csv'),
-  KOSDAQ: createDataset('KOSDAQ', kosdaqCsv, 'kosdaq.csv'),
-  SPY: createDataset('SPY', spyCsv, 'spy.csv'),
-  SCHD: createDataset('SCHD', schdCsv, 'schd.csv'),
-  GOLD: createDataset('GOLD', goldCsv, 'gold.csv'),
-};
-
-const processReturns = (dataset: IndexDataset): number[] => {
-  const returns: number[] = [];
-  for (let index = 1; index < dataset.data.length; index += 1) {
-    const previous = dataset.data[index - 1];
-    const current = dataset.data[index];
-    returns.push((current.price / previous.price) * (1 + current.dividendYield) - 1);
-  }
-  return returns;
-};
-
-/** 주요 자산별 실제 과거 일간 수익률 데이터셋 */
-export const HISTORICAL_DAILY_RETURNS: Record<HistoricalAssetType, number[]> = {
-  QQQ: processReturns(datasets.QQQ),
-  QLD: processReturns(datasets.QLD),
-  TQQQ: processReturns(datasets.TQQQ),
-  AMD: processReturns(datasets.AMD),
-  AMDL: processReturns(datasets.AMDL),
-  TSLA: processReturns(datasets.TSLA),
-  TSLL: processReturns(datasets.TSLL),
-  SOXX: processReturns(datasets.SOXX),
-  SOXL: processReturns(datasets.SOXL),
-  KOSPI: processReturns(datasets.KOSPI),
-  KOSDAQ: processReturns(datasets.KOSDAQ),
-  SPY: processReturns(datasets.SPY),
-  SCHD: processReturns(datasets.SCHD),
-  GOLD: processReturns(datasets.GOLD),
-};
-
+export type { IndexPoint, HistoricalCoverage } from './marketDataContract';
+export { parseHistoricalCsv } from './marketDataCatalog';
+export const getHistoricalDailyReturns = (asset: HistoricalAssetType): number[] => getPreparedMarketData().assets[asset].dailyReturns;
 const toHistoricalAsset = (asset: AssetType): HistoricalAssetType =>
   asset === 'CUSTOM' ? 'SPY' : asset;
 
 /** 주요 자산별 원본 시계열 데이터셋 반환 */
 export const getHistoricalData = (asset: AssetType): IndexPoint[] =>
-  datasets[toHistoricalAsset(asset)].data;
+  getPreparedMarketData().assets[toHistoricalAsset(asset)].data;
 
 export const getHistoricalCoverage = (asset: AssetType): HistoricalCoverage =>
-  manifestAssets[toHistoricalAsset(asset)];
+  getPreparedMarketData().assets[toHistoricalAsset(asset)].coverage;
 
 export const isHistoricalRangeCovered = (
   asset: AssetType,
@@ -205,7 +55,7 @@ export const findPointOnOrBefore = (
 };
 
 export const getDailyReturn = (asset: AssetType, dayIndex: number, defaultRate: number): number => {
-  const returns = asset === 'CUSTOM' ? [] : HISTORICAL_DAILY_RETURNS[asset];
+  const returns = asset === 'CUSTOM' ? [] : getHistoricalDailyReturns(asset);
   if (returns.length === 0) {
     if (!Number.isFinite(defaultRate) || defaultRate < -1) throw new RangeError('Annual return must be finite and at least -100%.');
     return Math.expm1(Math.log1p(defaultRate) / 365);

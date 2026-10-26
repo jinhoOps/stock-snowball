@@ -1,3 +1,4 @@
+import { getActiveMarketData } from './marketDataRuntime';
 import { calculateProductPerformanceMetrics } from '../core/ProductPerformance';
 import {
   PROJECTION_ASSET_IDS,
@@ -5,7 +6,7 @@ import {
   type ProductPerformancePoint,
   type ProjectionAssetType,
 } from '../types/finance';
-import { getHistoricalData, HISTORICAL_DAILY_RETURNS } from './historicalAssets';
+import { getHistoricalData, getHistoricalDailyReturns } from './historicalAssets';
 
 /**
  * Leveraged Nasdaq funds listed after QQQ. Before their listing, each day is rebuilt
@@ -46,7 +47,7 @@ const ownReturns = (asset: ProjectionAssetType): DatedReturns => {
   return {
     startDate: data[0].date,
     dates: data.slice(1).map((point) => point.date),
-    returns: HISTORICAL_DAILY_RETURNS[asset].slice(),
+    returns: getHistoricalDailyReturns(asset).slice(),
   };
 };
 
@@ -81,12 +82,13 @@ const rebuiltReturns = (asset: ProjectionAssetType, multiple: 2 | 3): DatedRetur
   };
 };
 
-const cache = new Map<ProjectionAssetType, ProjectionMarket>();
+const cache = new Map<string, ProjectionMarket>();
 
 /** The return history and summary a projection uses for a reference asset; undefined for a fixed custom rate. */
 export const getProjectionMarket = (asset: AssetType): ProjectionMarket | undefined => {
   if (!isProjectionAsset(asset)) return undefined;
-  const cached = cache.get(asset);
+  const key = getActiveMarketData().releaseId + ':' + asset;
+  const cached = cache.get(key);
   if (cached) return cached;
 
   const multiple = REBUILT_FROM_QQQ[asset];
@@ -109,6 +111,6 @@ export const getProjectionMarket = (asset: AssetType): ProjectionMarket | undefi
     volatility: metrics.volatility,
     maxDrawdown: metrics.mdd,
   };
-  cache.set(asset, market);
+  cache.set(key, market);
   return market;
 };

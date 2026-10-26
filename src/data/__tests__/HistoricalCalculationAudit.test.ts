@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getHistoricalData,
   getDailyReturn,
-  HISTORICAL_DAILY_RETURNS,
+  getHistoricalDailyReturns,
 } from '../historicalAssets';
 
 describe('historical calculation audit', () => {
@@ -18,7 +18,7 @@ describe('historical calculation audit', () => {
     const current = data[index];
     // A share held overnight owns the closing share plus its cash distribution.
     const endingWealth = current.price + current.price * current.dividendYield;
-    expect(HISTORICAL_DAILY_RETURNS.QLD[index - 1]).toBeCloseTo(
+    expect(getHistoricalDailyReturns('QLD')[index - 1]).toBeCloseTo(
       endingWealth / previous.price - 1,
       12,
     );
