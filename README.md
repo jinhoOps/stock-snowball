@@ -74,7 +74,6 @@ npm run build
 
 증분 갱신의 새 행에서 주식 분할이 발견되면 서로 다른 조정 기준이 섞이지 않도록 중단합니다. 이 경우 전체 이력을 다시 생성해야 하며, 자동으로 원본 CSV를 덮어쓰지는 않습니다.
 
-⚡ *Built autonomously using [GSD](https://github.com/gsd-build/get-shit-done).*
 ---
 
 ## 라이선스
