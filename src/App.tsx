@@ -30,7 +30,8 @@ import { useScenarios } from './hooks/useScenarios';
 import BacktestAssetSelector from './components/sections/BacktestAssetSelector';
 import BacktestConditionsSummary from './components/sections/BacktestConditionsSummary';
 import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS, DEFAULT_TAX_CONFIG, getCurrencyFactor, getTaxConfigForCurrency } from './types/finance';
-import { calculateMedianCAGR, getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
+import { getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
+import { getProjectionMarket } from './data/projectionAssets';
 import { useImageExport } from './hooks/useImageExport';
 import ShareCard from './components/common/ShareCard';
 import {
@@ -300,9 +301,8 @@ function App() {
 
   const projectionTaxConfig = useMemo(() => getTaxConfigForCurrency(currency, exchangeRate, projectionParams.taxConfig), [currency, exchangeRate, projectionParams.taxConfig]);
   const backtestTaxConfig = useMemo(() => getTaxConfigForCurrency(currency, exchangeRate, backtestParams.taxConfig), [currency, exchangeRate, backtestParams.taxConfig]);
-  const effectiveProjectionRate = useMemo(() => projectionParams.annualRateOverride ?? (
-    projectionParams.assetType === 'CUSTOM' ? projectionParams.rate : calculateMedianCAGR(projectionParams.assetType)
-  ), [projectionParams.annualRateOverride, projectionParams.assetType, projectionParams.rate]);
+  const projectionMarket = getProjectionMarket(projectionParams.assetType);
+  const effectiveProjectionRate = projectionParams.annualRateOverride ?? projectionMarket?.cagr ?? projectionParams.rate;
 
   const activeSimulation: SimulationRangeResult = useMemo(() => {
     const strategy: StrategyConfig = {
@@ -324,9 +324,9 @@ function App() {
       projectionParams.feeConfig,
       { base: 1, annualChangeRate: projectionParams.exchangeAnnualChangeRate ?? 0 },
       30,
-      projectionParams.assetType
+      projectionMarket?.dailyReturns
     );
-  }, [projectionParams, projectionTaxConfig, effectiveProjectionRate]);
+  }, [projectionParams, projectionTaxConfig, effectiveProjectionRate, projectionMarket]);
 
   const comparisonResults = useMemo<ComparisonAssetResult[]>(() => {
     if (mode !== 'BACKTEST' || backtestRangeError) return [];
@@ -570,7 +570,7 @@ function App() {
           { buyFeeRate: s.buyFeeRate, sellFeeRate: s.sellFeeRate },
           { base: 1, annualChangeRate: s.exchangeAnnualChangeRate },
           30,
-          s.assetType || 'CUSTOM'
+          getProjectionMarket(s.assetType || 'CUSTOM')?.dailyReturns
         );
         return [{
           id: s.id,
@@ -708,7 +708,7 @@ function App() {
   const { cardRef: shareCardRef, isExporting, error: shareError, exportImage: handleShare } = useImageExport(scenarioName);
 
   const projectionAssumptions = [
-    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.annualRateOverride !== undefined ? ' (저장한 수익률)' : projectionParams.assetType === 'CUSTOM' ? '' : ` (${projectionParams.assetType} 과거 수익률)`}`,
+    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.annualRateOverride !== undefined ? ' (저장한 수익률)' : projectionMarket ? ` (${projectionParams.assetType} 과거 CAGR)` : ''}`,
     isValueAveragingProjection
       ? `매월 목표 +${SnowballEngine.formatBigNumber(projectionParams.strategyTargetGrowth ?? projectionParams.contribution, currency, true)}`
       : `${CYCLE_LABEL[projectionParams.cycle]} ${SnowballEngine.formatBigNumber(projectionParams.contribution, currency, true)}${projectionParams.strategyType === 'STEP_UP' ? ` (매년 +${(projectionParams.strategyIncreaseRate * 100).toFixed(0)}%)` : ''}`,

@@ -382,7 +382,7 @@ describe('App backtest selection', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'saved rate 불러오기' }));
     expect(screen.getByText(/연 12\.0% \(저장한 수익률\)/)).toBeTruthy();
-    expect(screen.queryByText(/SPY 과거 수익률/)).toBeNull();
+    expect(screen.queryByText(/SPY 과거 CAGR/)).toBeNull();
   });
 
   it('converts a saved USD projection into the current KRW comparison currency', () => {

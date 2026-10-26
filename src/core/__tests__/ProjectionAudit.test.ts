@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SnowballEngine } from '../SnowballEngine';
+import { createNormalSource } from '../MonteCarlo';
 import type { FeeConfig, StrategyConfig, TaxConfig } from '../../types/finance';
 
 const noTax: TaxConfig = {
@@ -90,11 +91,35 @@ describe('Projection independent financial audit', () => {
   });
 
   it('puts a lump sum range near the lognormal 10th and 90th percentiles', () => {
-    const result = SnowballEngine.simulateRange(1000000, 0.08, 10, noContribution, 0, 'GENERAL', noTax, noFees, undefined, 30, 'CUSTOM');
+    const result = SnowballEngine.simulateRange(1000000, 0.08, 10, noContribution, 0, 'GENERAL', noTax, noFees, undefined, 30);
     const median = 1000000 * 1.08 ** 10;
     const spread = 1.2816 * 0.2 * Math.sqrt(10);
     expect(result.pessimistic.at(-1)!.nominalValue / (median * Math.exp(-spread))).toBeCloseTo(1, 1);
     expect(result.optimistic.at(-1)!.nominalValue / (median * Math.exp(spread))).toBeCloseTo(1, 1);
+  });
+
+  it('grows a resampled history at the stated rate, whatever the history earned', () => {
+    // A flat history has no swings, so every path follows the median line.
+    const flat = Array.from({ length: 600 }, () => 0.002);
+    const result = SnowballEngine.simulateRange(1000000, 0.08, 5, noContribution, 0, 'GENERAL', noTax, noFees, undefined, 30, flat);
+    const median = result.average.at(-1)!.nominalValue;
+    expect(median).toBeCloseTo(1000000 * 1.08 ** 5, 4);
+    expect(result.pessimistic.at(-1)!.nominalValue / median).toBeCloseTo(1, 8);
+    expect(result.optimistic.at(-1)!.nominalValue / median).toBeCloseTo(1, 8);
+  });
+
+  it('widens the range with a more volatile history and repeats it for the same inputs', () => {
+    const swinging = (size: number) => {
+      const normal = createNormalSource(3);
+      return Array.from({ length: 2520 }, () => Math.expm1(size * normal()));
+    };
+    const run = (size: number) => SnowballEngine.simulateRange(1000000, 0.08, 10, noContribution, 0, 'GENERAL', noTax, noFees, undefined, 30, swinging(size));
+    const calm = run(0.005);
+    const wild = run(0.02);
+    const width = (result: typeof calm) => result.optimistic.at(-1)!.nominalValue / result.pessimistic.at(-1)!.nominalValue;
+    expect(width(wild)).toBeGreaterThan(width(calm));
+    expect(wild.lossProbability).toBeGreaterThan(calm.lossProbability);
+    expect(run(0.02)).toEqual(wild);
   });
 
   it('lets regular contributions end below the money put in', () => {

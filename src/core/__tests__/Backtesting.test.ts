@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SnowballEngine } from '../SnowballEngine';
 import { BacktestEngine } from '../BacktestEngine';
-import { getHistoricalCoverage, getHistoricalData } from '../../data/historicalAssets';
+import { getHistoricalCoverage, getHistoricalData, HISTORICAL_DAILY_RETURNS } from '../../data/historicalAssets';
 import { AssetType, BacktestParams } from '../../types/finance';
 
 describe('SnowballEngine Projection', () => {
@@ -10,9 +10,9 @@ describe('SnowballEngine Projection', () => {
     const rate = 0.08;
     const years = 5;
     
-    // In the new implementation, assetType in simulateRange doesn't affect growth movement
-    const customResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, 'CUSTOM');
-    const qqqResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, 'QQQ');
+    // A return history only shapes the range; the median path grows at the given rate.
+    const customResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365);
+    const qqqResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, HISTORICAL_DAILY_RETURNS.QQQ);
 
     const lastCustom = customResult[customResult.length - 1].nominalValue;
     const lastQQQ = qqqResult[qqqResult.length - 1].nominalValue;

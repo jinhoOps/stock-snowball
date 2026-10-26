@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { StrategyType, AssetType, SimulationParams, SimulationMode, DEFAULT_TAX_CONFIG } from '../../types/finance';
-import { calculateMedianCAGR } from '../../data/historicalAssets';
+import { getProjectionMarket } from '../../data/projectionAssets';
 import Button from '../common/Button';
 import { DecimalInput } from '../common/DecimalInput';
 import { Field, Select } from '../common/Field';
@@ -16,6 +16,37 @@ const RATE_STEP_PERCENT = 0.5;
 /** Percent shown in the field ↔ fraction stored in params, without float tails like 7.000000000000001. */
 const toPercent = (fraction: number) => Number((fraction * 100).toFixed(4));
 const toFraction = (percent: number) => Number((percent / 100).toFixed(6));
+const formatPercent = (fraction: number) => `${(fraction * 100).toFixed(1)}%`;
+/** Rounded down, so a 99.98% fall reads as −99.9% rather than a total loss. */
+const formatDrawdown = (fraction: number) => `−${(Math.floor(fraction * 1000) / 10).toFixed(1)}%`;
+const formatMonth = (date: string) => date.slice(0, 7).replace('-', '.');
+
+/** Assets a projection can reference: the Nasdaq family, broad indices, dividends, and gold. */
+const PROJECTION_ASSET_OPTIONS: readonly { value: AssetType; label: string }[] = [
+  { value: 'QQQ', label: 'Nasdaq 100 (QQQ)' },
+  { value: 'QLD', label: 'Nasdaq 100 2x (QLD)' },
+  { value: 'TQQQ', label: 'Nasdaq 100 3x (TQQQ)' },
+  { value: 'SPY', label: 'S&P 500 (SPY)' },
+  { value: 'KOSPI', label: 'KOSPI 200' },
+  { value: 'SCHD', label: 'Dividend Equity (SCHD)' },
+  { value: 'GOLD', label: 'Gold Futures (GC=F)' },
+];
+const BACKTEST_ASSET_OPTIONS: readonly { value: AssetType; label: string }[] = [
+  { value: 'QQQ', label: 'Nasdaq 100 (QQQ)' },
+  { value: 'QLD', label: 'Nasdaq 100 2x (QLD)' },
+  { value: 'TQQQ', label: 'Nasdaq 100 3x (TQQQ)' },
+  { value: 'AMD', label: 'Advanced Micro Devices (AMD)' },
+  { value: 'AMDL', label: 'AMD 2x (AMDL)' },
+  { value: 'TSLA', label: 'Tesla (TSLA)' },
+  { value: 'TSLL', label: 'Tesla 2x (TSLL)' },
+  { value: 'SOXX', label: 'Semiconductors (SOXX)' },
+  { value: 'SOXL', label: 'Semiconductors 3x (SOXL)' },
+  { value: 'KOSPI', label: 'KOSPI 200' },
+  { value: 'KOSDAQ', label: 'KOSDAQ' },
+  { value: 'SPY', label: 'S&P 500 (SPY)' },
+  { value: 'SCHD', label: 'Dividend Equity (SCHD)' },
+  { value: 'GOLD', label: 'Gold Futures (GC=F)' },
+];
 
 interface AdvancedSettingsSheetProps {
   mode: SimulationMode;
@@ -35,6 +66,7 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
   const [snapshot, setSnapshot] = useState<{ params: SimulationParams; rate: number } | null>(null);
   const isProjection = mode === 'PROJECTION';
   const isValueAveraging = isProjection && localParams.strategyType === 'VALUE_AVERAGING';
+  const market = isProjection ? getProjectionMarket(localParams.assetType) : undefined;
   const taxConfig = localParams.taxConfig ?? DEFAULT_TAX_CONFIG;
   const taxDescription = `${isProjection
     ? `일반 계좌: 양의 전체 수익에 ${(taxConfig.dividendTaxRate * 100).toFixed(1)}%를 적용하는 단순 추정입니다.`
@@ -73,21 +105,10 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
       <div className="flex flex-col gap-6">
         <Field htmlFor="asset-type-select" label={isProjection ? '참조 자산' : '투자 자산'}>
           <Select value={localParams.assetType} onChange={(event) => updateParam('assetType', event.target.value as AssetType)}>
-                      {isProjection && <option value="CUSTOM">사용자 정의 (고정 수익률)</option>}
-                      <option value="QQQ">Nasdaq 100 (QQQ)</option>
-                      <option value="QLD">Nasdaq 100 2x (QLD)</option>
-                      <option value="TQQQ">Nasdaq 100 3x (TQQQ)</option>
-                      <option value="AMD">Advanced Micro Devices (AMD)</option>
-                      <option value="AMDL">AMD 2x (AMDL)</option>
-                      <option value="TSLA">Tesla (TSLA)</option>
-                      <option value="TSLL">Tesla 2x (TSLL)</option>
-                      <option value="SOXX">Semiconductors (SOXX)</option>
-                      <option value="SOXL">Semiconductors 3x (SOXL)</option>
-                      <option value="KOSPI">KOSPI 200</option>
-                      <option value="KOSDAQ">KOSDAQ</option>
-                      <option value="SPY">S&P 500 (SPY)</option>
-                      <option value="SCHD">Dividend Equity (SCHD)</option>
-                      <option value="GOLD">Gold Futures (GC=F)</option>
+            {isProjection && <option value="CUSTOM">사용자 정의 (고정 수익률)</option>}
+            {(isProjection ? PROJECTION_ASSET_OPTIONS : BACKTEST_ASSET_OPTIONS).map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </Select>
         </Field>
         {isProjection && (localParams.assetType === 'CUSTOM' ? (
@@ -98,13 +119,23 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
               <DecimalInput allowNegative value={toPercent(localParams.rate)} onChange={(percent) => updateParam('rate', toFraction(percent))} />
             </Stepper>
           </Field>
-        ) : (
+        ) : market && (
           <div className="ui-field">
             <span className="ui-field-label">기대 수익률 (CAGR)</span>
             <output className="ui-input flex items-center justify-between gap-2" aria-label="과거 데이터 기대 수익률">
               <span className="text-fine-print text-apple-ink-muted-48">{localParams.annualRateOverride === undefined ? '과거 데이터 자동 적용' : '저장한 수익률 적용'}</span>
-              <span className="shrink-0">약 {((localParams.annualRateOverride ?? calculateMedianCAGR(localParams.assetType)) * 100).toFixed(1)}%</span>
+              <span className="shrink-0">약 {formatPercent(localParams.annualRateOverride ?? market.cagr)}</span>
             </output>
+            <dl className="grid grid-cols-3 gap-2 px-1 text-fine-print" aria-label="과거 데이터 요약">
+              <div><dt className="text-apple-ink-muted-48">과거 CAGR</dt><dd className="mt-1 font-semibold tabular-nums text-apple-ink">{formatPercent(market.cagr)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">변동성</dt><dd className="mt-1 font-semibold tabular-nums text-apple-ink">{formatPercent(market.volatility)}</dd></div>
+              <div><dt className="text-apple-ink-muted-48">최대낙폭</dt><dd className="mt-1 font-semibold tabular-nums text-apple-ink">{formatDrawdown(market.maxDrawdown)}</dd></div>
+            </dl>
+            <p className="ui-field-hint">
+              {formatMonth(market.startDate)}~{formatMonth(market.endDate)} 배당 포함 실제 데이터
+              {market.rebuiltUntil ? ` (${formatMonth(market.rebuiltUntil)} 이전은 QQQ 일간 수익률 ×${localParams.assetType === 'QLD' ? 2 : 3}로 재구성)` : ''}.
+              범위는 이 기간의 1년 구간을 무작위로 이어 붙여 만들어, 폭락과 회복을 그대로 담습니다.
+            </p>
           </div>
         ))}
         {isProjection && <Field htmlFor="strategy-type-select" label="투자 전략"

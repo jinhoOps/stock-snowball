@@ -78,6 +78,26 @@ it('displays the saved reference rate used by the projection', async () => {
   expect(screen.getByLabelText('과거 데이터 기대 수익률').textContent).toContain('12.3%');
 });
 
+it('references only the projection assets and shows their past growth, swings, and worst fall', async () => {
+  const user = userEvent.setup();
+  render(<SettingsHarness initialParams={{ ...DEFAULT_PROJECTION_PARAMS, assetType: 'TQQQ' }} />);
+  await user.click(screen.getByRole('button', { name: '설정 열기' }));
+  const options = within(screen.getByLabelText('참조 자산')).getAllByRole('option').map((option) => (option as HTMLOptionElement).value);
+  expect(options).toEqual(['CUSTOM', 'QQQ', 'QLD', 'TQQQ', 'SPY', 'KOSPI', 'SCHD', 'GOLD']);
+  const summary = within(screen.getByLabelText('과거 데이터 요약'));
+  expect(summary.getByText('과거 CAGR')).toBeTruthy();
+  expect(summary.getByText('변동성')).toBeTruthy();
+  expect(summary.getByText('최대낙폭')).toBeTruthy();
+  expect(screen.getByText(/2010\.02 이전은 QQQ 일간 수익률 ×3로 재구성/)).toBeTruthy();
+});
+
+it('keeps every asset for a backtest', async () => {
+  const user = userEvent.setup();
+  render(<SettingsHarness mode="BACKTEST" initialParams={DEFAULT_BACKTEST_PARAMS} />);
+  await user.click(screen.getByRole('button', { name: '설정 열기' }));
+  expect(within(screen.getByLabelText('투자 자산')).getAllByRole('option')).toHaveLength(14);
+});
+
 it('edits a custom rate without float tails, by typing or by 0.5%p steps', async () => {
   const user = userEvent.setup();
   render(<SettingsHarness initialParams={{ ...DEFAULT_PROJECTION_PARAMS, assetType: 'CUSTOM', rate: 0.07 }} />);

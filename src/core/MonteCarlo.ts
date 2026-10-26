@@ -47,6 +47,58 @@ export const createNormalSource = (seed = MONTE_CARLO_SEED) => {
   };
 };
 
+/** Uniform draws in [0, 1), produced in a fixed order from a fixed seed. */
+export const createUniformSource = (seed = MONTE_CARLO_SEED) => mulberry32(seed);
+
+/** Trading days in a historical year; a projection year of 365 calendar days draws this many returns. */
+export const TRADING_DAYS_PER_YEAR = 252;
+/** Historical returns are resampled in one-year runs, so a crash and its rebound stay together. */
+export const BOOTSTRAP_BLOCK_DAYS = 252;
+
+/**
+ * Circular block bootstrap over a daily return history.
+ * Each path walks one block of consecutive historical days from a random start, then jumps to a new block.
+ * `draw(path, days)` returns the next `days` log returns summed, centred on zero:
+ * the history supplies how far and how long prices swing and fall, the caller supplies the growth rate.
+ */
+export const createBlockBootstrap = (dailyReturns: readonly number[], paths: number, seed = MONTE_CARLO_SEED) => {
+  const count = dailyReturns.length;
+  if (count === 0) throw new RangeError('A bootstrap needs at least one historical return.');
+  if (dailyReturns.some((value) => !Number.isFinite(value) || value <= -1)) {
+    throw new RangeError('Historical returns must be finite and above -100%.');
+  }
+  const logs = dailyReturns.map((value) => Math.log1p(value));
+  const mean = logs.reduce((sum, value) => sum + value, 0) / count;
+  // prefix[i] = sum of the first i centred log returns.
+  const prefix = new Float64Array(count + 1);
+  logs.forEach((value, index) => { prefix[index + 1] = prefix[index] + value - mean; });
+  const runSum = (start: number, length: number) => (start + length <= count
+    ? prefix[start + length] - prefix[start]
+    : prefix[count] - prefix[start] + prefix[start + length - count]);
+
+  const blockDays = Math.min(BOOTSTRAP_BLOCK_DAYS, count);
+  const position = new Int32Array(paths);
+  const left = new Int32Array(paths);
+  const uniform = createUniformSource(seed);
+
+  return (path: number, days: number) => {
+    let sum = 0;
+    let remaining = days;
+    while (remaining > 0) {
+      if (left[path] === 0) {
+        position[path] = Math.min(count - 1, Math.floor(uniform() * count));
+        left[path] = blockDays;
+      }
+      const take = Math.min(remaining, left[path]);
+      sum += runSum(position[path], take);
+      position[path] = (position[path] + take) % count;
+      left[path] -= take;
+      remaining -= take;
+    }
+    return sum;
+  };
+};
+
 /** Linear-interpolated quantile of values that are already sorted ascending. */
 export const sortedQuantile = (sorted: Float64Array, quantile: number) => {
   if (sorted.length === 0) return 0;

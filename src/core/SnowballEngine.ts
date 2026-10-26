@@ -1,5 +1,5 @@
 import { Decimal } from 'decimal.js';
-import { AccountType, FeeConfig, TaxConfig, SimulationResult, SimulationRangeResult, StrategyConfig, AssetType, BacktestHistoryPoint, DEFAULT_TAX_CONFIG } from '../types/finance';
+import { AccountType, FeeConfig, TaxConfig, SimulationResult, SimulationRangeResult, StrategyConfig, BacktestHistoryPoint, DEFAULT_TAX_CONFIG } from '../types/finance';
 import { calculateMoneyWeightedReturn } from './MoneyWeightedReturn';
 import {
   MONTE_CARLO_PATHS,
@@ -7,10 +7,15 @@ import {
   RANGE_LOWER_QUANTILE,
   RANGE_UPPER_QUANTILE,
   BAND_SMOOTHING_RADIUS,
+  TRADING_DAYS_PER_YEAR,
+  createBlockBootstrap,
   createNormalSource,
   smoothInLogSpace,
   sortedQuantile,
 } from './MonteCarlo';
+
+/** Annual volatility of a custom fixed-rate projection, which has no history to resample. */
+export const CUSTOM_VOLATILITY = 0.2;
 
 interface SamplePoint {
   date: Date;
@@ -308,6 +313,8 @@ export class SnowballEngine {
    * 상세 시뮬레이션을 수행합니다. (일 단위 반복 연산)
    * average는 고정 수익률(중앙 경로)을 Decimal로 정밀 계산하고,
    * pessimistic·optimistic은 같은 현금흐름에 시장 수익률만 무작위로 바꾼 고정 시드 몬테카를로의 10%·90% 분위수입니다.
+   * marketReturns(참조 자산의 과거 일간 수익률)가 있으면 그 이력을 1년 블록으로 재표집하고,
+   * 없으면(사용자 정의) 변동성 20%의 로그정규 수익률을 씁니다. 어느 쪽이든 중앙값 성장은 annualRate입니다.
    */
   static simulateRange(
     principal: number,
@@ -320,23 +327,8 @@ export class SnowballEngine {
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
     exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
     intervalDays: number = 30,
-    _assetType: AssetType = 'CUSTOM'
+    marketReturns?: readonly number[]
   ): SimulationRangeResult {
-    // 자산군별 기대 변동성 (연율화 표준편차)
-    const getVolatility = (type: AssetType): number => {
-      switch (type) {
-        case 'SPY': return 0.15;
-        case 'QQQ': return 0.18;
-        case 'QLD': return 0.35;
-        case 'TQQQ': return 0.55;
-        case 'SCHD': return 0.12;
-        case 'GOLD': return 0.15;
-        case 'KOSPI': return 0.18;
-        case 'KOSDAQ': return 0.25;
-        default: return 0.20; // CUSTOM
-      }
-    };
-
     if (!Number.isFinite(years) || years < 0 || !Number.isSafeInteger(Math.round(years * 365))) {
       throw new RangeError('Years must produce a finite, nonnegative number of days.');
     }
@@ -377,10 +369,14 @@ export class SnowballEngine {
     // 일일 성장 연산 (Projection 모드에서는 과거 낙폭을 재현하지 않고 고정 CAGR 기반 성장)
     const dailyGrowth = this.dailyGrowthFactor(annualRate);
     
-    // Range: lognormal market returns with the same median growth, on the same cash flows as the median path.
+    // Range: random market returns with the same median growth, on the same cash flows as the median path.
+    // With a history, the swings are resampled one-year runs of it; without one, lognormal draws.
     // Every money's own holding period gets its own uncertainty, so late contributions can lose money too.
     // Draws are taken step by step for all paths, so a longer horizon keeps the earlier draws unchanged.
-    const annualVolatility = getVolatility(_assetType);
+    const drawHistory = marketReturns && marketReturns.length > 0
+      ? createBlockBootstrap(marketReturns, MONTE_CARLO_PATHS)
+      : null;
+    const tradingDaysBy = (day: number) => Math.round(day * TRADING_DAYS_PER_YEAR / 365);
     const dailyLogGrowth = annualRate <= -1 ? -Infinity : Math.log1p(annualRate) / 365;
     const dailyGrowthNumber = Math.exp(dailyLogGrowth);
     const paths = new Float64Array(MONTE_CARLO_PATHS).fill(initialNominal.toNumber());
@@ -458,12 +454,19 @@ export class SnowballEngine {
       if (d > 0 && (isSample || d - lastStepDay >= MONTE_CARLO_STEP_DAYS)) {
         const days = d - lastStepDay;
         const drift = dailyLogGrowth * days;
-        const spread = annualVolatility * Math.sqrt(days / 365);
-        // Antithetic pairs (z, −z) keep the range edges smooth with the same number of paths.
-        for (let path = 0; path < paths.length; path += 2) {
-          const shock = spread * nextNormal();
-          paths[path] = paths[path] * Math.exp(drift + shock) + pendingContribution;
-          paths[path + 1] = paths[path + 1] * Math.exp(drift - shock) + pendingContribution;
+        if (drawHistory) {
+          const tradingDays = tradingDaysBy(d) - tradingDaysBy(lastStepDay);
+          for (let path = 0; path < paths.length; path++) {
+            paths[path] = paths[path] * Math.exp(drift + drawHistory(path, tradingDays)) + pendingContribution;
+          }
+        } else {
+          const spread = CUSTOM_VOLATILITY * Math.sqrt(days / 365);
+          // Antithetic pairs (z, −z) keep the range edges smooth with the same number of paths.
+          for (let path = 0; path < paths.length; path += 2) {
+            const shock = spread * nextNormal();
+            paths[path] = paths[path] * Math.exp(drift + shock) + pendingContribution;
+            paths[path + 1] = paths[path + 1] * Math.exp(drift - shock) + pendingContribution;
+          }
         }
         pendingContribution = 0;
         lastStepDay = d;
@@ -531,10 +534,10 @@ export class SnowballEngine {
     feeConfig: FeeConfig = { buyFeeRate: 0.00015, sellFeeRate: 0.00015 },
     exchangeRateConfig: { base: number; annualChangeRate: number } = { base: 1, annualChangeRate: 0 },
     intervalDays: number = 30,
-    _assetType: AssetType = 'CUSTOM'
+    marketReturns?: readonly number[]
   ): SimulationResult[] {
     return this.simulateRange(
-      principal, annualRate, years, strategy, inflationRate, accountType, taxConfig, feeConfig, exchangeRateConfig, intervalDays, _assetType
+      principal, annualRate, years, strategy, inflationRate, accountType, taxConfig, feeConfig, exchangeRateConfig, intervalDays, marketReturns
     ).average;
   }
 

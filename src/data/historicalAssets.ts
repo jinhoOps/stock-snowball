@@ -204,33 +204,6 @@ export const findPointOnOrBefore = (
   return low > 0 ? points[low - 1] : null;
 };
 
-/**
- * 배당 재투자를 포함한 252 거래일 수익률 구간의 중앙값으로 연 수익률을 추정합니다.
- */
-export const calculateMedianCAGR = (asset: AssetType): number => {
-  if (asset === 'CUSTOM') return 0.08;
-
-  const data = getHistoricalData(asset);
-  const windowSize = 252;
-  if (data.length <= windowSize) return 0.1;
-
-  const dailyReturns = processReturns({ id: asset, data });
-  const annualReturns: number[] = [];
-  let growth = 1;
-  for (let index = 0; index < dailyReturns.length; index += 1) {
-    growth *= 1 + dailyReturns[index];
-    if (index >= windowSize) growth /= 1 + dailyReturns[index - windowSize];
-    if (index >= windowSize - 1) annualReturns.push(growth - 1);
-  }
-
-  if (annualReturns.length === 0) return 0.1;
-  annualReturns.sort((left, right) => left - right);
-  const middle = Math.floor(annualReturns.length / 2);
-  return annualReturns.length % 2 === 0
-    ? (annualReturns[middle - 1] + annualReturns[middle]) / 2
-    : annualReturns[middle];
-};
-
 export const getDailyReturn = (asset: AssetType, dayIndex: number, defaultRate: number): number => {
   const returns = asset === 'CUSTOM' ? [] : HISTORICAL_DAILY_RETURNS[asset];
   if (returns.length === 0) {

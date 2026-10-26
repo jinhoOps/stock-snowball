@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  normalizePersistedAssetType,
   normalizeLegacyAssetType,
   normalizePersistedScenario,
   normalizePersistedSimulationParams,
@@ -60,6 +61,16 @@ describe('normalizeLegacyAssetType', () => {
     expect(normalizePersistedScenario({ simulationMode: 'PROJECTION', assetType: 'CUSTOM' })).toMatchObject({
       simulationMode: 'PROJECTION',
       assetType: 'CUSTOM',
+    });
+  });
+
+  it('turns a projection asset that is no longer offered into a custom rate', () => {
+    expect(normalizePersistedAssetType('AMD', 'PROJECTION')).toBe('CUSTOM');
+    expect(normalizePersistedAssetType('SOXL', 'PROJECTION')).toBe('CUSTOM');
+    expect(normalizePersistedAssetType('TQQQ', 'PROJECTION')).toBe('TQQQ');
+    expect(normalizePersistedAssetType('AMD', 'BACKTEST')).toBe('AMD');
+    expect(normalizePersistedScenario({ simulationMode: 'PROJECTION', assetType: 'TSLA', annualRate: 0.2 })).toMatchObject({
+      assetType: 'CUSTOM', annualRate: 0.2,
     });
   });
 

@@ -1,12 +1,14 @@
 import {
   AssetType,
   HISTORICAL_ASSET_IDS,
+  PROJECTION_ASSET_IDS,
   SimulationMode,
   SimulationParams,
   DEFAULT_TAX_CONFIG,
 } from '../types/finance';
 
 const historicalAssets = new Set<string>(HISTORICAL_ASSET_IDS);
+const projectionAssets = new Set<string>(PROJECTION_ASSET_IDS);
 
 export const normalizeLegacyAssetType = (value: unknown): AssetType => {
   if (value === 'QQQM') return 'QQQ';
@@ -39,7 +41,9 @@ export const normalizePersistedAssetType = (
   mode: SimulationMode,
 ): AssetType => {
   const normalized = normalizeLegacyAssetType(value);
-  return mode === 'BACKTEST' && normalized === 'CUSTOM' ? 'SPY' : normalized;
+  if (mode === 'BACKTEST') return normalized === 'CUSTOM' ? 'SPY' : normalized;
+  // A projection only references a few assets; others keep their rate as a custom one.
+  return normalized === 'CUSTOM' || projectionAssets.has(normalized) ? normalized : 'CUSTOM';
 };
 
 export const normalizePersistedSimulationParams = (

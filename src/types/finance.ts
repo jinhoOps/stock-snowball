@@ -10,6 +10,13 @@ export const HISTORICAL_ASSET_IDS = [
 export type HistoricalAssetType = typeof HISTORICAL_ASSET_IDS[number];
 export type AssetType = 'CUSTOM' | HistoricalAssetType;
 
+/** Reference assets a projection can borrow its return and range from. */
+export const PROJECTION_ASSET_IDS = [
+  'QQQ', 'QLD', 'TQQQ', 'SPY', 'KOSPI', 'SCHD', 'GOLD',
+] as const satisfies readonly HistoricalAssetType[];
+
+export type ProjectionAssetType = typeof PROJECTION_ASSET_IDS[number];
+
 export type LeverageFamilyId = 'NASDAQ' | 'AMD' | 'TESLA' | 'SEMICONDUCTORS';
 
 export interface LeverageInsight {
