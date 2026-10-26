@@ -14,17 +14,6 @@
 - 코드 변경을 커밋할 때 `package.json`의 patch 버전을 +1 한다.
 - 화면 변경은 실제 브라우저에서 데스크톱(1440)과 모바일(390) 모두 확인한다. Orca 내장 브라우저(`orca` CLI) 또는 Playwright를 쓴다. dev 서버 base 경로는 `/stock-snowball/`.
 
-## 명령
-
-| 목적 | 명령 |
-| --- | --- |
-| 개발 서버 | `npm run dev` |
-| 단위 테스트 | `npm test` |
-| 타입·빌드 | `npm run build` |
-| 디자인 토큰 검사 | `npm run design:check` |
-| E2E | `npm run test:e2e` |
-| 시장 데이터 갱신·검사 | `npm run data:refresh`, `npm run data:check` |
-
 ## 모션 원칙
 
 - 숫자·카운트·리액션 모션은 anime.js(`animejs`)를 우선한다. 레이아웃 전환과 진입·퇴장은 framer-motion을 쓴다.
