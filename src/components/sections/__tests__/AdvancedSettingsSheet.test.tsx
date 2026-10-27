@@ -19,6 +19,7 @@ function SettingsHarness({ mode = 'PROJECTION', initialParams = DEFAULT_PROJECTI
     <output aria-label="적용된 수익률">{params.rate}</output>
     <output aria-label="적용된 물가상승률">{params.inflationRate}</output>
     <output aria-label="적용된 환율">{rate}</output>
+    <output aria-label="적용된 제외 구간">{(params.excludedCrises ?? []).join(',')}</output>
     <AdvancedSettingsSheet mode={mode} isOpen={open} onClose={() => setOpen(false)} params={params}
       onUpdate={(next) => setParams((previous) => ({ ...previous, ...next }))}
       exchangeRate={rate} setExchangeRate={setRate} onReset={() => undefined} />
@@ -89,6 +90,32 @@ it('references only the projection assets and shows their past growth, swings, a
   expect(summary.getByText('변동성')).toBeTruthy();
   expect(summary.getByText('최대낙폭')).toBeTruthy();
   expect(screen.getByText(/2010\.02 이전은 QQQ 일간 수익률 ×3로 재구성/)).toBeTruthy();
+});
+
+it('lets a reference asset leave its crashes out, recalculating its summary and dropping a saved rate', async () => {
+  const user = userEvent.setup();
+  render(<SettingsHarness initialParams={{ ...DEFAULT_PROJECTION_PARAMS, assetType: 'TQQQ', annualRateOverride: 0.05 }} />);
+  await user.click(screen.getByRole('button', { name: '설정 열기' }));
+  const crashes = within(screen.getByRole('group', { name: '계산에 넣을 폭락 구간' }));
+  const dotcom = crashes.getByRole('checkbox', { name: /닷컴 버블 붕괴/ }) as HTMLInputElement;
+  expect(dotcom.checked).toBe(true);
+  expect(crashes.getByRole('checkbox', { name: /글로벌 금융위기/ })).toBeTruthy();
+  expect(crashes.queryByRole('checkbox', { name: /아시아 외환위기/ })).toBeNull();
+  const cagr = () => within(screen.getByLabelText('과거 데이터 요약')).getByText('과거 CAGR').nextElementSibling!.textContent;
+  const before = cagr();
+
+  await user.click(dotcom);
+  expect(dotcom.checked).toBe(false);
+  expect(cagr()).not.toBe(before);
+  expect(screen.getByLabelText('과거 데이터 기대 수익률').textContent).toContain('과거 데이터 자동 적용');
+  expect(screen.getByText(/같은 폭락이 다시 오면/)).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: '설정 적용' }));
+  expect(screen.getByLabelText('적용된 제외 구간').textContent).toBe('DOTCOM');
+
+  await user.click(screen.getByRole('button', { name: '설정 열기' }));
+  await user.click(screen.getByRole('checkbox', { name: /닷컴 버블 붕괴/ }));
+  await user.click(screen.getByRole('button', { name: '설정 적용' }));
+  expect(screen.getByLabelText('적용된 제외 구간').textContent).toBe('');
 });
 
 it('keeps every asset for a backtest', async () => {

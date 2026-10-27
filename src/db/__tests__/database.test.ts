@@ -12,4 +12,9 @@ describe('RxDB scenario migration boundary', () => {
       assetType: 'SPY',
     });
   });
+
+  it('keeps every scenario unchanged in version 6, which only adds optional excluded crashes', () => {
+    const doc = { id: 'a', simulationMode: 'PROJECTION', assetType: 'TQQQ', annualRate: 0.1 };
+    expect(scenarioMigrationStrategies[6](doc as never)).toEqual(doc);
+  });
 });

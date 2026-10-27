@@ -17,6 +17,10 @@ export const PROJECTION_ASSET_IDS = [
 
 export type ProjectionAssetType = typeof PROJECTION_ASSET_IDS[number];
 
+/** Market-wide crashes a projection can leave out of its reference history. */
+export const MARKET_CRISIS_IDS = ['ASIA', 'DOTCOM', 'GFC'] as const;
+export type MarketCrisisId = typeof MARKET_CRISIS_IDS[number];
+
 export type LeverageFamilyId = 'NASDAQ' | 'AMD' | 'TESLA' | 'SEMICONDUCTORS';
 
 export interface LeverageInsight {
@@ -120,6 +124,8 @@ export interface SimulationParams {
   strategyTargetGrowth?: number;
   /** Preserve a saved reference-asset return until the asset or rate is edited. */
   annualRateOverride?: number;
+  /** Crashes left out of the reference asset's history; absent or empty keeps every day. */
+  excludedCrises?: MarketCrisisId[];
   startDate?: string;
   endDate?: string;
 }

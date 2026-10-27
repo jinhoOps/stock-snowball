@@ -74,6 +74,19 @@ describe('normalizeLegacyAssetType', () => {
     });
   });
 
+  it('keeps known excluded crashes for a projection only', () => {
+    expect(normalizePersistedSimulationParams({ ...DEFAULT_PROJECTION_PARAMS, excludedCrises: ['GFC', 'BOGUS', 'DOTCOM', 'GFC'] },
+      DEFAULT_PROJECTION_PARAMS, 'PROJECTION').excludedCrises).toEqual(['DOTCOM', 'GFC']);
+    expect(normalizePersistedSimulationParams({ ...DEFAULT_PROJECTION_PARAMS, excludedCrises: 'GFC' },
+      DEFAULT_PROJECTION_PARAMS, 'PROJECTION')).not.toHaveProperty('excludedCrises');
+    expect(normalizePersistedSimulationParams({ ...DEFAULT_BACKTEST_PARAMS, excludedCrises: ['GFC'] },
+      DEFAULT_BACKTEST_PARAMS, 'BACKTEST')).not.toHaveProperty('excludedCrises');
+    expect(normalizePersistedScenario({ simulationMode: 'PROJECTION', assetType: 'TQQQ', excludedCrises: ['ASIA', 'X'] }))
+      .toMatchObject({ excludedCrises: ['ASIA'] });
+    expect(normalizePersistedScenario({ simulationMode: 'BACKTEST', assetType: 'TQQQ', excludedCrises: ['ASIA'] }))
+      .not.toHaveProperty('excludedCrises');
+  });
+
   it('bounds cached projection inputs before they reach the compound engine', () => {
     const normalized = normalizePersistedSimulationParams({
       ...DEFAULT_PROJECTION_PARAMS,

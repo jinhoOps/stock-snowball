@@ -1,8 +1,10 @@
 import { getActiveMarketData } from './marketDataRuntime';
 import { calculateProductPerformanceMetrics } from '../core/ProductPerformance';
 import {
+  MARKET_CRISIS_IDS,
   PROJECTION_ASSET_IDS,
   type AssetType,
+  type MarketCrisisId,
   type ProductPerformancePoint,
   type ProjectionAssetType,
 } from '../types/finance';
@@ -28,7 +30,45 @@ export interface ProjectionMarket {
   volatility: number;
   /** Deepest fall from a preceding peak, as a positive fraction. */
   maxDrawdown: number;
+  /** Crashes this asset went through, measured on its full history, whether or not they are left out. */
+  crises: readonly ProjectionCrisis[];
+  /** Crashes whose days were removed from `dailyReturns` and the summary above. */
+  excludedCrises: readonly MarketCrisisId[];
 }
+
+export interface ProjectionCrisis {
+  id: MarketCrisisId;
+  label: string;
+  /** Close the fall started from; its own day stays in the history. */
+  peakDate: string;
+  /** Last day of the fall; the days after the peak through this one are what leaving it out removes. */
+  troughDate: string;
+  /** Peak-to-trough fall, as a positive fraction. */
+  drawdown: number;
+}
+
+/**
+ * Each crash is looked for inside a window around it, and the asset's own deepest fall there is the crash:
+ * KOSPI and gold peaked and bottomed on other days than the Nasdaq.
+ * Assets that start later simply have fewer crashes.
+ */
+const MARKET_CRISES: readonly { id: MarketCrisisId; label: string; from: string; to: string }[] = [
+  { id: 'ASIA', label: '아시아 외환위기', from: '1997-01-01', to: '1998-12-31' },
+  { id: 'DOTCOM', label: '닷컴 버블 붕괴', from: '1999-07-01', to: '2002-12-31' },
+  { id: 'GFC', label: '글로벌 금융위기', from: '2007-07-01', to: '2009-06-30' },
+];
+/** A fall smaller than a bear market (20%) isn't offered as a crash for that asset. */
+export const CRISIS_MIN_DRAWDOWN = 0.2;
+
+/** Names the crashes left out, e.g. "닷컴 버블 붕괴·글로벌 금융위기 제외"; empty when none are. */
+export const excludedCrisisLabel = (market: Pick<ProjectionMarket, 'crises' | 'excludedCrises'>) => {
+  const names = market.crises.filter((crisis) => market.excludedCrises.includes(crisis.id)).map((crisis) => crisis.label);
+  return names.length > 0 ? `${names.join('·')} 제외` : '';
+};
+
+/** Whether two exclusion lists leave out the same crashes, ignoring order; absent means none. */
+export const sameCrises = (a?: readonly MarketCrisisId[], b?: readonly MarketCrisisId[]) =>
+  MARKET_CRISIS_IDS.every((id) => (a?.includes(id) ?? false) === (b?.includes(id) ?? false));
 
 const projectionAssets = new Set<string>(PROJECTION_ASSET_IDS);
 
@@ -82,34 +122,94 @@ const rebuiltReturns = (asset: ProjectionAssetType, multiple: 2 | 3): DatedRetur
   };
 };
 
+/** The deepest peak-to-trough fall whose peak and trough both fall inside [from, to]. */
+const findCrisis = (series: DatedReturns, crisis: typeof MARKET_CRISES[number]): ProjectionCrisis | undefined => {
+  let value = 1;
+  let peak: { date: string; value: number } | undefined;
+  let worst: ProjectionCrisis | undefined;
+  const visit = (date: string, current: number) => {
+    if (date < crisis.from || date > crisis.to) return;
+    if (!peak || current >= peak.value) {
+      peak = { date, value: current };
+      return;
+    }
+    const drawdown = 1 - current / peak.value;
+    if (!worst || drawdown > worst.drawdown) {
+      worst = { id: crisis.id, label: crisis.label, peakDate: peak.date, troughDate: date, drawdown };
+    }
+  };
+  visit(series.startDate, value);
+  series.returns.forEach((dailyReturn, index) => {
+    value *= 1 + dailyReturn;
+    visit(series.dates[index], value);
+  });
+  return worst && worst.drawdown >= CRISIS_MIN_DRAWDOWN ? worst : undefined;
+};
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / MS_PER_DAY;
+const dateFromDayNumber = (day: number) => new Date(day * MS_PER_DAY).toISOString().slice(0, 10);
+
+const seriesCache = new Map<string, DatedReturns>();
 const cache = new Map<string, ProjectionMarket>();
 
-/** The return history and summary a projection uses for a reference asset; undefined for a fixed custom rate. */
-export const getProjectionMarket = (asset: AssetType): ProjectionMarket | undefined => {
-  if (!isProjectionAsset(asset)) return undefined;
+const getSeries = (asset: ProjectionAssetType): DatedReturns => {
   const key = getActiveMarketData().releaseId + ':' + asset;
+  const cached = seriesCache.get(key);
+  if (cached) return cached;
+  const multiple = REBUILT_FROM_QQQ[asset];
+  const series = multiple ? rebuiltReturns(asset, multiple) : ownReturns(asset);
+  seriesCache.set(key, series);
+  return series;
+};
+
+/**
+ * The return history and summary a projection uses for a reference asset; undefined for a fixed custom rate.
+ * Leaving a crash out removes its falling days and joins the days on either side, so the CAGR counts
+ * only the calendar time that remains.
+ */
+export const getProjectionMarket = (
+  asset: AssetType,
+  excludedCrises: readonly MarketCrisisId[] = [],
+): ProjectionMarket | undefined => {
+  if (!isProjectionAsset(asset)) return undefined;
+  const series = getSeries(asset);
+  const crises = MARKET_CRISES.flatMap((crisis) => findCrisis(series, crisis) ?? []);
+  const removed = crises.filter((crisis) => excludedCrises.includes(crisis.id));
+  const key = getActiveMarketData().releaseId + ':' + asset + ':' + removed.map((crisis) => crisis.id).join(',');
   const cached = cache.get(key);
   if (cached) return cached;
 
-  const multiple = REBUILT_FROM_QQQ[asset];
-  const series = multiple ? rebuiltReturns(asset, multiple) : ownReturns(asset);
+  const isRemoved = (date: string) => removed.some((crisis) => date > crisis.peakDate && date <= crisis.troughDate);
+  const returns: number[] = [];
   let value = 1;
+  let day = dayNumber(series.startDate);
+  let previousDay = day;
   const points: ProductPerformancePoint[] = [{ date: series.startDate, value }];
   series.returns.forEach((dailyReturn, index) => {
+    const date = series.dates[index];
+    const gap = dayNumber(date) - previousDay;
+    previousDay = dayNumber(date);
+    if (isRemoved(date)) return;
+    day += gap;
     value *= 1 + dailyReturn;
-    points.push({ date: series.dates[index], value });
+    returns.push(dailyReturn);
+    // Kept days are laid end to end, so the summary's calendar span skips the removed stretch.
+    points.push({ date: dateFromDayNumber(day), value });
   });
   const metrics = calculateProductPerformanceMetrics(points);
 
   const market: ProjectionMarket = {
     asset,
     startDate: series.startDate,
-    endDate: points.at(-1)!.date,
+    endDate: series.dates.at(-1) ?? series.startDate,
     ...(series.rebuiltUntil ? { rebuiltUntil: series.rebuiltUntil } : {}),
-    dailyReturns: series.returns,
+    dailyReturns: returns,
     cagr: metrics.cagr ?? 0,
     volatility: metrics.volatility,
     maxDrawdown: metrics.mdd,
+    crises,
+    excludedCrises: removed.map((crisis) => crisis.id),
   };
   cache.set(key, market);
   return market;

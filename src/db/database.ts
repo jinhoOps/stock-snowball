@@ -54,6 +54,8 @@ export const scenarioMigrationStrategies = {
     ...normalizePersistedScenario(oldDoc as unknown as Record<string, unknown>),
     updatedAt: Date.now(),
   }) as unknown as ScenarioDocument,
+  // Version 6 only adds the optional excludedCrises field; every older scenario keeps the full history.
+  6: (oldDoc: ScenarioDocument) => oldDoc,
 };
 
 const createDatabase = async (): Promise<MyDatabase> => {
