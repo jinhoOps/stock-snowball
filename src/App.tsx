@@ -1,3 +1,6 @@
+import MarketDataStatus from './components/common/MarketDataStatus';
+import { getActiveMarketData } from './data/marketDataRuntime';
+import { getMarketBenchmarkForAsset, getMarketBenchmarkData } from './data/marketBenchmarks';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Github, Trash2, ArrowUpRight, SlidersHorizontal, Snowflake } from 'lucide-react';
@@ -303,6 +306,8 @@ function App() {
   const backtestTaxConfig = useMemo(() => getTaxConfigForCurrency(currency, exchangeRate, backtestParams.taxConfig), [currency, exchangeRate, backtestParams.taxConfig]);
   const projectionMarket = getProjectionMarket(projectionParams.assetType);
   const effectiveProjectionRate = projectionParams.annualRateOverride ?? projectionMarket?.cagr ?? projectionParams.rate;
+  const dataDate = mode === 'BACKTEST' ? backtestCommonCoverage.endDate : projectionMarket?.endDate ?? getHistoricalCoverage('SPY').endDate;
+  const benchmarkId = mode === 'BACKTEST' ? getMarketBenchmarkForAsset(backtestParams.assetType as HistoricalAssetType) : null;
 
   const activeSimulation: SimulationRangeResult = useMemo(() => {
     const strategy: StrategyConfig = {
@@ -1036,6 +1041,7 @@ function App() {
       <SnowToy growth={toyGrowth} />
 
       <footer className="bg-apple-canvas-parchment border-t border-apple-hairline px-4 pb-28 pt-12 text-center sm:px-6 lg:pb-12">
+        <MarketDataStatus date={dataDate} weeklyDate={benchmarkId ? getMarketBenchmarkData(benchmarkId).endDate : undefined} bundled={getActiveMarketData().publishedAt === null} />
         <div className="max-w-content mx-auto">
           <p className="break-keep text-fine-print leading-relaxed text-apple-ink-muted-48 tracking-tight font-text mb-2">본 시뮬레이션은 과거 데이터를 기반으로 하며, 미래의 수익을 보장하지 않습니다.</p>
           <p className="text-fine-print text-apple-ink-muted-48 tracking-tight font-text mb-6">&copy; 2026 Stock Snowball. All rights reserved.</p>

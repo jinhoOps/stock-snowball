@@ -42,6 +42,8 @@ vi.mock('../hooks/useScenarios', () => ({
   }),
 }));
 
+vi.mock('../data/marketDataBootstrap', () => ({ checkForMarketDataUpdate: () => Promise.resolve('unchanged') }));
+
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
 vi.mock('../components/layout/GlobalNav', () => ({
   default: ({ onModeChange, onCurrencyChange }: {

@@ -2,19 +2,23 @@ import type { HistoricalAssetType } from '../types/finance';
 import { REGISTRY, isTimestamp, type RawMarketCatalog, type PreparedMarketCatalog, type IndexPoint, type MarketBenchmarkId, type BenchmarkPoint } from './marketDataContract';
 const validDate = (date: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date;
 type Review = { assetId: keyof typeof REGISTRY; ticker: string; sourceUrl: string; retrievedAt: string; reason: string };
+type ExceptionReview = Omit<Review, 'ticker'>;
+type GapReview = ExceptionReview & { previousDate: string; nextDate: string };
+type RemovalReview = ExceptionReview & { date: string };
 type WeeklyReview = Review & { date: string; close: number };
 type DailyReview = Review & { records: { date: string; close: number; dividend: number }[] };
 export interface MarketManifest {
-  schemaVersion: 4; generatedAt: string;
+  schemaVersion: 4; generatedAt: string; dataThrough?: string;
   source: { provider: string; client: string; staticCalendar: { provider: string; version: string };
     reviewedWeeklyCloseOverrides: WeeklyReview[]; reviewedDailyBackfills: DailyReview[];
-    reviewedHistoricalDateRemovals: unknown[]; reviewedDailyGapAllowances: unknown[] };
+    reviewedHistoricalDateRemovals: RemovalReview[]; reviewedDailyGapAllowances: GapReview[] };
   assets: Record<string, { assetId: string; ticker: string; displayName: string; currency: string; kind: string; frequency: string;
     calendar?: string; expectedEndDate?: string; startDate: string; endDate: string; rowCount: number }>;
 }
 export function validateMarketDataManifest(candidate: unknown): asserts candidate is MarketManifest {
   const m = candidate as MarketManifest | null;
   if (!m || m.schemaVersion !== 4) throw new Error('manifest.json must use market-data schema version 4');
+  if (m.dataThrough !== undefined && (!validDate(m.dataThrough) || m.dataThrough > m.generatedAt.slice(0,10))) throw new Error('Invalid dataThrough cutoff');
   const source = m.source;
   const error = () => { throw new Error('manifest.json reviewed weekly close override provenance does not match'); };
   if (!isTimestamp(m.generatedAt) || !source || source.provider !== 'Yahoo Finance' || source.client !== 'yfinance'
@@ -25,6 +29,14 @@ export function validateMarketDataManifest(candidate: unknown): asserts candidat
     if (!review || !Object.hasOwn(REGISTRY, review.assetId) || REGISTRY[review.assetId].ticker !== review.ticker
       || typeof review.reason !== 'string' || !review.reason.trim() || !isTimestamp(review.retrievedAt)
       || typeof review.sourceUrl !== 'string' || !/^https:\/\//.test(review.sourceUrl)) error();
+  }
+  for (const review of [...source.reviewedHistoricalDateRemovals, ...source.reviewedDailyGapAllowances]) {
+    if (!review || !Object.hasOwn(REGISTRY, review.assetId) || typeof review.reason !== 'string' || !review.reason.trim()
+      || !isTimestamp(review.retrievedAt) || typeof review.sourceUrl !== 'string' || !/^https:\/\//.test(review.sourceUrl)) error();
+  }
+  for (const review of source.reviewedHistoricalDateRemovals) if (!validDate(review.date)) error();
+  for (const review of source.reviewedDailyGapAllowances) {
+    if (!validDate(review.previousDate) || !validDate(review.nextDate) || review.previousDate >= review.nextDate || REGISTRY[review.assetId].kind !== 'asset') error();
   }
   for (const review of source.reviewedWeeklyCloseOverrides) {
     if (REGISTRY[review.assetId].kind !== 'benchmark' || !validDate(review.date) || !Number.isFinite(review.close) || review.close <= 0) error();
@@ -130,7 +142,7 @@ export const buildMarketDataCatalog = (raw: RawMarketCatalog): PreparedMarketCat
       if (coverage?.[key] !== entry[key]) throw new Error('manifest.json coverage does not match ' + entry.filename);
     }
     if (coverage.startDate !== data[0].date || coverage.endDate !== data.at(-1)!.date || coverage.rowCount !== data.length
-      || coverage.endDate > manifest.generatedAt.slice(0, 10)) throw new Error('manifest.json coverage does not match ' + entry.filename);
+      || coverage.endDate > (manifest.dataThrough ?? manifest.generatedAt.slice(0, 10))) throw new Error('manifest.json coverage does not match ' + entry.filename);
     if (entry.kind === 'asset') {
       const dailyReturns = data.slice(1).map((row, index) => row.price / data[index].price * (1 + row.dividendYield) - 1);
       assets[id as HistoricalAssetType] = { data, coverage: coverage as PreparedMarketCatalog['assets'][HistoricalAssetType]['coverage'], dailyReturns };
@@ -153,6 +165,17 @@ export const buildMarketDataCatalog = (raw: RawMarketCatalog): PreparedMarketCat
       const row = rows.find(row => row.date === record.date);
       if (!row || row.price !== record.close || Math.abs(row.dividendYield * row.price - record.dividend) > 1e-10) throw new Error('Daily reviewed backfill does not match');
     }
+  }
+  const rawDates = (id: keyof typeof REGISTRY): string[] => {
+    if (REGISTRY[id].kind === 'asset') return assets[id as HistoricalAssetType].data.map(row => row.date);
+    return benchmarks[id as MarketBenchmarkId].points.map(row => row.date);
+  };
+  for (const review of manifest.source.reviewedHistoricalDateRemovals) {
+    if (rawDates(review.assetId).includes(review.date)) throw new Error('Reviewed removal is still present');
+  }
+  for (const review of manifest.source.reviewedDailyGapAllowances) {
+    const dates=rawDates(review.assetId); const index=dates.indexOf(review.previousDate);
+    if (index < 0 || dates[index+1] !== review.nextDate) throw new Error('Reviewed daily gap does not match');
   }
   return { assets, benchmarks };
 };

@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from tools.market_data import MarketDataError, refresh_all, validate_generated_data
+from scripts.sync_market_data import parse_as_of
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,13 +24,14 @@ def main(argv: list[str] | None = None) -> int:
         default=PROJECT_ROOT / "src/data/indices",
         help="Directory containing CSV files and manifest.json.",
     )
+    parser.add_argument("--as-of", type=parse_as_of)
     arguments = parser.parse_args(argv)
 
     try:
         entries = (
             validate_generated_data(arguments.data_dir)
             if arguments.check
-            else refresh_all(arguments.data_dir)
+            else refresh_all(arguments.data_dir, as_of=arguments.as_of)
         )
     except MarketDataError as error:
         print(f"Market data error: {error}", file=sys.stderr)

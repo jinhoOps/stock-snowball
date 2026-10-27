@@ -60,3 +60,8 @@ describe('versioned market catalogs', () => {
     expect(() => buildMarketDataCatalog(raw)).toThrow();
   });
 });
+it.each(['reviewedHistoricalDateRemovals','reviewedDailyGapAllowances'])('rejects malformed recorded exception %s',(field)=>{
+  const raw=structuredClone(createBundledSnapshot().raw);const manifest=JSON.parse(raw.manifestText);
+  manifest.source[field]=[null];raw.manifestText=JSON.stringify(manifest);
+  expect(()=>buildMarketDataCatalog(raw)).toThrow();
+});
