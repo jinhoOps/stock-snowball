@@ -11,6 +11,8 @@ function open():Promise<IDBDatabase>{
     request.onblocked=()=>reject(new Error('Market data cache blocked'));
   });
 }
+/** Whether this browser lets the app keep a release; without it a download could never be used. */
+export const canUseMarketDataCache=():Promise<boolean>=>open().then(db=>{db.close();return true;},()=>false);
 export interface CachedEnvelope { snapshot: MarketDataSnapshot; sha256: string }
 /** Reads the saved release without checking it, so a caller can bound only the storage wait. */
 export async function readCachedEnvelope():Promise<CachedEnvelope|null>{

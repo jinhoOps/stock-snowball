@@ -54,10 +54,11 @@ test('incomplete downloads keep bundled calculations and offer retry',async({pag
 });
 test('blocked IndexedDB keeps the app usable and never reports a saved update',async({page})=>{
   await page.addInitScript(()=>Object.defineProperty(window,'indexedDB',{get(){throw new Error('Cache denied');}}));
-  await mockRemote(page);await page.goto('/stock-snowball/');
+  const payloads=await mockRemote(page);await page.goto('/stock-snowball/');
   await expect(page.getByRole('button',{name:'다시 확인'})).toBeVisible();
   await expect(page.getByText('시세 기준 2026-10-23 · 기본 데이터')).toBeVisible();
   await expect(page.getByRole('button',{name:'새로고침해 적용'})).toHaveCount(0);
+  expect(payloads()).toBe(0);
 });
 test('a release with the same days as the bundled data is neither downloaded nor offered',async({page})=>{
   const payloads=await mockRemote(page,false,false);await page.goto('/stock-snowball/');
