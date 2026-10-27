@@ -65,3 +65,21 @@ it.each(['reviewedHistoricalDateRemovals','reviewedDailyGapAllowances'])('reject
   manifest.source[field]=[null];raw.manifestText=JSON.stringify(manifest);
   expect(()=>buildMarketDataCatalog(raw)).toThrow();
 });
+it('requires corroboration evidence and matching rows for automatic KOSPI supplements',()=>{
+  const raw=structuredClone(createBundledSnapshot().raw);const manifest=JSON.parse(raw.manifestText);
+  const [date,close,dividend]=raw.csvByFilename['kospi.csv'].trimEnd().split('\n').at(-1)!.split(',');
+  const review={assetId:'KOSPI',ticker:'^KS200',records:[{date,close:Number(close),dividend:Number(dividend)}],sourceUrl:'https://fchart.stock.naver.com/sise.nhn?symbol=KPI200&timeframe=day&count=100&requestType=0',retrievedAt:manifest.generatedAt,reason:'Automatically corroborated fixture',verification:{overlapCount:3,controlTicker:'^KS11',controlDates:raw.csvByFilename['kospi.csv'].trimEnd().split('\n').slice(-3).map(line=>line.split(',')[0]),maximumControlDifference:0}};
+  manifest.source.automaticDailyBackfills=[review];raw.manifestText=JSON.stringify(manifest);
+  expect(buildMarketDataCatalog(raw).assets.KOSPI.data.at(-1)!.price).toBe(Number(close));
+  review.verification.overlapCount=0;raw.manifestText=JSON.stringify(manifest);
+  expect(()=>buildMarketDataCatalog(raw)).toThrow();
+  review.verification.overlapCount=3;review.records[0].close+=1;raw.manifestText=JSON.stringify(manifest);
+  expect(()=>buildMarketDataCatalog(raw)).toThrow();
+  review.records[0].close=Number(close);
+  const lines=raw.csvByFilename['kospi.csv'].trimEnd().split('\n');
+  const old=lines.at(-30)!.split(',');
+  review.records.unshift({date:old[0],close:Number(old[1]),dividend:Number(old[2])});
+  review.verification.controlDates=lines.slice(-33,-30).map(line=>line.split(',')[0]);
+  raw.manifestText=JSON.stringify(manifest);
+  expect(()=>buildMarketDataCatalog(raw)).toThrow();
+});

@@ -7,10 +7,11 @@ type GapReview = ExceptionReview & { previousDate: string; nextDate: string };
 type RemovalReview = ExceptionReview & { date: string };
 type WeeklyReview = Review & { date: string; close: number };
 type DailyReview = Review & { records: { date: string; close: number; dividend: number }[] };
+type AutomaticReview = DailyReview & { verification: { overlapCount: number; controlTicker: string; controlDates: string[]; maximumControlDifference: number } };
 export interface MarketManifest {
   schemaVersion: 4; generatedAt: string; dataThrough?: string;
   source: { provider: string; client: string; staticCalendar: { provider: string; version: string };
-    reviewedWeeklyCloseOverrides: WeeklyReview[]; reviewedDailyBackfills: DailyReview[];
+    reviewedWeeklyCloseOverrides: WeeklyReview[]; reviewedDailyBackfills: DailyReview[]; automaticDailyBackfills?: AutomaticReview[];
     reviewedHistoricalDateRemovals: RemovalReview[]; reviewedDailyGapAllowances: GapReview[] };
   assets: Record<string, { assetId: string; ticker: string; displayName: string; currency: string; kind: string; frequency: string;
     calendar?: string; expectedEndDate?: string; startDate: string; endDate: string; rowCount: number }>;
@@ -25,7 +26,8 @@ export function validateMarketDataManifest(candidate: unknown): asserts candidat
     || source.staticCalendar?.provider !== 'exchange_calendars' || source.staticCalendar?.version !== '4.13.2'
     || !Array.isArray(source.reviewedWeeklyCloseOverrides) || !Array.isArray(source.reviewedDailyBackfills)
     || !Array.isArray(source.reviewedHistoricalDateRemovals) || !Array.isArray(source.reviewedDailyGapAllowances)) error();
-  for (const review of [...source.reviewedWeeklyCloseOverrides, ...source.reviewedDailyBackfills]) {
+  if (source.automaticDailyBackfills !== undefined && !Array.isArray(source.automaticDailyBackfills)) error();
+  for (const review of [...source.reviewedWeeklyCloseOverrides, ...source.reviewedDailyBackfills, ...(source.automaticDailyBackfills ?? [])]) {
     if (!review || !Object.hasOwn(REGISTRY, review.assetId) || REGISTRY[review.assetId].ticker !== review.ticker
       || typeof review.reason !== 'string' || !review.reason.trim() || !isTimestamp(review.retrievedAt)
       || typeof review.sourceUrl !== 'string' || !/^https:\/\//.test(review.sourceUrl)) error();
@@ -41,10 +43,21 @@ export function validateMarketDataManifest(candidate: unknown): asserts candidat
   for (const review of source.reviewedWeeklyCloseOverrides) {
     if (REGISTRY[review.assetId].kind !== 'benchmark' || !validDate(review.date) || !Number.isFinite(review.close) || review.close <= 0) error();
   }
-  for (const review of source.reviewedDailyBackfills) {
+  for (const review of [...source.reviewedDailyBackfills, ...(source.automaticDailyBackfills ?? [])]) {
     if (REGISTRY[review.assetId].kind !== 'asset' || !Array.isArray(review.records) || review.records.length === 0) error();
     for (const row of review.records) {
       if (!row || !validDate(row.date) || !Number.isFinite(row.close) || row.close <= 0 || !Number.isFinite(row.dividend) || row.dividend < 0) error();
+    }
+  }
+
+  for (const review of source.automaticDailyBackfills ?? []) {
+    const v=review.verification;
+    if (!['KOSPI','KOSDAQ'].includes(review.assetId) || review.sourceUrl !== 'https://fchart.stock.naver.com/sise.nhn?symbol='+(review.assetId==='KOSPI'?'KPI200':'KOSDAQ')+'&timeframe=day&count=100&requestType=0'
+      || !v || !Number.isInteger(v.overlapCount) || v.overlapCount < 3 || v.controlTicker !== '^KS11'
+      || !Array.isArray(v.controlDates) || v.controlDates.length < 3 || v.controlDates.some((day,index)=>!validDate(day) || (index>0 && day<=v.controlDates[index-1]))
+      || v.controlDates.at(-1)! > review.records.at(-1)!.date || Date.parse(review.records.at(-1)!.date)-Date.parse(v.controlDates.at(-1)!) > 14*86400000
+      || !Number.isFinite(v.maximumControlDifference) || v.maximumControlDifference < 0 || v.maximumControlDifference > 0.02) {
+      throw new Error('Invalid automatic KOSPI verification provenance');
     }
   }
 }
@@ -159,7 +172,7 @@ export const buildMarketDataCatalog = (raw: RawMarketCatalog): PreparedMarketCat
         currency: entry.currency, startDate: coverage.startDate, endDate: coverage.endDate, points };
     }
   }
-  for (const review of manifest.source.reviewedDailyBackfills) {
+  for (const review of [...manifest.source.reviewedDailyBackfills, ...(manifest.source.automaticDailyBackfills ?? [])]) {
     const rows = assets[review.assetId as HistoricalAssetType].data;
     for (const record of review.records) {
       const row = rows.find(row => row.date === record.date);

@@ -585,12 +585,13 @@ def build_manifest(
     *,
     generated_at: str | None = None,
     data_through: date | None = None,
+    automatic_backfills: list | None = None,
 ) -> dict[str, object]:
     """Build the small provenance document committed beside the CSV files."""
     return {
         "schemaVersion": SCHEMA_VERSION,
         **({"dataThrough": data_through.isoformat()} if data_through is not None else {}),
-        "source": SOURCE_PROVENANCE,
+        "source": {**SOURCE_PROVENANCE, **({"automaticDailyBackfills": automatic_backfills} if automatic_backfills else {})},
         "generatedAt": generated_at
         or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "assets": {asset_id: entry.to_dict() for asset_id, entry in entries.items()},
@@ -603,8 +604,9 @@ def write_manifest(
     *,
     generated_at: str | None = None,
     data_through: date | None = None,
+    automatic_backfills: list | None = None,
 ) -> None:
-    _atomic_write_json(path, build_manifest(entries, generated_at=generated_at, data_through=data_through))
+    _atomic_write_json(path, build_manifest(entries, generated_at=generated_at, data_through=data_through, automatic_backfills=automatic_backfills))
 
 
 def validate_generated_data(
@@ -626,7 +628,9 @@ def validate_generated_data(
         raise MarketDataValidationError("manifest schemaVersion does not match")
     if provenance_policy not in ("current", "recorded"):
         raise MarketDataValidationError("Unknown provenance policy")
-    if provenance_policy == "current" and manifest.get("source") != SOURCE_PROVENANCE:
+    source = manifest.get("source")
+    comparable_source = {key: value for key, value in source.items() if key != "automaticDailyBackfills"} if isinstance(source, dict) else source
+    if provenance_policy == "current" and comparable_source != SOURCE_PROVENANCE:
         raise MarketDataValidationError(
             "manifest reviewed weekly close override provenance or other market-data provenance does not match"
         )
@@ -668,6 +672,8 @@ def validate_generated_data(
         if provenance_policy == "current":
             _validate_reviewed_daily_backfills(asset, records, as_of=generated_at.date())
             _validate_reviewed_weekly_close_overrides(asset, records)
+            if "automaticDailyBackfills" in source:
+                _validate_recorded_reviews(source, asset, records, generated_at.date())
         else:
             _validate_recorded_reviews(manifest.get("source"), asset, records, generated_at.date())
         _validate_recent_korean_index_sessions(asset, records, observed_for_sessions)
@@ -692,6 +698,7 @@ def refresh_all(
     *,
     as_of: date | None = None,
     observed_at: datetime | None = None,
+    allow_verified_korean_fallback: bool = False,
 ) -> dict[str, AssetManifestEntry]:
     """Fetch, validate, and atomically install every refreshed static dataset."""
     factory = client_factory or _default_client_factory
@@ -713,6 +720,7 @@ def refresh_all(
     if incremental:
         validate_generated_data(data_dir, provenance_policy="recorded")
     baseline_source = json.loads((data_dir / "manifest.json").read_text())["source"] if incremental else None
+    automatic_backfills = list(baseline_source.get("automaticDailyBackfills", [])) if baseline_source else []
     staging_dir = Path(
         tempfile.mkdtemp(prefix=f".{data_dir.name}.staging-", dir=data_dir.parent)
     )
@@ -729,26 +737,34 @@ def refresh_all(
                 if existing_records
                 else None
             )
-            if existing_records and asset.frequency == "daily" and not _has_pending_daily_session(asset, fetch_start, refresh_date):
+            if existing_records and ((asset.frequency == "daily" and not _has_pending_daily_session(asset, fetch_start, refresh_date)) or (asset.frequency == "weekly" and not _has_pending_weekly_session(asset, existing_records, observation_date))):
                 new_records = []
             else:
-                history = fetch_history(
-                    asset,
-                    factory,
-                    start=fetch_start,
-                    end=refresh_date + timedelta(days=1),
-                )
+                try:
+                    history = fetch_history(asset, factory, start=fetch_start, end=refresh_date + timedelta(days=1))
+                except MarketDataProviderError:
+                    if not (allow_verified_korean_fallback and asset.asset_id in ('KOSPI','KOSDAQ') and existing_records): raise
+                    history = None
                 if not getattr(history, "empty", True):
                     history = history.loc[[date.fromisoformat(_to_iso_date(index)) <= refresh_date for index in history.index]]
                 new_records = (
                     []
-                    if existing_records and getattr(history, "empty", False)
+                    if existing_records and (history is None or getattr(history, "empty", False))
                     else normalize_history(
                         asset.asset_id,
                         history,
                         previous_record=existing_records[-1] if existing_records else None,
                     )
                 )
+            if allow_verified_korean_fallback and asset.asset_id in ('KOSPI','KOSDAQ') and existing_records:
+                calendar = exchange_calendars.get_calendar('XKRX',start=fetch_start-timedelta(days=14),end=refresh_date+timedelta(days=14))
+                present = {row.date for row in existing_records + new_records}
+                missing = [session.date().isoformat() for session in calendar.sessions if fetch_start <= session.date() <= refresh_date and session.date().isoformat() not in present]
+                if missing:
+                    from tools.korean_market_data import verified_korean_backfill
+                    extra, audit = verified_korean_backfill(asset, existing_records, refresh_date, missing, factory, refresh_started_at.isoformat().replace('+00:00','Z'))
+                    new_records = sorted(new_records + extra, key=lambda row: row.date)
+                    automatic_backfills.append(audit)
             records = existing_records + new_records
             records = apply_reviewed_daily_backfills(asset, records, as_of=refresh_date)
             if asset.frequency == "weekly":
@@ -761,6 +777,7 @@ def refresh_all(
             entries,
             generated_at=generated_at,
             data_through=refresh_date if observed_at is not None else None,
+            automatic_backfills=automatic_backfills,
         )
         validate_generated_data(staging_dir)
         if data_dir.exists():
@@ -1120,14 +1137,27 @@ def _validate_recorded_reviews(source, asset, records, as_of):
         if not isinstance(source.get(field), list): raise MarketDataValidationError('Invalid recorded review list')
     by_date = {row.date: row for row in records}
     registry = {entry.asset_id: entry for entry in ASSETS}
-    for field in ('reviewedWeeklyCloseOverrides', 'reviewedDailyBackfills'):
-        for review in source[field]:
+    if 'automaticDailyBackfills' in source and not isinstance(source['automaticDailyBackfills'], list):
+        raise MarketDataValidationError('Invalid automatic backfills')
+    for field in ('reviewedWeeklyCloseOverrides', 'reviewedDailyBackfills', 'automaticDailyBackfills'):
+        for review in source.get(field, []):
             if not isinstance(review, dict) or review.get('assetId') not in registry or registry[review['assetId']].ticker != review.get('ticker') or not isinstance(review.get('sourceUrl'), str) or not review['sourceUrl'].startswith('https://') or not review.get('reason'):
                 raise MarketDataValidationError('Invalid recorded review')
             _validate_generated_at(review.get('retrievedAt'))
+            expected = review.get('records') if field != 'reviewedWeeklyCloseOverrides' else [dict(date=review.get('date'), close=review.get('close'), dividend=0)]
+            if not isinstance(expected, list) or not expected or any(not isinstance(row, dict) for row in expected):
+                raise MarketDataValidationError('Invalid recorded rows')
+            if field == 'automaticDailyBackfills':
+                verification = review.get('verification')
+                code={'KOSPI':'KPI200','KOSDAQ':'KOSDAQ'}.get(review['assetId'])
+                control_dates=verification.get('controlDates') if isinstance(verification,dict) else None
+                try:
+                    parsed_controls=[date.fromisoformat(day) for day in control_dates] if isinstance(control_dates,list) else []
+                    recent=len(parsed_controls)>=3 and parsed_controls==sorted(set(parsed_controls)) and parsed_controls[-1]<=date.fromisoformat(expected[-1]['date']) and (date.fromisoformat(expected[-1]['date'])-parsed_controls[-1]).days<=14
+                except (TypeError,ValueError,KeyError): recent=False
+                if not code or review.get('sourceUrl') != 'https://fchart.stock.naver.com/sise.nhn?symbol='+code+'&timeframe=day&count=100&requestType=0' or not isinstance(verification,dict) or type(verification.get('overlapCount')) is not int or verification['overlapCount']<3 or verification.get('controlTicker')!='^KS11' or not recent or not isinstance(verification.get('maximumControlDifference'),(int,float)) or not math.isfinite(verification['maximumControlDifference']) or not 0<=verification['maximumControlDifference']<=0.02:
+                    raise MarketDataValidationError('Invalid automatic verification provenance')
             if review['assetId'] != asset.asset_id: continue
-            expected = review.get('records') if field == 'reviewedDailyBackfills' else [dict(date=review.get('date'), close=review.get('close'), dividend=0)]
-            if not isinstance(expected, list) or not expected: raise MarketDataValidationError('Invalid recorded rows')
             for row in expected:
                 try:
                     when = date.fromisoformat(row['date'])
@@ -1180,3 +1210,11 @@ def _has_pending_daily_session(asset, first, last):
     calendar_name='XKRX' if asset.asset_id in ('KOSPI','KOSDAQ') else 'XNYS'
     calendar=exchange_calendars.get_calendar(calendar_name,start=first-timedelta(days=14),end=last+timedelta(days=14))
     return any(first<=session.date()<=last for session in calendar.sessions)
+
+
+def _has_pending_weekly_session(asset, records, observation_date):
+    try:
+        _validate_weekly_endpoint(asset, records, as_of=observation_date)
+        return False
+    except MarketDataValidationError:
+        return True

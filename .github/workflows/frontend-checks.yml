@@ -25,3 +25,14 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  market-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+      - run: uv python install --managed-python
+      - run: uv sync --locked
+      - name: Test offline market-data tools
+        run: uv run python -m unittest discover -s tests -t . -v
+      - run: uv run python scripts/refresh_market_data.py --check

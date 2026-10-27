@@ -1000,7 +1000,7 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
                 self.assertEqual(list(root.glob(".indices.staging-*")), [])
                 self.assertEqual(list(root.glob(".indices.backup-*")), [])
 
-    def test_refresh_reads_each_endpoint_and_appends_only_new_rows(self) -> None:
+    def test_refresh_appends_daily_rows_and_skips_already_complete_weekly_series(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             data_dir = Path(temp_dir) / "indices"
             previous_entries = self._write_incremental_data_dir(data_dir)
@@ -1032,6 +1032,9 @@ class MarketDataArtifactValidationTests(unittest.TestCase):
 
             for asset in ASSETS:
                 with self.subTest(asset=asset.asset_id):
+                    if asset.frequency == "weekly":
+                        self.assertNotIn(asset.ticker, tickers)
+                        continue
                     expected_start = (
                         date.fromisoformat(previous_entries[asset.asset_id].end_date)
                         + timedelta(days=1)

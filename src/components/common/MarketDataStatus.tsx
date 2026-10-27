@@ -11,7 +11,7 @@ export default function MarketDataStatus({date,weeklyDate,bundled,onReload=()=>w
     checkForMarketDataUpdate().then(result=>{if(mounted)setState(result==='ready'?'ready':'idle');},()=>{if(mounted)setState('failed');});
     return ()=>{mounted=false;};
   },[attempt]);
-  return <div className="mx-auto mb-6 flex max-w-analysis flex-col items-center gap-3 text-caption text-apple-muted">
+  return <div className="mx-auto mb-6 flex max-w-analysis flex-col items-center gap-3 text-caption text-apple-secondary">
     <p>시세 기준 {date}{weeklyDate?' · 주봉 '+weeklyDate:''}{bundled?' · 기본 데이터':''}</p>
     {state==='checking'&&<p role="status">시세 업데이트 확인 중…</p>}
     {state==='ready'&&<Notice className="flex flex-col items-center gap-2">

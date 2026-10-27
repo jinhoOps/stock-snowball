@@ -12,6 +12,9 @@ from tests.test_market_data import FakeTicker
 from tests.test_market_data_storage import FakeStorage, DATA
 
 class SyncTests(unittest.TestCase):
+    def setUp(self):
+        summary_env=patch.dict("os.environ", {"GITHUB_STEP_SUMMARY": ""})
+        summary_env.start();self.addCleanup(summary_env.stop)
     def test_full_history_has_explicit_cutoff(self):
         history = pd.DataFrame({'Close': [100], 'Dividends': [0], 'Stock Splits': [0]}, index=pd.to_datetime(['2024-01-02']))
         client = FakeTicker(history)
@@ -73,3 +76,16 @@ class ClosedSessionTests(unittest.TestCase):
             target=Path(directory)/'data';copytree(DATA,target)
             def forbidden(_): raise AssertionError('Provider should not be queried on a closed weekend')
             refresh_all(target,forbidden,as_of=date(2026,10,25),observed_at=datetime(2026,10,26,7,tzinfo=timezone.utc))
+
+class CompletedWeekSkipTests(unittest.TestCase):
+    def test_does_not_query_incomplete_week_when_prior_week_is_already_present(self):
+        from shutil import copytree
+        from datetime import datetime,timezone
+        from tools.market_data import MARKET_BENCHMARKS
+        asset=next(a for a in MARKET_BENCHMARKS if a.asset_id=='KOSPI_INDEX')
+        with tempfile.TemporaryDirectory() as directory, patch('tools.market_data.ASSETS',(asset,)), patch('tools.market_data.validate_generated_data',return_value={}), patch('tools.market_data.validate_historical_date_preservation',return_value=None), patch('tools.market_data.swap_catalog',return_value=None):
+            target=Path(directory)/'data';copytree(DATA,target)
+            path=target/'kospi-index.csv';path.write_text(path.read_text().rstrip()+'\n2026-10-23,5550.3,0\n')
+            def forbidden(_):raise AssertionError('Already-complete weekly data should not query the current week')
+            result=refresh_all(target,forbidden,as_of=date(2026,10,26),observed_at=datetime(2026,10,27,1,tzinfo=timezone.utc))
+            self.assertEqual(result['KOSPI_INDEX'].end_date,'2026-10-23')

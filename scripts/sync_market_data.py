@@ -42,9 +42,9 @@ def main(argv=None):
                 data=Path(directory)/'catalog'
                 if args.mode=='refresh':
                     load_remote_catalog(storage, data)
-                    refresh_all(data, as_of=cutoff, observed_at=now)
-                    # as_of's deterministic manifest timestamp is midnight; check all
-                    # completed Korean sessions through the END of the cutoff day too.
+                    refresh_all(data, as_of=cutoff, observed_at=now, allow_verified_korean_fallback=True)
+                    # Confirm every completed session through the bounded cutoff day.
+                    # Observation time may already be in the following trading day.
                     end_of_day=datetime.combine(cutoff, datetime.max.time(), tzinfo=timezone.utc)
                     for asset in ASSETS:
                         records=_read_dataset(data/asset.output_filename, asset, as_of=now.date())
