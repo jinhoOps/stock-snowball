@@ -64,6 +64,7 @@ test('calendar jumps across years and requires a complete range', async ({ page 
   await page.screenshot({ path: `test-results/visual-review/date-range-calendar-${info.project.name}.png` });
   if (info.project.name === 'mobile-chromium') {
     await page.setViewportSize({ width: 320, height: 740 });
+    await expect.poll(async () => (await dialog.locator('.date-range-day:not([data-outside-month])').first().boundingBox())!.width).toBeGreaterThanOrEqual(44);
     for (const cell of await dialog.locator('.date-range-day:not([data-outside-month])').all()) {
       expect((await cell.boundingBox())!.width).toBeGreaterThanOrEqual(44);
     }

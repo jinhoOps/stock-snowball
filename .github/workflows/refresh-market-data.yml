@@ -1,0 +1,44 @@
+name: Refresh market data
+on:
+  schedule:
+    - cron: '17 1 * * *' # 10:17 Asia/Seoul; data cutoff is yesterday in UTC
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        default: refresh
+        options: [refresh, bootstrap, publish, rollback]
+      release_id:
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: stock-snowball-market-data
+  cancel-in-progress: false
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+      - name: Install pinned Python
+        run: uv python install --managed-python
+      - name: Install and test data tools
+        run: |
+          uv sync --locked
+          uv run python -m unittest tests.test_market_data tests.test_market_data_storage tests.test_market_data_sync tests.test_korean_market_data -v
+      - name: Refresh and publish a complete release
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SYNC_MODE: ${{ inputs.mode || 'refresh' }}
+          SYNC_RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          args=(--mode "$SYNC_MODE")
+          if [ -n "$SYNC_RELEASE_ID" ]; then args+=(--release-id "$SYNC_RELEASE_ID"); fi
+          uv run python scripts/sync_market_data.py "${args[@]}"

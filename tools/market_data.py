@@ -404,8 +404,8 @@ def fetch_history(
         request["period"] = "max"
     else:
         request["start"] = start.isoformat()
-        if end is not None:
-            request["end"] = end.isoformat()
+    if end is not None:
+        request["end"] = end.isoformat()
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
@@ -584,11 +584,14 @@ def build_manifest(
     entries: dict[str, AssetManifestEntry],
     *,
     generated_at: str | None = None,
+    data_through: date | None = None,
+    automatic_backfills: list | None = None,
 ) -> dict[str, object]:
     """Build the small provenance document committed beside the CSV files."""
     return {
         "schemaVersion": SCHEMA_VERSION,
-        "source": SOURCE_PROVENANCE,
+        **({"dataThrough": data_through.isoformat()} if data_through is not None else {}),
+        "source": {**SOURCE_PROVENANCE, **({"automaticDailyBackfills": automatic_backfills} if automatic_backfills else {})},
         "generatedAt": generated_at
         or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "assets": {asset_id: entry.to_dict() for asset_id, entry in entries.items()},
@@ -600,14 +603,17 @@ def write_manifest(
     entries: dict[str, AssetManifestEntry],
     *,
     generated_at: str | None = None,
+    data_through: date | None = None,
+    automatic_backfills: list | None = None,
 ) -> None:
-    _atomic_write_json(path, build_manifest(entries, generated_at=generated_at))
+    _atomic_write_json(path, build_manifest(entries, generated_at=generated_at, data_through=data_through, automatic_backfills=automatic_backfills))
 
 
 def validate_generated_data(
     data_dir: Path,
     *,
     as_of: date | None = None,
+    provenance_policy: str = "current",
 ) -> dict[str, AssetManifestEntry]:
     """Validate all committed data files without consulting the provider."""
     manifest_path = data_dir / "manifest.json"
@@ -620,11 +626,22 @@ def validate_generated_data(
 
     if manifest.get("schemaVersion") != SCHEMA_VERSION:
         raise MarketDataValidationError("manifest schemaVersion does not match")
-    if manifest.get("source") != SOURCE_PROVENANCE:
+    if provenance_policy not in ("current", "recorded"):
+        raise MarketDataValidationError("Unknown provenance policy")
+    source = manifest.get("source")
+    comparable_source = {key: value for key, value in source.items() if key != "automaticDailyBackfills"} if isinstance(source, dict) else source
+    if provenance_policy == "current" and comparable_source != SOURCE_PROVENANCE:
         raise MarketDataValidationError(
             "manifest reviewed weekly close override provenance or other market-data provenance does not match"
         )
     generated_at = _validate_generated_at(manifest.get("generatedAt"))
+    observed_for_sessions = generated_at
+    if "dataThrough" in manifest:
+        try:
+            cutoff_date = date.fromisoformat(manifest["dataThrough"])
+            if cutoff_date > generated_at.date(): raise ValueError()
+        except (TypeError, ValueError): raise MarketDataValidationError("Invalid dataThrough cutoff") from None
+        observed_for_sessions = min(generated_at, datetime.combine(cutoff_date, datetime.max.time(), tzinfo=timezone.utc))
     manifest_assets = manifest.get("assets")
     if not isinstance(manifest_assets, dict):
         raise MarketDataValidationError("manifest assets must be an object")
@@ -650,12 +667,20 @@ def validate_generated_data(
             data_dir / asset.output_filename,
             asset,
             as_of=validation_date,
+            gap_allowances=_recorded_gap_allowances(manifest.get("source")) if provenance_policy == "recorded" else None,
         )
-        _validate_reviewed_daily_backfills(asset, records, as_of=generated_at.date())
-        _validate_reviewed_weekly_close_overrides(asset, records)
-        _validate_recent_korean_index_sessions(asset, records, generated_at)
+        if provenance_policy == "current":
+            _validate_reviewed_daily_backfills(asset, records, as_of=generated_at.date())
+            _validate_reviewed_weekly_close_overrides(asset, records)
+            if "automaticDailyBackfills" in source:
+                _validate_recorded_reviews(source, asset, records, generated_at.date())
+        else:
+            _validate_recorded_reviews(manifest.get("source"), asset, records, generated_at.date())
+        _validate_recent_korean_index_sessions(asset, records, observed_for_sessions)
         if asset.frequency == "weekly":
             _validate_weekly_endpoint(asset, records, as_of=validation_date)
+        if "dataThrough" in manifest and records[-1].date > manifest["dataThrough"]:
+            raise MarketDataValidationError("Catalog exceeds dataThrough cutoff")
         expected_entry = AssetManifestEntry.from_records(asset, records)
         actual_entry = manifest_assets.get(asset.asset_id)
         if actual_entry != expected_entry.to_dict():
@@ -672,6 +697,8 @@ def refresh_all(
     client_factory: Callable[[str], Any] | None = None,
     *,
     as_of: date | None = None,
+    observed_at: datetime | None = None,
+    allow_verified_korean_fallback: bool = False,
 ) -> dict[str, AssetManifestEntry]:
     """Fetch, validate, and atomically install every refreshed static dataset."""
     factory = client_factory or _default_client_factory
@@ -682,10 +709,18 @@ def refresh_all(
         if as_of is not None
         else refresh_started_at.isoformat().replace("+00:00", "Z")
     )
+    observation_date = refresh_date
+    if observed_at is not None:
+        if observed_at.tzinfo is None or observed_at.utcoffset() != timedelta(0) or observed_at.date() < refresh_date:
+            raise MarketDataValidationError('Invalid observation clock')
+        generated_at = observed_at.isoformat().replace('+00:00', 'Z')
+        observation_date = observed_at.date()
     data_dir.parent.mkdir(parents=True, exist_ok=True)
     incremental = data_dir.exists()
     if incremental:
-        validate_generated_data(data_dir)
+        validate_generated_data(data_dir, provenance_policy="recorded")
+    baseline_source = json.loads((data_dir / "manifest.json").read_text())["source"] if incremental else None
+    automatic_backfills = list(baseline_source.get("automaticDailyBackfills", [])) if baseline_source else []
     staging_dir = Path(
         tempfile.mkdtemp(prefix=f".{data_dir.name}.staging-", dir=data_dir.parent)
     )
@@ -693,7 +728,7 @@ def refresh_all(
         entries: dict[str, AssetManifestEntry] = {}
         for asset in ASSETS:
             existing_records = (
-                _read_dataset(data_dir / asset.output_filename, asset, as_of=refresh_date)
+                _read_dataset(data_dir / asset.output_filename, asset, as_of=observation_date, gap_allowances=_recorded_gap_allowances(baseline_source))
                 if incremental
                 else []
             )
@@ -702,25 +737,38 @@ def refresh_all(
                 if existing_records
                 else None
             )
-            history = fetch_history(
-                asset,
-                factory,
-                start=fetch_start,
-                end=refresh_date + timedelta(days=1) if fetch_start is not None else None,
-            )
-            new_records = (
-                []
-                if existing_records and getattr(history, "empty", False)
-                else normalize_history(
-                    asset.asset_id,
-                    history,
-                    previous_record=existing_records[-1] if existing_records else None,
+            if existing_records and ((asset.frequency == "daily" and not _has_pending_daily_session(asset, fetch_start, refresh_date)) or (asset.frequency == "weekly" and not _has_pending_weekly_session(asset, existing_records, observation_date))):
+                new_records = []
+            else:
+                try:
+                    history = fetch_history(asset, factory, start=fetch_start, end=refresh_date + timedelta(days=1))
+                except MarketDataProviderError:
+                    if not (allow_verified_korean_fallback and asset.asset_id in ('KOSPI','KOSDAQ') and existing_records): raise
+                    history = None
+                if not getattr(history, "empty", True):
+                    history = history.loc[[date.fromisoformat(_to_iso_date(index)) <= refresh_date for index in history.index]]
+                new_records = (
+                    []
+                    if existing_records and (history is None or getattr(history, "empty", False))
+                    else normalize_history(
+                        asset.asset_id,
+                        history,
+                        previous_record=existing_records[-1] if existing_records else None,
+                    )
                 )
-            )
+            if allow_verified_korean_fallback and asset.asset_id in ('KOSPI','KOSDAQ') and existing_records:
+                calendar = exchange_calendars.get_calendar('XKRX',start=fetch_start-timedelta(days=14),end=refresh_date+timedelta(days=14))
+                present = {row.date for row in existing_records + new_records}
+                missing = [session.date().isoformat() for session in calendar.sessions if fetch_start <= session.date() <= refresh_date and session.date().isoformat() not in present]
+                if missing:
+                    from tools.korean_market_data import verified_korean_backfill
+                    extra, audit = verified_korean_backfill(asset, existing_records, refresh_date, missing, factory, refresh_started_at.isoformat().replace('+00:00','Z'))
+                    new_records = sorted(new_records + extra, key=lambda row: row.date)
+                    automatic_backfills.append(audit)
             records = existing_records + new_records
             records = apply_reviewed_daily_backfills(asset, records, as_of=refresh_date)
             if asset.frequency == "weekly":
-                records = completed_weekly_records(records, as_of=refresh_date)
+                records = completed_weekly_records(records, as_of=observation_date)
                 records = apply_reviewed_weekly_close_overrides(asset, records)
             write_dataset(staging_dir / asset.output_filename, records)
             entries[asset.asset_id] = AssetManifestEntry.from_records(asset, records)
@@ -728,6 +776,8 @@ def refresh_all(
             staging_dir / "manifest.json",
             entries,
             generated_at=generated_at,
+            data_through=refresh_date if observed_at is not None else None,
+            automatic_backfills=automatic_backfills,
         )
         validate_generated_data(staging_dir)
         if data_dir.exists():
@@ -782,7 +832,7 @@ def _default_client_factory(ticker: str) -> Any:
     return yf.Ticker(ticker)
 
 
-def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date) -> list[MarketRecord]:
+def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date, gap_allowances=None) -> list[MarketRecord]:
     try:
         with path.open(encoding="utf-8", newline="") as file:
             reader = csv.reader(file)
@@ -808,6 +858,7 @@ def _read_dataset(path: Path, asset: AssetDefinition, *, as_of: date) -> list[Ma
                         path.name,
                         previous_date,
                         record_date,
+                        allowances=gap_allowances,
                     )
                 close = _parse_number(path.name, line_number, "close", close_text)
                 dividend = _parse_number(path.name, line_number, "dividend", dividend_text)
@@ -886,6 +937,7 @@ def _validate_daily_gap(
     filename: str,
     previous_date: str,
     next_date: str,
+    allowances=None,
 ) -> None:
     gap_days = (date.fromisoformat(next_date) - date.fromisoformat(previous_date)).days
     if gap_days <= MAX_UNREVIEWED_DAILY_GAP_DAYS:
@@ -894,7 +946,7 @@ def _validate_daily_gap(
         allowance.asset_id == asset.asset_id
         and allowance.previous_date == previous_date
         and allowance.next_date == next_date
-        for allowance in REVIEWED_DAILY_GAP_ALLOWANCES
+        for allowance in (REVIEWED_DAILY_GAP_ALLOWANCES if allowances is None else allowances)
     )
     if not reviewed:
         raise MarketDataValidationError(
@@ -1075,3 +1127,94 @@ def _raise_manifest_difference(
                 f"manifest {asset_id} {key} does not match generated data"
             )
     raise MarketDataValidationError(f"manifest entry for {asset_id} has unexpected data")
+
+
+def _validate_recorded_reviews(source, asset, records, as_of):
+    """Verify an older published catalog using its own reviewed facts, not today's list."""
+    if not isinstance(source, dict) or source.get('provider') != 'Yahoo Finance' or source.get('client') != 'yfinance' or source.get('staticCalendar') != SOURCE_PROVENANCE['staticCalendar']:
+        raise MarketDataValidationError('Invalid recorded provenance')
+    for field in ('reviewedWeeklyCloseOverrides', 'reviewedDailyBackfills', 'reviewedHistoricalDateRemovals', 'reviewedDailyGapAllowances'):
+        if not isinstance(source.get(field), list): raise MarketDataValidationError('Invalid recorded review list')
+    by_date = {row.date: row for row in records}
+    registry = {entry.asset_id: entry for entry in ASSETS}
+    if 'automaticDailyBackfills' in source and not isinstance(source['automaticDailyBackfills'], list):
+        raise MarketDataValidationError('Invalid automatic backfills')
+    for field in ('reviewedWeeklyCloseOverrides', 'reviewedDailyBackfills', 'automaticDailyBackfills'):
+        for review in source.get(field, []):
+            if not isinstance(review, dict) or review.get('assetId') not in registry or registry[review['assetId']].ticker != review.get('ticker') or not isinstance(review.get('sourceUrl'), str) or not review['sourceUrl'].startswith('https://') or not review.get('reason'):
+                raise MarketDataValidationError('Invalid recorded review')
+            _validate_generated_at(review.get('retrievedAt'))
+            expected = review.get('records') if field != 'reviewedWeeklyCloseOverrides' else [dict(date=review.get('date'), close=review.get('close'), dividend=0)]
+            if not isinstance(expected, list) or not expected or any(not isinstance(row, dict) for row in expected):
+                raise MarketDataValidationError('Invalid recorded rows')
+            if field == 'automaticDailyBackfills':
+                verification = review.get('verification')
+                code={'KOSPI':'KPI200','KOSDAQ':'KOSDAQ'}.get(review['assetId'])
+                control_dates=verification.get('controlDates') if isinstance(verification,dict) else None
+                try:
+                    parsed_controls=[date.fromisoformat(day) for day in control_dates] if isinstance(control_dates,list) else []
+                    recent=len(parsed_controls)>=3 and parsed_controls==sorted(set(parsed_controls)) and parsed_controls[-1]<=date.fromisoformat(expected[-1]['date']) and (date.fromisoformat(expected[-1]['date'])-parsed_controls[-1]).days<=14
+                except (TypeError,ValueError,KeyError): recent=False
+                if not code or review.get('sourceUrl') != 'https://fchart.stock.naver.com/sise.nhn?symbol='+code+'&timeframe=day&count=100&requestType=0' or not isinstance(verification,dict) or type(verification.get('overlapCount')) is not int or verification['overlapCount']<3 or verification.get('controlTicker')!='^KS11' or not recent or not isinstance(verification.get('maximumControlDifference'),(int,float)) or not math.isfinite(verification['maximumControlDifference']) or not 0<=verification['maximumControlDifference']<=0.02:
+                    raise MarketDataValidationError('Invalid automatic verification provenance')
+            if review['assetId'] != asset.asset_id: continue
+            for row in expected:
+                try:
+                    when = date.fromisoformat(row['date'])
+                    close, dividend = float(row['close']), float(row['dividend'])
+                except (TypeError, ValueError, KeyError): raise MarketDataValidationError('Invalid recorded row') from None
+                if not math.isfinite(close) or close <= 0 or not math.isfinite(dividend) or dividend < 0:
+                    raise MarketDataValidationError('Invalid recorded price')
+                if when <= as_of and by_date.get(row['date']) != MarketRecord(row['date'], close, dividend):
+                    raise MarketDataValidationError('Recorded reviewed row does not match data')
+
+
+    dates=[row.date for row in records]
+    for review in source['reviewedHistoricalDateRemovals']:
+        _validate_exception_review(review)
+        try: date.fromisoformat(review['date'])
+        except (TypeError, ValueError, KeyError): raise MarketDataValidationError('Invalid recorded removal date') from None
+        if review['assetId']==asset.asset_id and review['date'] in by_date:
+            raise MarketDataValidationError('Recorded removal is still present')
+    for allowance in _recorded_gap_allowances(source):
+        if allowance.asset_id != asset.asset_id: continue
+        if allowance.previous_date not in by_date or allowance.next_date not in by_date or dates.index(allowance.next_date) != dates.index(allowance.previous_date)+1:
+            raise MarketDataValidationError('Recorded gap does not match catalog')
+
+
+def _validate_exception_review(review):
+    registry = {asset.asset_id: asset for asset in ASSETS}
+    if not isinstance(review, dict) or review.get('assetId') not in registry or not isinstance(review.get('sourceUrl'), str) or not review['sourceUrl'].startswith('https://') or not isinstance(review.get('reason'), str) or not review['reason'].strip():
+        raise MarketDataValidationError('Invalid recorded exception provenance')
+    _validate_generated_at(review.get('retrievedAt'))
+
+
+def _recorded_gap_allowances(source):
+    if not isinstance(source, dict) or not isinstance(source.get('reviewedDailyGapAllowances'), list):
+        raise MarketDataValidationError('Invalid recorded gap provenance')
+    result=[]
+    for review in source['reviewedDailyGapAllowances']:
+        _validate_exception_review(review)
+        try:
+            previous=date.fromisoformat(review['previousDate']); following=date.fromisoformat(review['nextDate'])
+            if previous >= following: raise ValueError()
+        except (TypeError, ValueError, KeyError): raise MarketDataValidationError('Invalid recorded gap dates') from None
+        result.append(ReviewedDailyGapAllowance(review['assetId'],review['previousDate'],review['nextDate'],review['sourceUrl'],review['retrievedAt'],review['reason']))
+    return tuple(result)
+
+
+def _has_pending_daily_session(asset, first, last):
+    if first > last: return False
+    if asset.asset_id == 'GOLD':
+        return any((first+timedelta(days=offset)).weekday()<5 for offset in range(min((last-first).days+1,7)))
+    calendar_name='XKRX' if asset.asset_id in ('KOSPI','KOSDAQ') else 'XNYS'
+    calendar=exchange_calendars.get_calendar(calendar_name,start=first-timedelta(days=14),end=last+timedelta(days=14))
+    return any(first<=session.date()<=last for session in calendar.sessions)
+
+
+def _has_pending_weekly_session(asset, records, observation_date):
+    try:
+        _validate_weekly_endpoint(asset, records, as_of=observation_date)
+        return False
+    except MarketDataValidationError:
+        return True

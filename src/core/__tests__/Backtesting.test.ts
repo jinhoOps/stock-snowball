@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SnowballEngine } from '../SnowballEngine';
 import { BacktestEngine } from '../BacktestEngine';
-import { getHistoricalCoverage, getHistoricalData, HISTORICAL_DAILY_RETURNS } from '../../data/historicalAssets';
+import { getHistoricalCoverage, getHistoricalData, getHistoricalDailyReturns } from '../../data/historicalAssets';
 import { AssetType, BacktestParams } from '../../types/finance';
 
 describe('SnowballEngine Projection', () => {
@@ -12,7 +12,7 @@ describe('SnowballEngine Projection', () => {
     
     // A return history only shapes the range; the median path grows at the given rate.
     const customResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365);
-    const qqqResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, HISTORICAL_DAILY_RETURNS.QQQ);
+    const qqqResult = SnowballEngine.simulate(principal, rate, years, { type: 'FIXED', baseAmount: 0 }, 0, 'GENERAL', undefined, undefined, undefined, 365, getHistoricalDailyReturns('QQQ'));
 
     const lastCustom = customResult[customResult.length - 1].nominalValue;
     const lastQQQ = qqqResult[qqqResult.length - 1].nominalValue;

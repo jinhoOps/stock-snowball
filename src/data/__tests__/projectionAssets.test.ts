@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getHistoricalData, HISTORICAL_DAILY_RETURNS } from '../historicalAssets';
+import { getHistoricalData, getHistoricalDailyReturns } from '../historicalAssets';
 import { getProjectionMarket, isProjectionAsset } from '../projectionAssets';
 import { PROJECTION_ASSET_IDS } from '../../types/finance';
 
@@ -27,7 +27,7 @@ describe('projection reference assets', () => {
     const market = getProjectionMarket('SPY')!;
     expect(market.startDate).toBe(getHistoricalData('SPY')[0].date);
     expect(market.rebuiltUntil).toBeUndefined();
-    expect(market.dailyReturns).toEqual(HISTORICAL_DAILY_RETURNS.SPY);
+    expect(market.dailyReturns).toEqual(getHistoricalDailyReturns('SPY'));
   });
 
   it.each([['QLD', 2], ['TQQQ', 3]] as const)('rebuilds %s from QQQ before listing and keeps its own days after', (asset, multiple) => {
@@ -39,12 +39,12 @@ describe('projection reference assets', () => {
     expect(market.endDate).toBe(fund.at(-1)!.date);
 
     const rebuiltDays = qqq.findIndex((point) => point.date === fund[0].date);
-    expect(market.dailyReturns.slice(rebuiltDays)).toEqual(HISTORICAL_DAILY_RETURNS[asset]);
+    expect(market.dailyReturns.slice(rebuiltDays)).toEqual(getHistoricalDailyReturns(asset));
     // Before listing: QQQ × multiple less one fixed daily cost.
-    const cost = multiple * HISTORICAL_DAILY_RETURNS.QQQ[0] - market.dailyReturns[0];
+    const cost = multiple * getHistoricalDailyReturns('QQQ')[0] - market.dailyReturns[0];
     expect(cost).toBeGreaterThan(0);
     expect(cost * 252).toBeLessThan(0.15);
-    expect(multiple * HISTORICAL_DAILY_RETURNS.QQQ[100] - market.dailyReturns[100]).toBeCloseTo(cost, 12);
+    expect(multiple * getHistoricalDailyReturns('QQQ')[100] - market.dailyReturns[100]).toBeCloseTo(cost, 12);
   });
 
   it('shows deeper falls and lower long-run growth for more leverage over the same years', () => {
