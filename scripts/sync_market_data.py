@@ -13,7 +13,7 @@ import uuid
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path: sys.path.insert(0, str(PROJECT_ROOT))
 from tools.market_data import ASSETS, MarketDataError, refresh_all, validate_generated_data, _read_dataset, _validate_recent_korean_index_sessions
-from tools.market_data_storage import StorageClient, StorageError, load_remote_catalog, publish_catalog, rollback_catalog, cleanup_releases
+from tools.market_data_storage import StorageClient, StorageError, load_remote_catalog, publish_catalog, rollback_catalog, cleanup_releases, read_hold, release_hold
 
 def parse_as_of(value):
     try: result = date.fromisoformat(value)
@@ -27,6 +27,8 @@ def main(argv=None):
     parser.add_argument('--data-dir', type=Path, default=PROJECT_ROOT/'src/data/indices')
     parser.add_argument('--release-id')
     parser.add_argument('--as-of', type=parse_as_of)
+    # A rollback holds scheduled refreshes; any manual run lifts the hold.
+    parser.add_argument('--scheduled', action='store_true', help='skip while a rollback hold is in place')
     args=parser.parse_args(argv)
     now=datetime.now(timezone.utc).replace(microsecond=0)
     published_at=now.isoformat().replace('+00:00','Z')
@@ -34,6 +36,14 @@ def main(argv=None):
     release_id=args.release_id or now.strftime('%Y%m%dT%H%M%SZ')+'-'+os.getenv('GITHUB_RUN_ID', uuid.uuid4().hex[:10])+'-'+os.getenv('GITHUB_RUN_ATTEMPT','1')
     try:
         storage=StorageClient(os.getenv('SUPABASE_URL','https://olqdftjssrzqvcindekh.supabase.co'), os.getenv('SUPABASE_SERVICE_ROLE_KEY',''))
+        hold=read_hold(storage) if args.scheduled else None
+        if hold:
+            message='Held after rollback to '+hold['releaseId']+'; run refresh manually to resume'
+            print(message)
+            summary=os.getenv('GITHUB_STEP_SUMMARY')
+            if summary:
+                with open(summary,'a',encoding='utf-8') as output: output.write('## Market data\n\n'+message+'\n')
+            return 0
         if args.mode=='rollback':
             if not args.release_id: raise StorageError('rollback requires --release-id')
             result=rollback_catalog(storage, args.release_id)
@@ -57,6 +67,7 @@ def main(argv=None):
                 manifest=json.loads((data/'manifest.json').read_text())
                 for asset, coverage in manifest['assets'].items(): print(asset+': '+coverage['endDate'])
         print('Unchanged' if result is None else 'Published '+result['current']['releaseId'])
+        if args.mode!='rollback' and not args.scheduled: release_hold(storage)
         try: cleanup_releases(storage)
         except MarketDataError: print('Warning: published data retained; release cleanup failed',file=sys.stderr)
         summary=os.getenv('GITHUB_STEP_SUMMARY')

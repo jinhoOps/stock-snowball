@@ -38,7 +38,9 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SYNC_MODE: ${{ inputs.mode || 'refresh' }}
           SYNC_RELEASE_ID: ${{ inputs.release_id }}
+          SYNC_SCHEDULED: ${{ github.event_name == 'schedule' }}
         run: |
           args=(--mode "$SYNC_MODE")
           if [ -n "$SYNC_RELEASE_ID" ]; then args+=(--release-id "$SYNC_RELEASE_ID"); fi
+          if [ "$SYNC_SCHEDULED" = "true" ]; then args+=(--scheduled); fi
           uv run python scripts/sync_market_data.py "${args[@]}"
