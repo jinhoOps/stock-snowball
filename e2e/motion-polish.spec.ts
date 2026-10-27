@@ -7,18 +7,18 @@ test('numbers settle smoothly and settings remain usable with motion enabled', a
   await page.goto('/stock-snowball/');
   const value = page.locator('.ui-metric-value').first();
   await expect(value).toBeVisible();
-  await page.getByLabel('납입액 (KRW)').fill('90000');
-  const samples = await value.evaluate(async element => {
-    const values: string[] = [];
-    const startedAt = performance.now();
-    while (performance.now() - startedAt < 900) {
-      await new Promise(requestAnimationFrame);
-      values.push(element.querySelector('[aria-hidden="true"]')!.textContent!);
-    }
-    return { values, final: element.querySelector('[aria-live]')!.textContent };
+  // Record every shown number from before the input changes, so a fast or slow runner can't start watching after the count ends.
+  await value.evaluate(element => {
+    const shown = () => element.querySelector('[aria-hidden="true"]')!.textContent!;
+    const samples = [shown()];
+    (window as unknown as { countSamples: string[] }).countSamples = samples;
+    new MutationObserver(() => samples.push(shown())).observe(element, { subtree: true, childList: true, characterData: true });
   });
-  expect(new Set(samples.values).size).toBeGreaterThan(1);
-  expect(samples.values.at(-1)).toBe(samples.final);
+  await page.getByLabel('납입액 (KRW)').fill('90000');
+  const settled = () => value.evaluate(element =>
+    element.querySelector('[aria-hidden="true"]')!.textContent === element.querySelector('[aria-live]')!.textContent);
+  await expect.poll(() => page.evaluate(() => new Set((window as unknown as { countSamples: string[] }).countSamples).size)).toBeGreaterThan(2);
+  await expect.poll(settled).toBe(true);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByLabel('납입액 (KRW)').fill('30000');
   await expect.poll(() => value.evaluate(element =>

@@ -1,6 +1,6 @@
 import type { MarketDataSnapshot, PreparedMarketCatalog } from './marketDataContract';
 import { buildMarketDataCatalog } from './marketDataCatalog';
-import { readCachedEnvelope, saveNextSnapshot, verifyCachedEnvelope, type CachedEnvelope } from './marketDataCache';
+import { canUseMarketDataCache, readCachedEnvelope, saveNextSnapshot, verifyCachedEnvelope, type CachedEnvelope } from './marketDataCache';
 import { isNewerCatalog } from './marketDataFreshness';
 import { fetchRemoteSnapshot } from './marketDataRemote';
 import { getActiveMarketData } from './marketDataRuntime';
@@ -45,6 +45,8 @@ let check: Promise<'unchanged' | 'ready'> | undefined;
 export const checkForMarketDataUpdate = (): Promise<'unchanged' | 'ready'> => {
   if (check) return check;
   check = (async () => {
+    // Checked before downloading: a release that can't be saved would be thrown away on every visit.
+    if (!(await canUseMarketDataCache())) throw new Error('Market data cache unavailable');
     const active = getActiveMarketData();
     const accept = active.publishedAt === null
       ? (manifestText: string) => isNewerCatalog(manifestText, active.raw.manifestText)

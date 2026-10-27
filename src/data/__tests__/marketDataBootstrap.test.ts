@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBundledSnapshot } from '../bundledMarketData';
 import type { MarketDataSnapshot, PreparedMarketCatalog } from '../marketDataContract';
-vi.mock('../marketDataCache',()=>({readCachedEnvelope:vi.fn(),verifyCachedEnvelope:vi.fn(),saveNextSnapshot:vi.fn()}));
+vi.mock('../marketDataCache',()=>({canUseMarketDataCache:vi.fn(),readCachedEnvelope:vi.fn(),verifyCachedEnvelope:vi.fn(),saveNextSnapshot:vi.fn()}));
 vi.mock('../marketDataRemote',()=>({fetchRemoteSnapshot:vi.fn()}));
 const catalog={} as PreparedMarketCatalog;
 /** A release whose every dataset ends `days` days from the bundled data's end (negative is older). */
@@ -20,6 +20,7 @@ const mockCache=async(snapshot:MarketDataSnapshot)=>{
 };
 beforeEach(async()=>{
   vi.resetModules();
+  const cache=await import('../marketDataCache');vi.mocked(cache.canUseMarketDataCache).mockResolvedValue(true);
   const {installMarketData}=await import('../marketDataRuntime');installMarketData(createBundledSnapshot());
 });
 afterEach(()=>{vi.useRealTimers();vi.clearAllMocks();});
@@ -85,6 +86,13 @@ describe('market data update check',()=>{
     const remote=await import('../marketDataRemote');vi.mocked(remote.fetchRemoteSnapshot).mockResolvedValue(null);
     const {checkForMarketDataUpdate}=await import('../marketDataBootstrap');await checkForMarketDataUpdate();
     expect(vi.mocked(remote.fetchRemoteSnapshot).mock.calls[0]).toEqual(['saved',{accept:undefined}]);
+  });
+  it('does not download a release this browser cannot keep',async()=>{
+    const remote=await import('../marketDataRemote');const cache=await import('../marketDataCache');
+    vi.mocked(cache.canUseMarketDataCache).mockResolvedValue(false);
+    const {checkForMarketDataUpdate}=await import('../marketDataBootstrap');
+    await expect(checkForMarketDataUpdate()).rejects.toThrow('unavailable');
+    expect(remote.fetchRemoteSnapshot).not.toHaveBeenCalled();
   });
   it('does not report a ready update when cache storage fails',async()=>{
     const remote=await import('../marketDataRemote');const cache=await import('../marketDataCache');
