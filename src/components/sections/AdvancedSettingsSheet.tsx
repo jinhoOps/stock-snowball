@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RotateCcw } from 'lucide-react';
-import { StrategyType, AssetType, SimulationParams, SimulationMode, DEFAULT_TAX_CONFIG } from '../../types/finance';
-import { getProjectionMarket } from '../../data/projectionAssets';
+import { StrategyType, AssetType, SimulationParams, SimulationMode, DEFAULT_TAX_CONFIG, MARKET_CRISIS_IDS, type MarketCrisisId } from '../../types/finance';
+import { getProjectionMarket, sameCrises } from '../../data/projectionAssets';
 import Button from '../common/Button';
 import { DecimalInput } from '../common/DecimalInput';
 import { Field, Select } from '../common/Field';
@@ -66,7 +66,7 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
   const [snapshot, setSnapshot] = useState<{ params: SimulationParams; rate: number } | null>(null);
   const isProjection = mode === 'PROJECTION';
   const isValueAveraging = isProjection && localParams.strategyType === 'VALUE_AVERAGING';
-  const market = isProjection ? getProjectionMarket(localParams.assetType) : undefined;
+  const market = isProjection ? getProjectionMarket(localParams.assetType, localParams.excludedCrises) : undefined;
   const taxConfig = localParams.taxConfig ?? DEFAULT_TAX_CONFIG;
   const taxDescription = `${isProjection
     ? `일반 계좌: 양의 전체 수익에 ${(taxConfig.dividendTaxRate * 100).toFixed(1)}%를 적용하는 단순 추정입니다.`
@@ -85,9 +85,15 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
     setLocalParams((previous) => {
       const next = { ...previous, [key]: value };
       if ((key === 'assetType' || key === 'rate') && value !== previous[key]) delete next.annualRateOverride;
+      if (key === 'excludedCrises' && !sameCrises(value as MarketCrisisId[] | undefined, previous.excludedCrises)) delete next.annualRateOverride;
       if (key === 'strategyType' && value === 'VALUE_AVERAGING') next.cycle = 'MONTHLY';
       return next;
     });
+  };
+  const setCrisisIncluded = (id: MarketCrisisId, included: boolean) => {
+    const current = localParams.excludedCrises ?? [];
+    const next = MARKET_CRISIS_IDS.filter((crisis) => (crisis === id ? !included : current.includes(crisis)));
+    updateParam('excludedCrises', next.length > 0 ? next : undefined);
   };
   const handleApply = () => {
     onUpdate(localParams);
@@ -131,6 +137,25 @@ export default function AdvancedSettingsSheet({ mode, isOpen, onClose, params: p
               <div><dt className="text-apple-ink-muted-48">변동성</dt><dd className="mt-1 font-semibold tabular-nums text-apple-ink">{formatPercent(market.volatility)}</dd></div>
               <div><dt className="text-apple-ink-muted-48">최대낙폭</dt><dd className="mt-1 font-semibold tabular-nums text-apple-ink">{formatDrawdown(market.maxDrawdown)}</dd></div>
             </dl>
+            {market.crises.length > 0 && (
+              <fieldset className="mt-2 px-1">
+                <legend className="text-fine-print text-apple-ink-muted-48">계산에 넣을 폭락 구간</legend>
+                {market.crises.map((crisis) => (
+                  <label key={crisis.id} className="flex min-h-control cursor-pointer items-center gap-2 text-caption text-apple-ink">
+                    <input type="checkbox" checked={!(localParams.excludedCrises ?? []).includes(crisis.id)}
+                      onChange={(event) => setCrisisIncluded(crisis.id, event.target.checked)}
+                      className="h-4 w-4 shrink-0 cursor-pointer rounded-sm border-apple-hairline text-apple-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apple-primary focus-visible:ring-offset-2" />
+                    <span className="min-w-0 flex-1">{crisis.label}</span>
+                    <span className="shrink-0 text-fine-print tabular-nums text-apple-ink-muted-48">
+                      {formatMonth(crisis.peakDate)}–{formatMonth(crisis.troughDate)} · {formatDrawdown(crisis.drawdown)}
+                    </span>
+                  </label>
+                ))}
+                {market.excludedCrises.length > 0 && (
+                  <p className="ui-field-hint">뺀 구간은 고점 다음 날부터 바닥까지를 지우고 앞뒤를 이어 붙여 다시 계산합니다. 같은 폭락이 다시 오면 결과보다 나빠집니다.</p>
+                )}
+              </fieldset>
+            )}
             <p className="ui-field-hint">
               {formatMonth(market.startDate)}~{formatMonth(market.endDate)} 배당 포함 실제 데이터
               {market.rebuiltUntil ? ` (${formatMonth(market.rebuiltUntil)} 이전은 QQQ 일간 수익률 ×${localParams.assetType === 'QLD' ? 2 : 3}로 재구성)` : ''}.

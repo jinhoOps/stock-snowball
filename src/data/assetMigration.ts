@@ -1,7 +1,9 @@
 import {
   AssetType,
   HISTORICAL_ASSET_IDS,
+  MARKET_CRISIS_IDS,
   PROJECTION_ASSET_IDS,
+  type MarketCrisisId,
   SimulationMode,
   SimulationParams,
   DEFAULT_TAX_CONFIG,
@@ -36,6 +38,11 @@ const isCalendarDate = (value: unknown): value is string => {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 };
 
+/** Known crash ids, deduplicated in their canonical order; anything else is dropped. */
+export const normalizeExcludedCrises = (value: unknown): MarketCrisisId[] => (Array.isArray(value)
+  ? MARKET_CRISIS_IDS.filter((id) => value.includes(id))
+  : []);
+
 export const normalizePersistedAssetType = (
   value: unknown,
   mode: SimulationMode,
@@ -68,6 +75,7 @@ export const normalizePersistedSimulationParams = (
   const endDate = isCalendarDate(source.endDate) ? source.endDate : defaults.endDate;
   const taxConfig = isRecord(source.taxConfig) ? source.taxConfig : null;
   const feeConfig = isRecord(source.feeConfig) ? source.feeConfig : null;
+  const excludedCrises = mode === 'PROJECTION' ? normalizeExcludedCrises(source.excludedCrises) : [];
   const unitRate = (value: unknown, fallback: number): number =>
     isFiniteNumber(value) && value >= 0 && value <= 1 ? value : fallback;
 
@@ -103,6 +111,7 @@ export const normalizePersistedSimulationParams = (
       ? { strategyTargetGrowth: source.strategyTargetGrowth } : {}),
     ...(isFiniteNumber(source.annualRateOverride) && source.annualRateOverride >= -1
       ? { annualRateOverride: source.annualRateOverride } : {}),
+    ...(excludedCrises.length > 0 ? { excludedCrises } : {}),
     ...(startDate === undefined ? {} : { startDate }),
     ...(endDate === undefined ? {} : { endDate }),
   };
@@ -128,9 +137,13 @@ export const normalizePersistedScenario = <T extends Record<string, unknown>>(sc
   const simulationMode: SimulationMode = scenario.simulationMode === 'BACKTEST'
     ? 'BACKTEST'
     : 'PROJECTION';
-  return {
+  const normalized: Record<string, unknown> = {
     ...scenario,
     simulationMode,
     assetType: normalizePersistedAssetType(scenario.assetType, simulationMode),
   };
+  const excludedCrises = simulationMode === 'PROJECTION' ? normalizeExcludedCrises(scenario.excludedCrises) : [];
+  if (excludedCrises.length > 0) normalized.excludedCrises = excludedCrises;
+  else delete normalized.excludedCrises;
+  return normalized as T & { simulationMode: SimulationMode; assetType: AssetType };
 };

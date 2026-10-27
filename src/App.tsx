@@ -34,7 +34,7 @@ import BacktestAssetSelector from './components/sections/BacktestAssetSelector';
 import BacktestConditionsSummary from './components/sections/BacktestConditionsSummary';
 import { HistoricalAssetType, LeverageFamilyId, StrategyConfig, SimulationResult, SimulationMode, SimulationParams, SimulationRangeResult, ValueBasis, DEFAULT_EXCHANGE_RATE, DEFAULT_PROJECTION_PARAMS, DEFAULT_BACKTEST_PARAMS, DEFAULT_TAX_CONFIG, getCurrencyFactor, getTaxConfigForCurrency } from './types/finance';
 import { getHistoricalCoverage, getHistoricalData, getHistoricalRangeError } from './data/historicalAssets';
-import { getProjectionMarket } from './data/projectionAssets';
+import { excludedCrisisLabel, getProjectionMarket, sameCrises } from './data/projectionAssets';
 import { useImageExport } from './hooks/useImageExport';
 import ShareCard from './components/common/ShareCard';
 import {
@@ -210,7 +210,9 @@ function App() {
     const applyLimits = (params: SimulationParams, changes: Partial<SimulationParams>): SimulationParams => {
       const merged = { ...params, ...changes };
       if ((changes.assetType !== undefined && changes.assetType !== params.assetType)
-        || (changes.rate !== undefined && changes.rate !== params.rate)) delete merged.annualRateOverride;
+        || (changes.rate !== undefined && changes.rate !== params.rate)
+        || ('excludedCrises' in changes && !sameCrises(changes.excludedCrises, params.excludedCrises))) delete merged.annualRateOverride;
+      if (!merged.excludedCrises?.length) delete merged.excludedCrises;
       if (changes.contribution !== undefined && changes.contribution !== params.contribution) delete merged.strategyTargetGrowth;
       const maxYears = merged.cycle === 'DAILY' ? 30 : 50;
       if (merged.years > maxYears) {
@@ -304,7 +306,7 @@ function App() {
 
   const projectionTaxConfig = useMemo(() => getTaxConfigForCurrency(currency, exchangeRate, projectionParams.taxConfig), [currency, exchangeRate, projectionParams.taxConfig]);
   const backtestTaxConfig = useMemo(() => getTaxConfigForCurrency(currency, exchangeRate, backtestParams.taxConfig), [currency, exchangeRate, backtestParams.taxConfig]);
-  const projectionMarket = getProjectionMarket(projectionParams.assetType);
+  const projectionMarket = getProjectionMarket(projectionParams.assetType, projectionParams.excludedCrises);
   const effectiveProjectionRate = projectionParams.annualRateOverride ?? projectionMarket?.cagr ?? projectionParams.rate;
   const dataDate = mode === 'BACKTEST' ? backtestCommonCoverage.endDate : projectionMarket?.endDate ?? getHistoricalCoverage('SPY').endDate;
   const benchmarkId = mode === 'BACKTEST' ? getMarketBenchmarkForAsset(backtestParams.assetType as HistoricalAssetType) : null;
@@ -575,7 +577,7 @@ function App() {
           { buyFeeRate: s.buyFeeRate, sellFeeRate: s.sellFeeRate },
           { base: 1, annualChangeRate: s.exchangeAnnualChangeRate },
           30,
-          getProjectionMarket(s.assetType || 'CUSTOM')?.dailyReturns
+          getProjectionMarket(s.assetType || 'CUSTOM', s.excludedCrises)?.dailyReturns
         );
         return [{
           id: s.id,
@@ -630,6 +632,8 @@ function App() {
         currency: currency,
         exchangeRate: exchangeRate,
         exchangeAnnualChangeRate: activeParams.exchangeAnnualChangeRate ?? 0,
+        ...(mode === 'PROJECTION' && projectionMarket?.excludedCrises.length
+          ? { excludedCrises: [...projectionMarket.excludedCrises] } : {}),
       });
       
       // 즉시 비교군에 추가
@@ -666,6 +670,7 @@ function App() {
       strategyTargetGrowth: s.strategyTargetGrowth === undefined ? undefined
         : s.strategyTargetGrowth * getCurrencyFactor(s.currency, currency, exchangeRate),
       annualRateOverride: s.annualRate,
+      ...(s.excludedCrises?.length ? { excludedCrises: [...s.excludedCrises] } : {}),
       taxConfig: {
         dividendTaxRate: s.taxDividendRate,
         capitalGainTaxRate: s.taxCapitalGainRate,
@@ -713,7 +718,7 @@ function App() {
   const { cardRef: shareCardRef, isExporting, error: shareError, exportImage: handleShare } = useImageExport(scenarioName);
 
   const projectionAssumptions = [
-    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.annualRateOverride !== undefined ? ' (저장한 수익률)' : projectionMarket ? ` (${projectionParams.assetType} 과거 CAGR)` : ''}`,
+    `연 ${(effectiveProjectionRate * 100).toFixed(1)}%${projectionParams.annualRateOverride !== undefined ? ' (저장한 수익률)' : projectionMarket ? ` (${projectionParams.assetType} 과거 CAGR${projectionMarket.excludedCrises.length ? `, ${excludedCrisisLabel(projectionMarket)}` : ''})` : ''}`,
     isValueAveragingProjection
       ? `매월 목표 +${SnowballEngine.formatBigNumber(projectionParams.strategyTargetGrowth ?? projectionParams.contribution, currency, true)}`
       : `${CYCLE_LABEL[projectionParams.cycle]} ${SnowballEngine.formatBigNumber(projectionParams.contribution, currency, true)}${projectionParams.strategyType === 'STEP_UP' ? ` (매년 +${(projectionParams.strategyIncreaseRate * 100).toFixed(0)}%)` : ''}`,

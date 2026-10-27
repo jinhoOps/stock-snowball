@@ -1,5 +1,5 @@
 import { RxJsonSchema } from 'rxdb';
-import { AssetType, HISTORICAL_ASSET_IDS } from '../types/finance';
+import { AssetType, HISTORICAL_ASSET_IDS, MARKET_CRISIS_IDS, type MarketCrisisId } from '../types/finance';
 
 export interface ScenarioDocument {
   id: string;
@@ -29,13 +29,15 @@ export interface ScenarioDocument {
   currency: 'USD' | 'KRW';
   exchangeRate: number;
   exchangeAnnualChangeRate: number;
+  /** Projection only: crashes left out of the reference asset's history. */
+  excludedCrises?: MarketCrisisId[];
   createdAt: number;
   updatedAt: number;
 }
 
 export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
   title: 'scenario schema',
-  version: 5,
+  version: 6,
   description: 'describes a snowball investment scenario',
   primaryKey: 'id',
   type: 'object',
@@ -132,6 +134,10 @@ export const scenarioSchema: RxJsonSchema<ScenarioDocument> = {
     },
     exchangeAnnualChangeRate: {
       type: 'number',
+    },
+    excludedCrises: {
+      type: 'array',
+      items: { type: 'string', enum: [...MARKET_CRISIS_IDS] },
     },
     createdAt: {
       type: 'number',
