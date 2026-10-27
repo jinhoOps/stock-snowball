@@ -48,3 +48,18 @@ describe('remote catalog verification', () => {
     expect((await fetchRemoteSnapshot('newer-version'))?.releaseId).toBe('fixture-one');
   });
 });
+describe('release screening',()=>{
+  it('reads only the manifest of a release the caller declines',async()=>{
+    const fixture=remoteFixture();const names:string[]=[];
+    vi.stubGlobal('fetch',vi.fn(async (input: string) => {
+      const name=input.split('/').at(-1)!;names.push(name);
+      if(name==='latest.json') return new Response(JSON.stringify(fixture.pointer));
+      if(name==='release.json') return new Response(fixture.releaseText);
+      return new Response(fixture.files[name]);
+    }));
+    const accept=vi.fn(()=>false);
+    expect(await fetchRemoteSnapshot('bundled',{accept})).toBeNull();
+    expect(accept).toHaveBeenCalledWith(fixture.files['manifest.json']);
+    expect(names).toEqual(['latest.json','release.json','manifest.json']);
+  });
+});

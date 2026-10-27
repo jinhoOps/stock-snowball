@@ -40,7 +40,12 @@ async function download(path: string, limit: number, signal: AbortSignal): Promi
   } catch(error) { await reader.cancel().catch(()=>undefined);throw error; }
   const result=new Uint8Array(size);let offset=0;for(const chunk of chunks){result.set(chunk,offset);offset+=chunk.length;}return result;
 }
-export async function fetchRemoteSnapshot(currentReleaseId: string, signal?: AbortSignal): Promise<MarketDataSnapshot | null> {
+interface FetchOptions {
+  signal?: AbortSignal;
+  /** Looks at the release's manifest before the CSVs are downloaded; false skips the release. */
+  accept?: (manifestText: string) => boolean;
+}
+export async function fetchRemoteSnapshot(currentReleaseId: string, { signal, accept }: FetchOptions = {}): Promise<MarketDataSnapshot | null> {
   const controller=new AbortController();
   const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
   let timer:ReturnType<typeof setTimeout>|undefined;
@@ -55,14 +60,16 @@ export async function fetchRemoteSnapshot(currentReleaseId: string, signal?: Abo
         const releaseBytes=await download(prefix+'release.json',LIMITS.release,controller.signal);
         if(await sha256(releaseBytes)!==pointer.current.releaseSha256)throw new Error('Release hash mismatch');
         const release=json(releaseBytes);assertRelease(release,pointer.current);
-        const files:Record<string,string>={};const names=Object.keys(release.files);
-        for(let i=0;i<names.length;i+=4) {
-          await Promise.all(names.slice(i,i+4).map(async name=>{
-            const descriptor=release.files[name];const bytes=await download(prefix+name,descriptor.bytes,controller.signal);
-            if(bytes.length!==descriptor.bytes || await sha256(bytes)!==descriptor.sha256)throw new Error('File size or hash mismatch: '+name);
-            files[name]=decode(bytes);
-          }));
-        }
+        const files:Record<string,string>={};
+        const fetchFile=async(name:string)=>{
+          const descriptor=release.files[name];const bytes=await download(prefix+name,descriptor.bytes,controller.signal);
+          if(bytes.length!==descriptor.bytes || await sha256(bytes)!==descriptor.sha256)throw new Error('File size or hash mismatch: '+name);
+          files[name]=decode(bytes);
+        };
+        await fetchFile('manifest.json');
+        if(accept && !accept(files['manifest.json']))return null;
+        const names=Object.keys(release.files).filter(name=>name!=='manifest.json');
+        for(let i=0;i<names.length;i+=4) await Promise.all(names.slice(i,i+4).map(fetchFile));
         const { ['manifest.json']:manifestText,...csvByFilename }=files;
         const snapshot={releaseId:release.releaseId,publishedAt:release.publishedAt,raw:{manifestText,csvByFilename}};
         buildMarketDataCatalog(snapshot.raw);return snapshot;

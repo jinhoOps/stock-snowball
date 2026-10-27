@@ -13,6 +13,8 @@ from tools.market_data import ASSETS, MarketDataError, validate_generated_data, 
 
 BUCKET = 'stock-snowball-market-data'
 LATEST = 'v1/latest.json'
+# Written by a rollback so scheduled refreshes don't republish the data it backed away from.
+HOLD = 'v1/hold.json'
 FILENAMES = {'manifest.json', *(asset.output_filename for asset in ASSETS)}
 LIMITS = {'pointer': 8192, 'release': 262144, 'file': 6 * 1024 * 1024, 'total': 30 * 1024 * 1024}
 
@@ -178,7 +180,21 @@ def rollback_catalog(storage, release_id):
     pointer = {'transportVersion': 1, 'current': ref, 'previous': previous['current']}
     write_latest_pointer(storage, pointer)
     ensure_publication_marker(storage, pointer["current"])
+    storage.put(HOLD, encoded({'releaseId': release_id}), content_type='application/json', cache_seconds=60, overwrite=True)
     return pointer
+
+def read_hold(storage):
+    """The rollback hold, or None when scheduled refreshes may publish."""
+    try: hold = decode(storage.get(HOLD), LIMITS['pointer'])
+    except StorageError as error:
+        if error.status != 404: raise
+        return None
+    if not isinstance(hold, dict): raise StorageError('Invalid rollback hold')
+    check_release_id(hold.get('releaseId'))
+    return hold
+
+def release_hold(storage):
+    storage.delete([HOLD])
 
 def cleanup_releases(storage, keep=10):
     pointer = read_pointer(storage)

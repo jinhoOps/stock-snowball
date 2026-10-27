@@ -37,6 +37,26 @@ class SyncTests(unittest.TestCase):
         with patch('scripts.sync_market_data.StorageClient', return_value=storage):
             self.assertEqual(main(['--mode','refresh']), 1)
         self.assertEqual(storage.objects, {})
+    def test_rollback_holds_scheduled_refresh_until_a_manual_run(self):
+        storage=FakeStorage()
+        with patch('scripts.sync_market_data.StorageClient', return_value=storage):
+            self.assertEqual(main(['--mode','bootstrap','--data-dir',str(DATA),'--release-id','fixture-one']), 0)
+            with patch('tools.market_data_storage.current_data_hash', return_value='different'):
+                self.assertEqual(main(['--mode','publish','--data-dir',str(DATA),'--release-id','fixture-two']), 0)
+            self.assertEqual(main(['--mode','rollback','--release-id','fixture-one']), 0)
+            self.assertIn('v1/hold.json', storage.objects)
+            pointer=storage.objects['v1/latest.json']
+            with patch('scripts.sync_market_data.refresh_all') as refresh:
+                self.assertEqual(main(['--mode','refresh','--scheduled']), 0)
+                refresh.assert_not_called()
+            self.assertEqual(storage.objects['v1/latest.json'], pointer)
+            self.assertEqual(main(['--mode','publish','--data-dir',str(DATA),'--release-id','fixture-three']), 0)
+            self.assertNotIn('v1/hold.json', storage.objects)
+    def test_scheduled_refresh_without_hold_still_runs(self):
+        storage=FakeStorage()
+        with patch('scripts.sync_market_data.StorageClient', return_value=storage):
+            # No baseline: reaching the refresh path fails as an unscheduled refresh would.
+            self.assertEqual(main(['--mode','refresh','--scheduled']), 1)
     def test_cli_rejects_future_date_without_network(self):
         with self.assertRaises(SystemExit): refresh_cli(['--as-of','2999-01-01'])
 

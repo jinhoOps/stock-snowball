@@ -1,4 +1,4 @@
-import type { MarketDataSnapshot } from './marketDataContract';
+import type { MarketDataSnapshot, PreparedMarketCatalog } from './marketDataContract';
 import { buildMarketDataCatalog } from './marketDataCatalog';
 import { sha256 } from './marketDataRemote';
 const DB_NAME='stock-snowball-market-data';
@@ -11,19 +11,27 @@ function open():Promise<IDBDatabase>{
     request.onblocked=()=>reject(new Error('Market data cache blocked'));
   });
 }
-export async function readCachedSnapshot():Promise<MarketDataSnapshot|null>{
+export interface CachedEnvelope { snapshot: MarketDataSnapshot; sha256: string }
+/** Reads the saved release without checking it, so a caller can bound only the storage wait. */
+export async function readCachedEnvelope():Promise<CachedEnvelope|null>{
   const db=await open();
   try{
-    const envelope=await new Promise<{snapshot:MarketDataSnapshot;sha256:string}|undefined>((resolve,reject)=>{
+    return await new Promise<CachedEnvelope|null>((resolve,reject)=>{
       const tx=db.transaction('catalogs','readonly');const store=tx.objectStore('catalogs');const next=store.get('next');
-      let value:{snapshot:MarketDataSnapshot;sha256:string}|undefined;
+      let value:CachedEnvelope|undefined;
       next.onsuccess=()=>{if(typeof next.result==='string'){const request=store.get('release:'+next.result);request.onsuccess=()=>{value=request.result;};}};
-      tx.oncomplete=()=>resolve(value);tx.onabort=()=>reject(tx.error??new Error('Cache read aborted'));tx.onerror=()=>reject(tx.error);
+      tx.oncomplete=()=>resolve(value??null);tx.onabort=()=>reject(tx.error??new Error('Cache read aborted'));tx.onerror=()=>reject(tx.error);
     });
-    if(!envelope)return null;
-    if(await digest(envelope.snapshot)!==envelope.sha256)throw new Error('Corrupt market data cache');
-    buildMarketDataCatalog(envelope.snapshot.raw);return envelope.snapshot;
   }finally{db.close();}
+}
+/** Checks a saved release and returns it with its parsed catalog, so startup parses it only once. */
+export async function verifyCachedEnvelope(envelope:CachedEnvelope):Promise<{snapshot:MarketDataSnapshot;catalog:PreparedMarketCatalog}>{
+  if(await digest(envelope.snapshot)!==envelope.sha256)throw new Error('Corrupt market data cache');
+  return {snapshot:envelope.snapshot,catalog:buildMarketDataCatalog(envelope.snapshot.raw)};
+}
+export async function readCachedSnapshot():Promise<MarketDataSnapshot|null>{
+  const envelope=await readCachedEnvelope();
+  return envelope?(await verifyCachedEnvelope(envelope)).snapshot:null;
 }
 export async function saveNextSnapshot(snapshot:MarketDataSnapshot):Promise<void>{
   buildMarketDataCatalog(snapshot.raw);const checksum=await digest(snapshot);const db=await open();
